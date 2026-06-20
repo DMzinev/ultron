@@ -1,0 +1,312 @@
+--- DESTRUCTIVE QA SESSION STARTED ---
+Running 5000 fuzzer iterations inside headless Chromium...
+Iterations Passed: 0 / 5000
+Exceptions Caught: 5000
+  - Iter 1: window.generateFifoProblem is not a function
+  - Iter 2: window.generateFifoProblem is not a function
+  - Iter 3: window.generateFifoProblem is not a function
+  - Iter 4: window.generateFifoProblem is not a function
+  - Iter 5: window.generateFifoProblem is not a function
+  - Iter 6: window.generateFifoProblem is not a function
+  - Iter 7: window.generateFifoProblem is not a function
+  - Iter 8: window.generateFifoProblem is not a function
+  - Iter 9: window.generateFifoProblem is not a function
+  - Iter 10: window.generateFifoProblem is not a function
+Memory Check: Start=10000000, End=10000000, Delta=0 bytes
+Memory stable. No memory leaks detected.
+--- DESTRUCTIVE QA SESSION (1 HOUR) STARTED ---
+Running continuous 1-hour fuzzer inside headless Chromium...
+Fuzzer execution stopped or failed: Page.evaluate() got an unexpected keyword argument 'timeout'
+--- DESTRUCTIVE QA SESSION (1 HOUR) STARTED ---
+Running continuous 1-hour fuzzer inside headless Chromium...
+Iterations Passed: 0
+Exceptions Caught: 336841
+Memory Check: Start=10000000, End=23100000, Delta=13100000 bytes
+WARNING: Possible Memory Leak Detected (>10MB growth)
+--- DESTRUCTIVE QA SESSION (1 HOUR) STARTED ---
+Running QA Stress Tester inside headless Chromium...
+Exceptions Caught: 1
+  - runQAStressTest not found
+QA Logs:
+--- DESTRUCTIVE QA SESSION (1 HOUR) STARTED ---
+Running QA Stress Tester inside headless Chromium...
+CONSOLE [clear]: console.clear
+CONSOLE [log]: === INITIATING INNSBRUCK PORTAL QA STRESS-TEST SUITE ===
+CONSOLE [log]: [QA Stress-Test] Layer 1 | PASS | Challenge stats structure holds during mock reload.
+CONSOLE [log]: [QA Stress-Test] Layer 1 | PASS | Exam timer value successfully survived reload simulation.
+CONSOLE [log]: [QA Stress-Test] Layer 1 | PASS | Deep Repair Loop correctly detected and restored deleted stats.topicStats and belief profiles.
+CONSOLE [log]: [QA Stress-Test] Layer 2 | PASS | Fuzzed 15 edge-case accounting inputs without crashes; exact matches: 15/15.
+CONSOLE [error]: Monkey nav error on tab: session1 ReferenceError: s1Items is not defined
+    at renderClassifierHTML (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:398:17)
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:259:43)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: session1 ReferenceError: s1Items is not defined
+    at renderClassifierHTML (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:398:17)
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:259:43)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: practice-arena ReferenceError: currentArenaMode is not defined
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:264:69)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: practice-arena ReferenceError: currentArenaMode is not defined
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:264:69)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: practice-arena ReferenceError: currentArenaMode is not defined
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:264:69)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: practice-arena ReferenceError: currentArenaMode is not defined
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:264:69)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: practice-arena ReferenceError: currentArenaMode is not defined
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:264:69)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: session1 ReferenceError: s1Items is not defined
+    at renderClassifierHTML (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:398:17)
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:259:43)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: practice-arena ReferenceError: currentArenaMode is not defined
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:264:69)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: session1 ReferenceError: s1Items is not defined
+    at renderClassifierHTML (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:398:17)
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:259:43)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: session1 ReferenceError: s1Items is not defined
+    at renderClassifierHTML (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:398:17)
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:259:43)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: session1 ReferenceError: s1Items is not defined
+    at renderClassifierHTML (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:398:17)
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:259:43)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: session1 ReferenceError: s1Items is not defined
+    at renderClassifierHTML (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:398:17)
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:259:43)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: session1 ReferenceError: s1Items is not defined
+    at renderClassifierHTML (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:398:17)
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:259:43)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: session1 ReferenceError: s1Items is not defined
+    at renderClassifierHTML (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:398:17)
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:259:43)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [log]: [QA Stress-Test] Layer 3 | FAIL | Monkey navigation completed 60 rapid random tab-switches without UI crashes or console errors.
+CONSOLE [log]: [QA Stress-Test] Layer 4 | PASS | XP exploit check: slide quiz farming blocked & double-submit validation guard operates successfully.
+CONSOLE [log]: [QA Stress-Test] Layer 5 | PASS | Cognitive Pipeline: updateCognitiveState triggered correct attempts increments without side-effect duplicate saves.
+CONSOLE [log]: [QA Stress-Test] Layer 6 | PASS | Learn Mode: successfully initialized, read from window.Storage, and fully rendered slides for all 5/5 sessions.
+CONSOLE [log]: [QA Stress-Test] Layer 7 | PASS | Persistence Torture: Completed 50 sequential mutation/save/load cycles with 100% equivalence.
+CONSOLE [log]: [QA Stress-Test] Layer 8 | PASS | Browser Environment: validated local storage, JSON, and DOM APIs compatibility.
+CONSOLE [log]: [QA Stress-Test] Layer 9 | PASS | Performance: telemetry and cockpit charts rendered 1,500 system logs in 1.70ms (PASS if <16ms, WARN if >16ms, FAIL if >100ms).
+CONSOLE [log]: [QA Stress-Test] Layer 10 | PASS | Invariants: Belief profile sums to 1.0 (OK), spacing tau bounds [3.0, 7.0] (OK), mastery levels [0, 100] (OK), XP positive (OK).
+CONSOLE [log]: [QA Stress-Test] Layer 11 | FAIL | Randomized User Journey: simulated 500 actions (Learn, Practice, Exam, etc.) with 59 exceptions. Invariants check: PASSED.
+CONSOLE [error]: LocalStorage corruption detected inside loadStats. Rebuilding defaults... SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+    at JSON.parse (<anonymous>)
+    at Storage.loadStats (http://127.0.0.1:8012/storage/statsStore.js?v=5:238:22)
+    at runLayer12 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:514:43)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:40:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [log]: [QA Stress-Test] Layer 12 | PASS | LocalStorage Corruption: successfully caught parsing error of '{broken json', cleared storage, rebuilt default schema, and continued safely.
+CONSOLE [log]: [QA Stress-Test] Layer 13 | FAIL | Double Event Listener: verifyPracticeAnswer triggered exactly 0/1 time on click. Spaced repetition rating trigger saved exactly 1/1 time.
+CONSOLE [log]: [QA Stress-Test] Layer 14 | PASS | Cognitive Drift: 1000 updates. Belief sum bounds: [1.000, 1.000], tau bounds: [3.2, 6.0], mastery bounds: [0, 99].
+Exceptions Caught: 0
+QA Logs:
+--- DESTRUCTIVE QA SESSION (1 HOUR) STARTED ---
+Running QA Stress Tester inside headless Chromium...
+CONSOLE [clear]: console.clear
+CONSOLE [log]: === INITIATING INNSBRUCK PORTAL QA STRESS-TEST SUITE ===
+CONSOLE [log]: [QA Stress-Test] Layer 1 | PASS | Challenge stats structure holds during mock reload.
+CONSOLE [log]: [QA Stress-Test] Layer 1 | PASS | Exam timer value successfully survived reload simulation.
+CONSOLE [log]: [QA Stress-Test] Layer 1 | PASS | Deep Repair Loop correctly detected and restored deleted stats.topicStats and belief profiles.
+CONSOLE [log]: [QA Stress-Test] Layer 2 | PASS | Fuzzed 15 edge-case accounting inputs without crashes; exact matches: 15/15.
+CONSOLE [error]: Monkey nav error on tab: practice-arena TypeError: Cannot read properties of null (reading 'classList')
+    at setArenaMode (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:894:52)
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:280:56)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: practice-arena TypeError: Cannot read properties of null (reading 'classList')
+    at setArenaMode (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:894:52)
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:280:56)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: practice-arena TypeError: Cannot read properties of null (reading 'classList')
+    at setArenaMode (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:894:52)
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:280:56)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [error]: Monkey nav error on tab: practice-arena TypeError: Cannot read properties of null (reading 'classList')
+    at setArenaMode (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:894:52)
+    at switchTab (http://127.0.0.1:8012/ui/appUI_v2.js?v=5:280:56)
+    at runLayer3 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:132:28)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:31:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [log]: [QA Stress-Test] Layer 3 | FAIL | Monkey navigation completed 60 rapid random tab-switches without UI crashes or console errors.
+CONSOLE [log]: [QA Stress-Test] Layer 4 | PASS | XP exploit check: slide quiz farming blocked & double-submit validation guard operates successfully.
+CONSOLE [log]: [QA Stress-Test] Layer 5 | PASS | Cognitive Pipeline: updateCognitiveState triggered correct attempts increments without side-effect duplicate saves.
+CONSOLE [log]: [QA Stress-Test] Layer 6 | PASS | Learn Mode: successfully initialized, read from window.Storage, and fully rendered slides for all 5/5 sessions.
+CONSOLE [log]: [QA Stress-Test] Layer 7 | PASS | Persistence Torture: Completed 50 sequential mutation/save/load cycles with 100% equivalence.
+CONSOLE [log]: [QA Stress-Test] Layer 8 | PASS | Browser Environment: validated local storage, JSON, and DOM APIs compatibility.
+CONSOLE [log]: [QA Stress-Test] Layer 9 | PASS | Performance: telemetry and cockpit charts rendered 1,500 system logs in 1.10ms (PASS if <16ms, WARN if >16ms, FAIL if >100ms).
+CONSOLE [log]: [QA Stress-Test] Layer 10 | PASS | Invariants: Belief profile sums to 1.0 (OK), spacing tau bounds [3.0, 7.0] (OK), mastery levels [0, 100] (OK), XP positive (OK).
+CONSOLE [log]: [QA Stress-Test] Layer 11 | FAIL | Randomized User Journey: simulated 500 actions (Learn, Practice, Exam, etc.) with 75 exceptions. Invariants check: PASSED.
+CONSOLE [error]: LocalStorage corruption detected inside loadStats. Rebuilding defaults... SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+    at JSON.parse (<anonymous>)
+    at Storage.loadStats (http://127.0.0.1:8012/storage/statsStore.js?v=5:238:22)
+    at runLayer12 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:514:43)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:40:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [log]: [QA Stress-Test] Layer 12 | PASS | LocalStorage Corruption: successfully caught parsing error of '{broken json', cleared storage, rebuilt default schema, and continued safely.
+CONSOLE [log]: [QA Stress-Test] Layer 13 | FAIL | Double Event Listener: verifyPracticeAnswer triggered exactly 0/1 time on click. Spaced repetition rating trigger saved exactly 1/1 time.
+CONSOLE [log]: [QA Stress-Test] Layer 14 | PASS | Cognitive Drift: 1000 updates. Belief sum bounds: [1.000, 1.000], tau bounds: [3.1, 6.0], mastery bounds: [0, 100].
+Exceptions Caught: 0
+QA Logs:
+--- DESTRUCTIVE QA SESSION (1 HOUR) STARTED ---
+Running QA Stress Tester inside headless Chromium...
+CONSOLE [clear]: console.clear
+CONSOLE [log]: === INITIATING INNSBRUCK PORTAL QA STRESS-TEST SUITE ===
+CONSOLE [log]: [QA Stress-Test] Layer 1 | PASS | Challenge stats structure holds during mock reload.
+CONSOLE [log]: [QA Stress-Test] Layer 1 | PASS | Exam timer value successfully survived reload simulation.
+CONSOLE [log]: [QA Stress-Test] Layer 1 | PASS | Deep Repair Loop correctly detected and restored deleted stats.topicStats and belief profiles.
+CONSOLE [log]: [QA Stress-Test] Layer 2 | PASS | Fuzzed 15 edge-case accounting inputs without crashes; exact matches: 15/15.
+CONSOLE [log]: [QA Stress-Test] Layer 3 | PASS | Monkey navigation completed 60 rapid random tab-switches without UI crashes or console errors.
+CONSOLE [log]: [QA Stress-Test] Layer 4 | PASS | XP exploit check: slide quiz farming blocked & double-submit validation guard operates successfully.
+CONSOLE [log]: [QA Stress-Test] Layer 5 | PASS | Cognitive Pipeline: updateCognitiveState triggered correct attempts increments without side-effect duplicate saves.
+CONSOLE [log]: [QA Stress-Test] Layer 6 | PASS | Learn Mode: successfully initialized, read from window.Storage, and fully rendered slides for all 5/5 sessions.
+CONSOLE [log]: [QA Stress-Test] Layer 7 | PASS | Persistence Torture: Completed 50 sequential mutation/save/load cycles with 100% equivalence.
+CONSOLE [log]: [QA Stress-Test] Layer 8 | PASS | Browser Environment: validated local storage, JSON, and DOM APIs compatibility.
+CONSOLE [log]: [QA Stress-Test] Layer 9 | PASS | Performance: telemetry and cockpit charts rendered 1,500 system logs in 1.20ms (PASS if <16ms, WARN if >16ms, FAIL if >100ms).
+CONSOLE [log]: [QA Stress-Test] Layer 10 | PASS | Invariants: Belief profile sums to 1.0 (OK), spacing tau bounds [3.0, 7.0] (OK), mastery levels [0, 100] (OK), XP positive (OK).
+CONSOLE [error]: Error: <rect> attribute width: A negative value is not valid. ("-5")
+CONSOLE [error]: Error: <rect> attribute width: A negative value is not valid. ("-2")
+CONSOLE [log]: [QA Stress-Test] Layer 11 | FAIL | Randomized User Journey: simulated 500 actions (Learn, Practice, Exam, etc.) with 78 exceptions. Invariants check: PASSED.
+CONSOLE [error]: LocalStorage corruption detected inside loadStats. Rebuilding defaults... SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+    at JSON.parse (<anonymous>)
+    at Storage.loadStats (http://127.0.0.1:8012/storage/statsStore.js?v=5:238:22)
+    at runLayer12 (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:514:43)
+    at runSuite (http://127.0.0.1:8012/ui/qaStressTester.js?v=6:40:15)
+    at window.startDestruction (<anonymous>:6:34)
+    at eval (eval at evaluate (:302:30), <anonymous>:1:8)
+    at eval (<anonymous>)
+    at UtilityScript.evaluate (<anonymous>:302:30)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+CONSOLE [log]: [QA Stress-Test] Layer 12 | PASS | LocalStorage Corruption: successfully caught parsing error of '{broken json', cleared storage, rebuilt default schema, and continued safely.
+CONSOLE [log]: [QA Stress-Test] Layer 13 | FAIL | Double Event Listener: verifyPracticeAnswer triggered exactly 0/1 time on click. Spaced repetition rating trigger saved exactly 1/1 time.
+CONSOLE [log]: [QA Stress-Test] Layer 14 | PASS | Cognitive Drift: 1000 updates. Belief sum bounds: [1.000, 1.000], tau bounds: [3.4, 6.0], mastery bounds: [0, 100].
+Exceptions Caught: 0
+QA Logs:

@@ -1,0 +1,25 @@
+TASK_ID: 'Task-UMAGS-Engine-Build'
+BUILDER_VERSION: 'v2.0'
+COMMIT_HASH: 'N/A (Non-Git Repo)'
+PLAN_HASH: '-6579697240161216777'
+CHANGED_FILES:
+- 'ultron/run_verification_loop.py'
+- 'umags/checks.py'
+- 'umags/failure_space.py'
+- 'ultron/run_tests.py'
+PATCH_DIFF: ''
+EXPECTED_OUTCOMES: 'Integrated checks.py, failure_space.py, and updated run_verification_loop.py with diff-aware AST guards, negative testing audits, and Residual Risk Score R=0'
+TEST_COMMANDS:
+- 'python ultron/run_tests.py'
+RAW_STDOUT: |
+  [+] Running Ultron Core Tests...
+  Usage: python checks.py <file_or_dir_path>
+  Usage: python failure_space.py <repo_path> <comma_separated_changed_files>
+RAW_STDERR: |
+  ..............
+  ----------------------------------------------------------------------
+  Ran 14 tests in 0.165s
+  
+  OK
+SELF_AUDIT: ''
+KNOWN_LIMITATIONS: 'AST checks are heuristic, failure space counts untested paths and missing boundary coverage'

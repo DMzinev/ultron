@@ -1,0 +1,26 @@
+{
+  "default": {
+    "correctness": 1.0,
+    "stability": 1.0,
+    "cost": 1.0,
+    "maintainability": 1.0,
+    "latency": 1.0,
+    "coupling_risk": 1.0
+  },
+  "frontend_ui": {
+    "correctness": 1.0,
+    "stability": 1.5,
+    "cost": 0.8,
+    "maintainability": 1.2,
+    "latency": 1.2,
+    "coupling_risk": 0.8
+  },
+  "backend_api": {
+    "correctness": 1.5,
+    "stability": 1.2,
+    "cost": 1.0,
+    "maintainability": 1.0,
+    "latency": 1.5,
+    "coupling_risk": 1.2
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "system": "Ultron Multi-Agent Governed System (UMAGS)",
+  "version": "2.0",
+  "pipeline": [
+    "builder",
+    "auditor",
+    "judge",
+    "historian"
+  ],
+  "default_iteration_model": "Gemini Pro",
+  "default_certification_model": "Claude 3.5 Opus",
+  "roles": {
+    "builder": {
+      "name": "Builder",
+      "description": "Constructs logic, writes tests, and generates the AUDIT_PACKAGE evidence contract (Action).",
+      "objectives": [
+        "Optimize program structures and implement user-requested changes.",
+        "Ensure syntactically sound, clean code with local tests.",
+        "Identify and declare all KNOWN_LIMITATIONS and constraints on implementation."
+      ]
+    },
+    "auditor": {
+      "name": "Auditor",
+      "description": "Hostile code reviewer focused on Popperian falsification and code verification (Verification).",
+      "objectives": [
+        "Disprove correctness unless evidence survives rigorous checks.",
+        "Perform raw patch diff validation and execute independent test suites.",
+        "Run the Nullification Test to verify the test suite's sensitivity and detect test laundering."
+      ],
+      "instructions": [
+        "1. Read the task specification in EXECUTION_PLAN.md.",
+        "2. Parse target files and test files directly.",
+        "3. Review the patch diff inside the AUDIT_PACKAGE.",
+        "4. Run the designated test suite. Verify that it executes and passes.",
+        "5. Programmatically perform a nullification check: comment out/revert the new target code changes and verify that the tests fail. If they pass, reject the task for 'Test Laundering'."
+      ]
+    },
+    "judge": {
+      "name": "Judge",
+      "description": "Final arbitrator resolving disputes and authorizing merge status changes (Legitimization).",
+      "objectives": [
+        "Ensure the system changes align with the original execution contract.",
+        "Review both the Builder claims and the Auditor's objections.",
+        "Authorize state changes in ROADMAP.md and PROJECT_STATUS.md if and only if verification is 100% complete."
+      ],
+      "instructions": [
+        "1. Compare Builder's proposed status change in ROADMAP.md with the actual task bounds.",
+        "2. Verify the Auditor's verdict is exactly 'VERIFIED'.",
+        "3. If any objections exist, reject the merge and flag the task as REJECTED.",
+        "4. If approved, authorize the merge and update the status of the item in ROADMAP.md and PROJECT_LOG.md."
+      ]
+    },
+    "historian": {
+      "name": "Historian",
+      "description": "Institutional memory layer tracking longitudinal contradictions, bug classes, false claims, blind spots, and architecture complexity drift (Memory).",
+      "objectives": [
+        "Prevent the system from repeating its own historical anomalies or bugs.",
+        "Log long-term drift metrics, recurring bug classes, and structural decay.",
+        "Commit final execution telemetry to the audit ledger."
+      ],
+      "instructions": [
+        "1. Scan PROJECT_LOG.md and git commit history for recurring bug-fix patterns.",
+        "2. Check if a similar bug or feature has failed or was rejected in prior runs.",
+        "3. Warn if a modified file is HIGH RISK but lacks mutation/fuzzing coverage (Audit Blind Spot).",
+        "4. Parse AST to compare function parameter counts and internal node lengths before/after changes (Complexity Drift).",
+        "5. Write the final audit record to the telemetry ledger."
+      ]
+    }
+  }
+}

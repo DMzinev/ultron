@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultron // Pre-Execution Intelligence Layer</title>
+    <link rel="stylesheet" href="index.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="mode-engineer">
+    <div class="glow-bg"></div>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo-area">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
+                <span class="logo-text">ULTRON</span>
+            </div>
+
+            <!-- Mode Toggle Switch -->
+            <div class="mode-switch-card glass">
+                <span class="mode-label active" id="label-creator">Creator</span>
+                <label class="switch">
+                    <input type="checkbox" id="mode-toggle" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+                <span class="mode-label" id="label-engineer">Engineer</span>
+            </div>
+            
+            <nav class="nav-links">
+                <button class="nav-btn active" data-tab="dashboard-tab" id="nav-dashboard">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-btn" data-tab="prompt-tab" id="nav-prompt">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span class="engineer-only">Prompt Builder</span>
+                    <span class="creator-only">Vision Planner</span>
+                </button>
+                <button class="nav-btn" data-tab="auditor-tab" id="nav-auditor">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span class="engineer-only">Auditor</span>
+                    <span class="creator-only">Health Check</span>
+                </button>
+                <button class="nav-btn" data-tab="graph-tab" id="nav-graph">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M3 20a9 9 0 0 1 18 0"></path>
+                        <path d="M21 12V3a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9"></path>
+                    </svg>
+                    <span>Dependency Graph</span>
+                </button>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <span class="version-tag">v1.1.0</span>
+                <span class="status-indicator online">System Ready</span>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Global Config Header -->
+            <header class="top-header glass">
+                <div class="input-group">
+                    <label for="global-repo" class="engineer-only">Repository Path</label>
+                    <label for="global-repo" class="creator-only">Project Directory</label>
+                    <input type="text" id="global-repo" placeholder="e.g. C:/Users/Name/Desktop/project" value="scratch/test_anomaly_dir">
+                </div>
+                <button id="btn-load-repo" class="btn primary">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                    </svg>
+                    <span>Connect Project</span>
+                </button>
+                <button id="btn-load-playground" class="btn secondary" style="border-color: var(--neon-cyan); color: var(--neon-cyan);">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                        <polyline points="2 17 12 22 22 17"></polyline>
+                    </svg>
+                    <span>Demo Playground</span>
+                </button>
+                <button id="btn-open-tour" class="btn secondary" style="padding: 12px 14px;" title="Quick Tour">
+                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </button>
+                <div class="session-bar" id="session-bar" style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+                    <button id="btn-start-session" class="btn secondary btn-small">
+                        <span>Start Study Session</span>
+                    </button>
+                    <button id="btn-stop-session" class="btn alert btn-small hidden">
+                        <span>Stop & Export Logs</span>
+                    </button>
+                    <span id="session-timer" class="session-timer hidden" style="font-family:var(--font-mono); font-size:14px; color:var(--text-color); margin-left:8px;">00:00</span>
+                </div>
+            </header>
+
+            <!-- TAB 1: DASHBOARD -->
+            <section id="dashboard-tab" class="tab-content active">
+                <div class="stats-grid">
+                    <div class="stat-card glass">
+                        <span class="stat-label engineer-only">Total Modules</span>
+                        <span class="stat-label creator-only">Total Code Parts</span>
+                        <span class="stat-val" id="stat-total-files">-</span>
+                    </div>
+                    <div class="stat-card glass">
+                        <span class="stat-label engineer-only">Definitions Scanned</span>
+                        <span class="stat-label creator-only">Functional Connectors</span>
+                        <span class="stat-val" id="stat-total-defs">-</span>
+                    </div>
+                    <div class="stat-card glass">
+                        <span class="stat-label engineer-only">High Risk Interfaces</span>
+                        <span class="stat-label creator-only">High Risk Focus Zones</span>
+                        <span class="stat-val risk-alert" id="stat-high-risks">-</span>
+                    </div>
+                </div>
+
+                <!-- NEW: Interactive Codebase Topology SVG Graph -->
+                <div class="graph-card glass">
+                    <div class="card-header">
+                        <h2>System Interaction Topology Map</h2>
+                        <span class="subtitle">Visual representation of code interaction. Nodes indicate files, lines represent import dependencies (glowing nodes represent high risk zones).</span>
+                    </div>
+                    <div class="graph-container">
+                        <svg id="dependency-graph" width="100%" height="320">
+                            <!-- SVG elements generated dynamically -->
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Detailed File Datagrid Table (Shown in Engineer Mode) -->
+                <div class="grid-card glass engineer-only">
+                    <div class="card-header">
+                        <h2>Codebase Risk Matrix</h2>
+                        <span class="subtitle">System Impact Score: I(N) = Complexity &times; ln(e + Coupling)</span>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table id="file-risk-table">
+                            <thead>
+                                <tr>
+                                    <th>File Module</th>
+                                    <th>McCabe Complexity</th>
+                                    <th>Coupling (Callers)</th>
+                                    <th>Impact Score</th>
+                                    <th>Risk Classification</th>
+                                    <th>Confidence</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="file-risk-tbody">
+                                <tr>
+                                    <td colspan="7" class="table-empty">Connect and scan a repository to load metrics.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Simplified Component Impact Heatmap (Shown in Creator Mode) -->
+                <div class="grid-card glass creator-only">
+                    <div class="card-header">
+                        <h2>Component Safety Rating</h2>
+                        <span class="subtitle">High-level risk zones mapping how easily you can modify parts of your system.</span>
+                    </div>
+                    <div class="heatmap-grid" id="creator-heatmap-grid">
+                        <div class="table-empty">Connect and scan a repository to load metrics.</div>
+                    </div>
+                </div>
+
+                <!-- Calibration & Verification Report Panel -->
+                <div class="grid-card glass" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <h2>Calibration & Grounding Verification Report</h2>
+                        <span class="subtitle">Aggregated AI grounding metrics, prediction errors, and calibration curve bin details.</span>
+                    </div>
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap; padding: 15px 0;">
+                        <div class="stat-card glass" style="flex: 1; min-width: 150px; background: rgba(30, 41, 59, 0.4);">
+                            <span class="stat-label">Pledge Success Rate</span>
+                            <span class="stat-val" id="report-pledge-rate" style="color: var(--accent-primary);">-</span>
+                        </div>
+                        <div class="stat-card glass" style="flex: 1; min-width: 150px; background: rgba(30, 41, 59, 0.4);">
+                            <span class="stat-label">Mean Prediction Error</span>
+                            <span class="stat-val" id="report-mean-error" style="color: var(--warning);">-</span>
+                        </div>
+                        <div class="stat-card glass" style="flex: 1; min-width: 150px; background: rgba(30, 41, 59, 0.4);">
+                            <span class="stat-label">Active / Total Pledges</span>
+                            <span class="stat-val" id="report-pledge-counts">-</span>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                            <thead>
+                                <tr>
+                                    <th>Risk Prediction Range</th>
+                                    <th>Telemetry Sample Count</th>
+                                    <th>Observed Failure Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-calibration-tbody">
+                                <tr>
+                                    <td colspan="3" class="table-empty">Calibration history is empty. Run tests to generate data.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: PROMPT BUILDER / PLANNER -->
+            <section id="prompt-tab" class="tab-content">
+                <div class="layout-split">
+                    <div class="control-panel glass">
+                        <h2 class="engineer-only">Configure Intent</h2>
+                        <h2 class="creator-only">Describe Your Vision</h2>
+                        
+                        <div class="form-group">
+                            <label for="prompt-intent" class="engineer-only">Natural Language Intent</label>
+                            <label for="prompt-intent" class="creator-only">What do you want to build?</label>
+                            <textarea id="prompt-intent" placeholder="Describe your feature idea in plain English (e.g. 'I want to add a premium checkout screen with dark mode toggles and an email receipt sender')."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="prompt-files" class="engineer-only">Target Files to Modify</label>
+                            <label for="prompt-files" class="creator-only">Target Modules (Optional)</label>
+                            <input type="text" id="prompt-files" placeholder="Select from Dashboard or write file paths (e.g. math_ops.py)">
+                        </div>
+                        <!-- Real-time Risk Assistant Container -->
+                        <div id="creator-risk-assistant" class="glass" style="margin-top: 8px; margin-bottom: 12px; padding: 12px; border: 1px dashed var(--border-color); border-radius: 8px; display: none;">
+                            <h3 style="font-size: 11px; font-weight: 700; color: var(--risk-med); text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">Thought Analyzer</h3>
+                            <div id="creator-assistant-text" style="font-size: 11px; color: var(--text-secondary); line-height: 1.4; font-family: var(--font-mono);">
+                                Analysis idle...
+                            </div>
+                        </div>
+                        <button id="btn-generate-prompt" class="btn primary full-width">
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                            <span class="engineer-only">Compile AI Instruction Prompt</span>
+                            <span class="creator-only">Generate AI Instructions</span>
+                        </button>
+                    </div>
+
+                    <div class="display-panel glass">
+                        <div class="panel-header">
+                            <h2 class="engineer-only">Optimized Prompt Context</h2>
+                            <h2 class="creator-only">Instructions for your AI Pilot</h2>
+                            <button id="btn-copy-prompt" class="btn secondary">
+                                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                                <span>Copy Text</span>
+                            </button>
+                        </div>
+                        <pre class="prompt-output" id="prompt-output-box">Generated instructions will appear here. Feed this directly to any AI coding assistant to guarantee a clean build.</pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: AUDITOR / HEALTH SHIELD -->
+            <!-- TAB 3: AUDITOR / HEALTH SHIELD -->
+            <section id="auditor-tab" class="tab-content">
+                <input type="hidden" id="audit-file">
+                <div class="layout-ide-grid">
+                    <!-- Left Sidebar Pane: File Explorer & Parameter Configuration -->
+                    <div class="control-panel glass">
+                        <div class="explorer-section">
+                            <h2 class="engineer-only">File Explorer</h2>
+                            <h2 class="creator-only">Project Modules</h2>
+                            <div id="file-explorer-tree" class="file-tree">
+                                <div class="table-empty">Connect a repository.</div>
+                            </div>
+                        </div>
+
+                        <div class="test-runner-section" style="border-top: 1px solid var(--border-color); padding-top: 16px;">
+                            <h2>Test Suite Runner</h2>
+                            <button id="btn-run-tests" class="btn secondary full-width" style="margin-top: 8px;">
+                                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                </svg>
+                                <span>Run Project Tests</span>
+                            </button>
+                        </div>
+
+                        <div class="config-section" style="border-top: 1px solid var(--border-color); padding-top: 16px;">
+                            <h2 class="engineer-only">Parameters</h2>
+                            <div class="form-group engineer-only" style="margin-top: 8px;">
+                                <label for="slider-typo">Typo Sim: <span id="val-typo">75%</span></label>
+                                <input type="range" id="slider-typo" min="50" max="95" value="75">
+                            </div>
+                            <div class="form-group engineer-only">
+                                <label for="slider-prob">Transition Prob: <span id="val-prob">0.0%</span></label>
+                                <input type="range" id="slider-prob" min="0" max="20" value="0" step="1">
+                            </div>
+                            <!-- Auto-Calibration Widget -->
+                            <div class="calibration-widget engineer-only" style="margin-top: 16px; border-top: 1px dashed var(--border-color); padding-top: 12px;">
+                                <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--neon-cyan); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Auto-Calibration</h3>
+                                <button id="btn-calibrate" class="btn secondary btn-small full-width" style="margin-top: 8px; padding: 8px 12px; font-size: 0.85rem;">
+                                    <span>Calibrate Thresholds</span>
+                                </button>
+                                <div id="calibration-results" class="calibration-results-container" style="display: none; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; font-family: var(--font-mono); font-size: 11px; margin-top: 8px; max-height: 180px; overflow-y: auto;">
+                                    <!-- Results dynamically generated -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Center Pane: Workspace Code Editor -->
+                    <div class="editor-panel glass">
+                        <div class="panel-header">
+                            <div class="editor-file-info">
+                                <span class="file-icon">📄</span>
+                                <span id="editor-active-file" class="active-filename">No file selected</span>
+                                <span id="editor-unsaved-badge" class="unsaved-badge hidden">Unsaved</span>
+                                <span id="editor-diff-badge" class="diff-badge hidden" style="background:rgba(255,0,85,0.15); border:1px solid #ff0055; color:#ff0055; font-family:var(--font-mono); font-size:11px; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:700;">ΔI: 0.00</span>
+                            </div>
+                            <button id="btn-save-file" class="btn primary btn-small disabled" disabled>
+                                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                    <polyline points="7 3 7 8 15 8"></polyline>
+                                </svg>
+                                <span>Save Changes</span>
+                            </button>
+                        </div>
+                        <div class="editor-body">
+                            <div class="line-gutter" id="editor-gutter">
+                                <span>1</span>
+                            </div>
+                            <textarea id="sandbox-editor" class="code-editor" placeholder="# Select a python file from the explorer on the left or paste code to begin..."></textarea>
+                        </div>
+                        <div class="editor-footer">
+                            <button id="btn-run-audit" class="btn alert full-width">
+                                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                </svg>
+                                <span class="engineer-only">Run Anomaly Audit</span>
+                                <span class="creator-only">Run Safety Check</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right Pane: Verification Report & Live Terminal -->
+                    <div class="display-panel glass" style="gap:16px;">
+                        <div class="report-section">
+                            <div class="panel-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                                <h2 class="engineer-only">Verification Report</h2>
+                                <h2 class="creator-only">Verification Shield</h2>
+                                <span class="report-status" id="audit-status">Awaiting Verification</span>
+                            </div>
+
+                            <!-- Visual Health Shield (Creator Mode Only) -->
+                            <div class="creator-only shield-container" style="padding: 12px 0;">
+                                <div class="health-shield" id="health-shield">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="shield-svg">
+                                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                    </svg>
+                                    <span class="shield-text" id="shield-text">Ready</span>
+                                </div>
+                            </div>
+                            
+                            <div class="anomaly-report-area" id="anomaly-reports" style="height: 140px;">
+                                <div class="report-empty">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="empty-icon">
+                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                    </svg>
+                                    <p class="engineer-only">Run an audit to check for anomalies.</p>
+                                    <p class="creator-only">Click safety check to verify code.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Test Impact Prediction Widget -->
+                        <div class="prediction-section" style="border-top: 1px solid var(--border-color); padding-top: 16px; display:flex; flex-direction:column; gap:8px;">
+                            <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center;">
+                                <h2>Test Impact Prediction</h2>
+                                <span class="report-status" id="prediction-status">No predictions</span>
+                            </div>
+                            <div class="prediction-container" id="prediction-list" style="height: 80px; overflow-y: auto; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--text-color);">
+                                <div class="prediction-empty" style="opacity: 0.5; text-align: center; padding: 20px 0;">Make edits in the editor to predict failures.</div>
+                            </div>
+                        </div>
+
+                        <!-- Live Terminal Console -->
+                        <div class="terminal-section" style="border-top: 1px solid var(--border-color); padding-top: 16px; flex-grow:1; display:flex; flex-direction:column; gap:8px;">
+                            <h2>Live Test Runner Console</h2>
+                            <div class="terminal-container">
+                                <pre id="terminal-log" class="terminal-output">Ready to execute test runner...</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: DEPENDENCY GRAPH -->
+            <section id="graph-tab" class="tab-content" style="display:none; height:calc(100vh - 120px);">
+                <div class="graph-card glass" style="height:100%; display:flex; flex-direction:column;">
+                    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:12px;">
+                        <div>
+                            <h2>Repository Dependency Graph Explorer</h2>
+                            <span class="subtitle">Interactive visualization of codebase imports and call trees. Glow indicates McCabe complexity / coupling centrality.</span>
+                        </div>
+                        <button id="btn-refresh-graph" class="btn secondary">
+                            <span>Refresh Graph</span>
+                        </button>
+                    </div>
+                    <div class="graph-container" style="flex-grow:1; position:relative; overflow:hidden; background:rgba(0,0,0,0.1); border-radius:8px;">
+                        <svg id="dependency-graph-full" width="100%" height="100%" style="cursor:grab; user-select:none;">
+                            <defs>
+                                <marker id="arrow" viewBox="0 0 10 10" refX="15" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                    <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--text-color)" opacity="0.5" />
+                                </marker>
+                            </defs>
+                            <!-- Graph nodes and links dynamically rendered -->
+                        </svg>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden">Prompt copied to clipboard!</div>
+
+    <!-- Onboarding Tour Modal -->
+    <div id="tour-modal" class="modal-backdrop hidden">
+        <div class="modal-card glass">
+            <div class="modal-header">
+                <h2>Bridging Thoughts and Creation with Ultron</h2>
+                <button id="btn-close-tour" class="btn-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tour-slide active" data-slide="0">
+                    <h3>Welcome to Ultron Pre-Execution Intelligence</h3>
+                    <p>Ultron is a next-generation cognitive IDE designed to bridge the gap between developer/creator thoughts and reliable, bug-free software execution.</p>
+                    <p>The system uses three layers of correctness reasoning (Static Foresight, Dynamic Semantic Preservation, and Adversarial Mutation Testing) to guide your updates safely.</p>
+                </div>
+                <div class="tour-slide" data-slide="1">
+                    <h3>Creator Mode (Beginners & Designers)</h3>
+                    <p><strong>Step 1: Describe Your Vision.</strong> Tell the Vision Planner what you want to build in plain English.</p>
+                    <p><strong>Step 2: Connect and Preview.</strong> Ultron maps your description to target files and automatically outlines structural risks and mitigations before code is touched.</p>
+                </div>
+                <div class="tour-slide" data-slide="2">
+                    <h3>Engineer Mode (Developers & QA)</h3>
+                    <p><strong>Step 3: Analyze Codebase Topology.</strong> View the System Interaction Topology map to inspect McCabe complexity, coupling dependencies, and code pathways.</p>
+                    <p><strong>Step 4: Run Audits.</strong> Adjust spelling typo and Markov causal sequence thresholds, run automated anomaly sweeps, and check predictive impact before committing changes.</p>
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; border-top:1px solid var(--border-color); padding-top:16px;">
+                <button id="btn-prev-slide" class="btn secondary btn-small disabled" disabled>Back</button>
+                <div class="tour-dots" style="display:flex; gap:6px;">
+                    <span class="tour-dot active" data-slide="0" style="width:8px; height:8px; border-radius:50%; background:var(--neon-cyan); cursor:pointer;"></span>
+                    <span class="tour-dot" data-slide="1" style="width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.2); cursor:pointer;"></span>
+                    <span class="tour-dot" data-slide="2" style="width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,0.2); cursor:pointer;"></span>
+                </div>
+                <button id="btn-next-slide" class="btn primary btn-small">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="index.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "decisions": [],
+  "weights": {
+    "correctness": 1.0,
+    "stability": 1.0,
+    "cost": 1.0,
+    "maintainability": 1.0,
+    "latency": 1.0,
+    "coupling_risk": 1.0
+  }
+}
