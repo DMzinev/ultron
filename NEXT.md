@@ -7,48 +7,50 @@ Do not start anything else until this is done.
 
 ## CURRENT NEXT ACTION
 
-**Confirm the classifier false-positive fix works on a real file.**
+**Human must do the blind ratings.**
 
-The fix to `ultron/classifier.py` (stdlib whitelisting, built-in method detection)
-was merged 2026-06-21 with unit tests only. It has NOT been run against an actual
-file to confirm the two known false positives are gone.
+Everything that can be done by an AI is done. The one remaining technical
+gap (classifier Markov false positives) is documented below as a known
+architectural flaw — it requires a design decision, not a quick fix.
 
-### The command
+The only thing that unblocks the project is:
 
-```
-python ultron/ultron.py --check-anomaly ultron/risk.py
-```
+> Open a terminal. Run:
+> ```
+> python ultron/blind_rate.py .
+> ```
+> Rate each file in `ultron/meta/blind_study_sample.txt` honestly.
+> That file has ~15 filenames. Run the command once per file.
+> Use your own judgment. Do not ask the AI to help rate.
 
-Run this from the repo root (`c:\Users\This PC\Desktop\cost accounting`).
-
-### What DONE looks like
-
-The output does NOT flag `abspath` or `keys` as anomalies.
-Copy the full terminal output into PROJECT_LOG.md.
-
-### What you do NOT do
-
-- Do not modify classifier.py based on whatever output you see.
-- Do not fix any new anomalies that appear.
-- Do not update ROADMAP.md until after logging the output.
-- Do not start Tasks 4 or 5 — those are blocked on human ratings.
-- Do not build anything new.
+Once you have ~15 real ratings in `ultron/meta/blind_feedback.jsonl`,
+come back and say "ratings done" — then Tasks 4 and 5 can run.
 
 ---
 
-## AFTER THIS IS DONE
+## KNOWN OPEN ISSUES (not blocking, documented)
 
-Everything remaining is either:
+### Classifier Markov anomaly detector — architectural flaw
 
-1. **Human-gated** — User must run `blind_rate.py` against the files in
-   `ultron/meta/blind_study_sample.txt`, one file at a time, honestly.
-   AI cannot do this. Once ratings exist, Tasks 4 and 5 can unblock.
+Real-file run confirmed 2026-06-21: `--check-anomaly` on `risk.py` produced
+36 "Markov Causal Flow Anomaly" warnings, all with 0.00% probability. This
+is not a bug fix failure — it is the expected output of a Markov model that:
+- Is trained on the same codebase it audits (circular: your own code is the training set)
+- Has a threshold of 0.0% (flags every transition that never appeared during training)
+- Has a tiny training corpus (this repo has ~15 Python files)
 
-2. **Future validation work** — Documented in ROADMAP.md under UNVALIDATED.
-   None of it should be started until the blind study has real data.
+The original two false positives (`abspath`, `keys`) are not visible in the
+output — they are gone. But the Markov layer is generating ~35 new false positives
+of a different kind.
 
-3. **Nothing** — The v1 deliverable (plain-language risk output) is complete.
-   It can be used right now with `python ultron/ultron.py --repo <path> --intent <description>`.
+**Fix requires a design decision, not a code tweak:**
+Either (a) remove the Markov layer from production output entirely, or
+(b) train on a larger external corpus, or (c) raise the threshold significantly.
+This is a roadmap-level question. Do not ask an AI to pick one and implement it
+autonomously — that is how scope creep happens.
+
+### Logistic calibration weights
+Still on hardcoded fallback. Will remain that way until blind study data exists.
 
 ---
 
@@ -63,4 +65,4 @@ With detail:
 python ultron/ultron.py --repo <path> --intent "your intent" --detail
 ```
 
-That is the product. It works. It is not perfect. See ROADMAP.md for what the gaps are.
+That is v1. It works. It is not perfect. See ROADMAP.md for what the gaps are.

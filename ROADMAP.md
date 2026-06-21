@@ -81,13 +81,21 @@ so far are trivial refactors; none test a boundary-sensitive case like
 
 ### Markov / typo audit (`classifier.py`)
 Flags identifiers that look like likely misspellings of names used elsewhere
-in the codebase. False-positive fix landed 2026-06-21: stdlib whitelisting,
-built-in method detection, and safe attribute chain traversal added.
+in the codebase.
 
-**Gap, confirmed by direct testing:** the false-positive fix has not yet been
-run against the original two confirmed false-positives (`abspath`, `keys`) on
-a real audit run to verify zero-false-positive outcome. Test suite verifies
-correct behavior on synthetic fixtures; real-file confirmation is outstanding.
+**Real-file audit result (2026-06-21):** Running `--check-anomaly ultron/risk.py` on the
+repository produced 36 warnings. The original two false positives (`abspath`, `keys`) are
+no longer present — that fix worked. But the Markov Causal Flow layer now generates ~35
+new anomalies, all at 0.00% probability. Root cause: the model is trained on the same
+codebase it audits (corpus of ~15 files), so any call-sequence unique to the target file
+is automatically flagged as impossible. This is an architectural flaw, not a threshold issue.
+
+**Requires a design decision before any further fix:**
+- Option A: Remove the Markov transition layer from production output entirely (keep only spelling-similarity typo detection)
+- Option B: Train on an external Python corpus, not this repo
+- Option C: Raise the transition-probability threshold to a non-zero value
+
+Do not implement any option autonomously. Bring this choice to the user.
 
 ### Logistic confidence calibration (`logistic.py`)
 **Status, confirmed by audit:** in production, this has never actually
