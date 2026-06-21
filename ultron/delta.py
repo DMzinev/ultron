@@ -36,10 +36,16 @@ def predict_change_risk(delta_i, mkr, delta_cest):
     # Clip between 0.0 and 1.0
     return max(0.0, min(1.0, risk))
 
-def learn_from_feedback(file_path, delta_i, mkr, delta_cest, actual_failure):
+def learn_from_feedback(file_path, delta_i, mkr, delta_cest, actual_failure, attribution=None):
     """
     Stochastic Gradient Descent online learning update for software change risk prediction.
+    Guided by the Failure Attribution Layer and regularized by L2 weight decay.
     """
+    if file_path is None or delta_i is None or mkr is None or delta_cest is None or actual_failure is None:
+        raise ValueError("Arguments to learn_from_feedback cannot be None")
+    if not isinstance(file_path, str):
+        raise TypeError("file_path must be a string")
+
     # 1. Compute prediction
     pred_risk = predict_change_risk(delta_i, mkr, delta_cest)
     
@@ -50,16 +56,29 @@ def learn_from_feedback(file_path, delta_i, mkr, delta_cest, actual_failure):
     weights = load_weights()
     lr = weights.get("learning_rate", 0.05)
     
-    weights["w_impact"] += lr * error * delta_i
-    weights["w_mkr"] += lr * error * (1.0 - mkr)
-    weights["w_cest"] += lr * error * delta_cest
+    # Extract attribution scales (default to 1.0 if not provided for backward-compatibility)
+    if attribution is not None and isinstance(attribution, dict):
+        a_impact = float(attribution.get("git", 0.0)) + float(attribution.get("human", 0.0))
+        a_mkr = float(attribution.get("test", 0.0))
+        a_cest = float(attribution.get("runtime", 0.0))
+    else:
+        a_impact = 1.0
+        a_mkr = 1.0
+        a_cest = 1.0
+        attribution = {}
+
+    # Apply L2 weight decay to prevent weight drift/dominance bias
+    decay = 0.01
+    weights["w_impact"] = weights["w_impact"] * (1.0 - decay) + lr * error * a_impact * delta_i
+    weights["w_mkr"] = weights["w_mkr"] * (1.0 - decay) + lr * error * a_mkr * (1.0 - mkr)
+    weights["w_cest"] = weights["w_cest"] * (1.0 - decay) + lr * error * a_cest * delta_cest
     
     # Keep weights non-negative
     weights["w_impact"] = max(0.0, weights["w_impact"])
     weights["w_mkr"] = max(0.0, weights["w_mkr"])
     weights["w_cest"] = max(0.0, weights["w_cest"])
     
-    # Re-normalize
+    # Re-normalize to sum to 1.0
     total = weights["w_impact"] + weights["w_mkr"] + weights["w_cest"]
     if total > 0:
         weights["w_impact"] /= total
@@ -78,7 +97,8 @@ def learn_from_feedback(file_path, delta_i, mkr, delta_cest, actual_failure):
             "predicted_risk": pred_risk
         },
         "actual": {
-            "failure": actual_failure
+            "failure": actual_failure,
+            "attribution": attribution
         },
         "error": {
             "value": error

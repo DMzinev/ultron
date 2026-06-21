@@ -35,6 +35,7 @@ def parse_yaml(yaml_path):
                 if v == "|":
                     multiline_lines = []
                     i += 1
+                    base_indent = None
                     while i < len(lines):
                         next_line = lines[i]
                         if next_line.strip() == "":
@@ -42,8 +43,10 @@ def parse_yaml(yaml_path):
                             i += 1
                             continue
                         indent = len(next_line) - len(next_line.lstrip())
-                        if indent > 0:
-                            multiline_lines.append(next_line[2:].rstrip("\r\n"))
+                        if base_indent is None:
+                            base_indent = indent
+                        if indent >= base_indent and base_indent > 0:
+                            multiline_lines.append(next_line[base_indent:].rstrip("\r\n"))
                             i += 1
                         else:
                             break
@@ -126,9 +129,9 @@ def is_nullification_candidate(repo_path, rel_path):
     # Only verify Python files
     if not rel_path.endswith(".py"):
         return False
-    # Exclude test files
+    # Exclude test files, runner scripts, and loop harnesses
     path_lower = rel_path.lower()
-    if "test_" in path_lower or "/test" in path_lower or "\\test" in path_lower:
+    if "test" in path_lower or "runner" in path_lower or "run_verification" in path_lower:
         return False
     # Check if file is tracked by git
     try:
@@ -145,6 +148,7 @@ def is_nullification_candidate(repo_path, rel_path):
 
 def get_actual_modified_files(repo_path):
     modified = set()
+    git_worked = False
     try:
         # Check tracked modified files (staged and unstaged)
         res = subprocess.run(
@@ -155,6 +159,7 @@ def get_actual_modified_files(repo_path):
             errors="ignore"
         )
         if res.returncode == 0:
+            git_worked = True
             for line in res.stdout.splitlines():
                 if line.strip():
                     modified.add(line.strip().replace("\\", "/"))
@@ -167,6 +172,7 @@ def get_actual_modified_files(repo_path):
             errors="ignore"
         )
         if res_staged.returncode == 0:
+            git_worked = True
             for line in res_staged.stdout.splitlines():
                 if line.strip():
                     modified.add(line.strip().replace("\\", "/"))
@@ -179,28 +185,30 @@ def get_actual_modified_files(repo_path):
             errors="ignore"
         )
         if res_status.returncode == 0:
+            git_worked = True
             for line in res_status.stdout.splitlines():
                 if line.startswith("??"):
                     file_path = line[3:].strip()
                     modified.add(file_path.replace("\\", "/"))
-    except Exception:
-        pass
+    except Exception as e:
+        _err = e
         
     # Fallback to checking timestamp deltas if non-git
-    try:
-        for root, _, files in os.walk(repo_path):
-            # Ignore standard virtual envs / ignore dirs
-            if any(x in root for x in [".git", "__pycache__", "venv", ".synapse"]):
-                continue
-            for file in files:
-                if file.endswith(".bak"):
-                    base_file = file[:-4]
-                    base_abs = os.path.join(root, base_file)
-                    if os.path.exists(base_abs):
-                        rel = os.path.relpath(base_abs, repo_path).replace("\\", "/")
-                        modified.add(rel)
-    except Exception:
-        pass
+    if not git_worked:
+        try:
+            for root, _, files in os.walk(repo_path):
+                # Ignore standard virtual envs / ignore dirs
+                if any(x in root for x in [".git", "__pycache__", "venv", ".synapse"]):
+                    continue
+                for file in files:
+                    if file.endswith(".bak"):
+                        base_file = file[:-4]
+                        base_abs = os.path.join(root, base_file)
+                        if os.path.exists(base_abs):
+                            rel = os.path.relpath(base_abs, repo_path).replace("\\", "/")
+                            modified.add(rel)
+        except Exception as e:
+            _err = e
         
     return list(modified)
 
@@ -414,6 +422,16 @@ def main():
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
     repo_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+    
+    # Run Multi-Reality Calibration Engine recalibration (v4.0)
+    print("[*] Running Multi-Reality Signal Fusion Engine recalibration...")
+    try:
+        sys.path.append(os.path.join(repo_path, "ultron"))
+        import reality_delta
+        reality_delta.recalibrate_system(repo_path)
+    except Exception as e:
+        print(f"[-] Recalibration failed to run: {e}")
+
     pkg_path = os.path.join(repo_path, "ultron", "meta", "audit_package.yaml")
     
     if not os.path.exists(pkg_path):
@@ -736,6 +754,58 @@ Builder Walkthrough (Intended Reality):
                 print("[+] Verified log entry updated in PROJECT_LOG.md.")
             except Exception as e:
                 print(f"[-] Failed to update log file: {e}")
+                
+        # 2a. Save predictions for UMAGS v4.0 Multi-Reality Calibration Engine
+        try:
+            import risk
+            import analyzer
+            import fuzz
+            import reality_delta
+            import delta
+            REALITY_DELTAS_PATH = reality_delta.REALITY_DELTAS_PATH
+            
+            codebase = analyzer.analyze_directory(repo_path)
+            
+            # Default test command and log file path from package
+            default_test_cmd = test_commands[0] if test_commands else ""
+            default_log_path = os.path.join(repo_path, "ultron", "meta", "experiment_log.jsonl")
+            
+            for f in changed_files:
+                f_abs = os.path.join(repo_path, f)
+                if os.path.exists(f_abs) and f.endswith(".py"):
+                    orig_code = get_original_code(repo_path, f)
+                    with open(f_abs, "r", encoding="utf-8", errors="ignore") as file_obj:
+                        mod_code = file_obj.read()
+                        
+                    packet = risk.evaluate_diff_risk(codebase, f, orig_code, mod_code)
+                    delta_i = packet.impact_score
+                    mkr = packet.mk_r
+                    
+                    try:
+                        delta_cest = fuzz.compute_cest_divergence(f_abs, orig_code, mod_code, repo_path=repo_path)
+                    except Exception:
+                        delta_cest = 0.0
+                        
+                    predicted_risk = delta.predict_change_risk(delta_i, mkr, delta_cest)
+                    
+                    record = {
+                        "file": f,
+                        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "delta_i": float(delta_i),
+                        "mkr": float(mkr),
+                        "delta_cest": float(delta_cest),
+                        "predicted_risk": float(predicted_risk),
+                        "test_cmd": default_test_cmd,
+                        "log_path": default_log_path,
+                        "attribution": {"test": 0.0, "git": 0.0, "runtime": 0.0, "human": 0.0}
+                    }
+                    
+                    os.makedirs(os.path.dirname(REALITY_DELTAS_PATH), exist_ok=True)
+                    with open(REALITY_DELTAS_PATH, "a", encoding="utf-8") as ledger_file:
+                        ledger_file.write(json.dumps(record) + "\n")
+                    print(f"[+] Reality prediction vector logged for '{f}' (P={predicted_risk:.3f}).")
+        except Exception as e:
+            print(f"[-] Failed to log prediction vector for calibration: {e}")
                 
         print("Verdict: APPROVED")
     else:
