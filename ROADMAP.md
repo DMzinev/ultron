@@ -31,15 +31,18 @@ runs end-to-end on real files and produces a coherent, inspectable output
 (confirmed against `risk.py` itself: Impact Score 83.79, 5 callers correctly
 identified).
 
-**Not yet done:** the *cutoff values* (10.0 / 3.0) and the formula's
-coefficients are still inherited defaults, not calibrated against human
-judgment. This is the planned Phase 1 study — blinded ratings across a
-stratified file sample. Until that happens, treat this as "a reasonable,
-working heuristic," not "a validated measure of risk."
-
+**Not yet done / Gaps:**
+*   **Absolute Thresholds vs. Relative Calibrations:** The absolute cutoff values (10.0 for HIGH / 3.0 for MEDIUM) are default heuristics. In codebases with dense verification, AST parsing, or complex logic, nearly all files can exceed 10.0 complexity, yielding a heavily skewed distribution (e.g., 22 HIGH, 2 MEDIUM, 0 LOW in this repository). Calibration may need to transition to relative, percentile-based distributions of the target repository's complexity rather than fixed absolute thresholds.
+*   **Rule-Based Overrides:** Any file matching `__init__.py` or containing an `__init__` constructor definition is automatically overridden to the `HIGH` risk tier (`is_public` override) regardless of its computed Impact Score (e.g., `ultron/__init__.py` has score 1.0 but is classified as HIGH). This means public interfaces are designated high-risk by rule, not score derivation.
+*   **Blinded Calibration Study [PARKED]:** Calibration is parked, waiting on a real human rater to be available to complete the stratified ratings. This is non-blocking.
 ---
 
 ## ⚠️ Working, not yet validated
+
+### Multi-Signal Risk Fusion & Change-Risk Prediction (`reality_delta.py`, `delta.py`) — *Ultron feature, built during UMAGS sessions*
+**Reclassified 2026-06-21 from implied governance infrastructure to Ultron risk-scoring feature.** `delta.py` implements `predict_change_risk()` — a learned three-weight model (`w_impact`, `w_mkr`, `w_cest`) updated via online SGD from `learn_from_feedback()`. `reality_delta.py` wraps a six-weight fusion layer (`w_test`, `w_git`, `w_runtime`, `w_human`, `w_test_runtime`, `w_git_human`) that combines all signal sources into a single Residual Risk Score, with backward-compatible schema migration and L2 regularization.
+
+**Gap:** Fusion weights are calibrated against the full set of logged transactions with no held-out evaluation set — performance on unseen data is not validated. The counterfactual ablation test (`C_i = max(0, R_actual - R_ablated_i)`) has not been run on real defect data; it has only been exercised on synthetic examples.
 
 ### Git-history bug-fix extraction (`extract_git_history`)
 **Confirmed:** the feature runs and correctly parses commit history. If the repo is missing or contains zero matches, it outputs clear warnings rather than failing silently.
@@ -69,17 +72,22 @@ diverges — false equivalence, not true equivalence. All three logged examples
 so far are trivial refactors; none test a boundary-sensitive case like
 `>` vs `>=`.
 
+### Static Design Intelligence Layer (`design_oracle.py`) — *Ultron feature, built during UMAGS sessions*
+**Reclassified 2026-06-21 from implied governance infrastructure to Ultron risk-scoring feature.** Performs static codebase analysis: circular dependency detection (DFS-based cycle enumeration), global mutation scanning (AST traversal for `global` declarations), future coupling simulation (path-impact modelling when moving a function between files), and design pattern recommendations keyed on intent keywords.
+
+**Gap:** Built entirely inside UMAGS-scoped sessions and never evaluated against real-world outcomes. No ground-truth data confirming that circular dependency or coupling warnings correspond to actual defects. No negative test cases confirming the DFS cycle detector handles pathological graphs (self-loops, highly-connected subgraphs). Integration tests exist but only cover happy paths.
+
+---
+
 ### Markov / typo audit (`classifier.py`)
 Flags identifiers that look like likely misspellings of names used elsewhere
-in the codebase.
+in the codebase. False-positive fix landed 2026-06-21: stdlib whitelisting,
+built-in method detection, and safe attribute chain traversal added.
 
-**Gap, confirmed by direct testing:** it has no model of standard-library or
-imported names, and doesn't distinguish method calls from global functions.
-Running it on `risk.py` produced two confirmed false positives — flagging
-`abspath` (a real `os.path` function) as a typo of an internal `abs_path`,
-and flagging `keys` (almost certainly `dict.keys()`) as a typo of `key`. The
-underlying idea may still be useful, but the current false-positive rate
-makes it noisy rather than trustworthy as-is.
+**Gap, confirmed by direct testing:** the false-positive fix has not yet been
+run against the original two confirmed false-positives (`abspath`, `keys`) on
+a real audit run to verify zero-false-positive outcome. Test suite verifies
+correct behavior on synthetic fixtures; real-file confirmation is outstanding.
 
 ### Logistic confidence calibration (`logistic.py`)
 **Status, confirmed by audit:** in production, this has never actually
@@ -115,8 +123,6 @@ The following are described in `research-notes/speculative-ideas.md` but have
 - Topological Simulator (`topological_simulator.py`)
 - Temporal Drift & Causal Polarity Engine (`temporal_engine.py`)
 - Minimax Solver / Control Layer (`intervention_optimizer.py`)
-- Empirical Anchoring & Causal Attribution (`empirical_anchor.py`, `causal_attribution.py`)
-- Counterfactual Simulation / Policy Gradient (`policy_learning.py`)
 - Structural Decision-Theoretic Controller (`controller.py`)
 
 **Decision:** these are interesting future directions, not current

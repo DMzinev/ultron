@@ -122,7 +122,7 @@ Create a new standalone script, ultron/blind_rate.py, that:
 
 ---
 
-## Task 4 — Generate a stratified file sample for the blind study
+## Task 4 — Generate a stratified file sample for the blind study [PARKED]
 
 ```
 ANTIGRAVITY INSTRUCTION:
@@ -148,7 +148,7 @@ comparison but isn't accidentally seen during rating.
 
 ---
 
-## Task 5 — Compare blind ratings against the formula
+## Task 5 — Compare blind ratings against the formula [PARKED]
 
 ```
 ANTIGRAVITY INSTRUCTION:
@@ -210,11 +210,26 @@ and --detail output for each.
 ---
 
 ## Later (not yet scoped into atomic tasks)
-- Fix the typo-classifier false positives (stdlib + method-call awareness)
+- **[Outstanding]** Run `python ultron/ultron.py --check-anomaly ultron/risk.py` with the updated classifier to confirm the two known false positives (`abspath`, `keys`) no longer appear. This is the real-file confirmation missing from the 2026-06-21 unit-test-only fix.
+- Fix the typo-classifier false positives (stdlib + method-call awareness) — *partial fix landed 2026-06-21; real-file confirmation above is still outstanding*
 - Test mutation/fuzzing against a boundary-sensitive mutation (`>` vs `>=`),
   not just literal renames
 - Package as `pip install`-able CLI
 - README rewrite
+- **Validate `design_oracle.py` against real defect data** — currently ⚠️, never run against a codebase with known circular-dependency bugs to confirm true-positive rate.
+- **Validate `delta.py` / `reality_delta.py` fusion weights** — currently ⚠️, trained with no held-out evaluation set.
 
 These will get broken into the same atomic format once Tasks 1-6 are
 verified and the v1 shape is proven out.
+
+---
+
+## Reclassification log
+
+**2026-06-21** — `design_oracle.py`, `reality_delta.py`, `delta.py` were
+built during UMAGS-scoped sessions and implicitly filed as governance
+infrastructure. They are risk-scoring and prediction code — Ultron's domain,
+not UMAGS's. Moved to `ROADMAP.md` under ⚠️ Working, not yet validated.
+`umags/failure_space.py` confirmed to stay in UMAGS: its Residual Risk Score
+is a pure unweighted integer count (`len(untested_paths) + len(missing_boundary_cases)`),
+no learned coefficients, no prediction model.
