@@ -1,26 +1,55 @@
-# Ultron × SYNAPSE Framework
+﻿# What is in this folder
 
-A multi-layered program verification, static risk forecasting, and mutation testing platform.
-
----
-
-## 1. Directory Structure
-
-- **[ultron/](file:///c:/Users/This%20PC/Desktop/cost%20accounting/ultron)**: Static analysis, call-graph coupling, risk warning prompts, and human feedback calibration.
-- **[synapse_project/](file:///c:/Users/This%20PC/Desktop/cost%20accounting/synapse_project)**: Sandboxed mutation testing, dynamic execution path verification, and equivalent mutant filtering.
-- **[research-notes/](file:///c:/Users/This%20PC/Desktop/cost%20accounting/research-notes)**: Academic manifests and speculative design studies.
-- **[scratch/](file:///c:/Users/This%20PC/Desktop/cost%20accounting/scratch)**: Playground suites and verification scripts.
+Two unrelated projects share this directory.
 
 ---
 
-## ⚠️ What this doesn't do yet
+## 1. Cost Accounting Study Portal
 
-While the codebase executes end-to-end and has solid mathematical and dynamic foundations, several components are not yet fully validated or are conceptual in nature:
+An interactive learning app for cost accounting (ABC, CVP, variance analysis).
+Entry point: `Study_Portal.html` — open in a browser.
 
-1. **Static Risk Cutoffs**: The risk score tier thresholds (HIGH/MEDIUM/LOW) are reasonable heuristics and have not yet been empirically calibrated against a large-scale human validation study.
-2. **Mutation Diversity**: The mutation runner currently focuses on literal-substitution mutations. Operational mutations (e.g., flipped comparison operands, boundary shifts) are not yet live in the default testing loop.
-3. **CEST / Fuzzing Input Sensitivity**: Fuzz input generation uses randomized type selection rather than constraint-guided solver paths, which can occasionally result in false semantic equivalence.
-4. **Git-History Calibration**: Running inside a non-Git context returns default warning sensitivities because commit log records are unavailable.
-5. **Speculative Research Modules**: Advanced engines (like `topological_simulator.py`, `causal_attribution.py`, or `controller.py`) described in architectural manifests are conceptual direction specifications with no active code behind them.
+---
 
-For a full, detailed, and honest status accounting of every feature, please see **[PROJECT_STATUS.md](file:///c:/Users/This%20PC/Desktop/cost%20accounting/PROJECT_STATUS.md)**.
+## 2. Ultron — Python Risk Scorer
+
+Tells you which files in a Python codebase are risky to change, and why, in plain language.
+
+### Use it right now
+
+```
+python ultron/ultron.py --repo <path-to-any-python-repo> --intent "describe what you want to change"
+```
+
+Add `--detail` for the underlying numbers (impact score, complexity, coupling count).
+
+### What it actually does (and only this)
+
+Reads a Python codebase, computes cyclomatic complexity and call-graph coupling per file,
+combines them into an Impact Score, classifies files as HIGH / MEDIUM / LOW risk,
+and outputs one plain sentence per file.
+
+This part works and is validated. See ROADMAP.md for everything that is not yet validated.
+
+### What it does NOT do yet
+
+Several subsystems exist but are not yet validated against real-world defect data:
+multi-signal fusion scoring, logistic calibration, design oracle, differential fuzzing.
+They are documented in ROADMAP.md as UNVALIDATED. Do not rely on their output.
+
+Human blind ratings (Tasks 4-5 in EXECUTION_PLAN.md) have not been completed yet.
+Until they are, the risk tier thresholds are unvalidated heuristics.
+
+### Where to start reading the code
+
+- `SYSTEM_MAP.md` — what every file is and its current status
+- `NEXT.md` — the one outstanding technical task
+- `ROADMAP.md` — honest status of every feature
+- `EXECUTION_PLAN.md` — task history (Tasks 1, 2, 3, 6 DONE; Tasks 4, 5 PARKED)
+
+---
+
+## 3. Synapse — Mutation Testing Engine
+
+`synapse_project/` — generates mutants, runs tests, logs Mutation Kill Rate.
+Working on trivial mutations only; boundary-sensitive mutations not yet exercised.

@@ -26,7 +26,7 @@ subtle ones, like synthetic data dressed as real validation).
 
 ---
 
-## Task 1 — Fix the silent git-history failure
+## Task 1 — Fix the silent git-history failure ✅ DONE
 
 **Why first:** it's the cheapest possible fix and it's currently failing
 *silently*, which is the worst kind of bug to leave sitting in a trust tool.
@@ -55,7 +55,7 @@ actual console output for: (a) no git repo, (b) git repo with zero matches,
 
 ---
 
-## Task 2 — Relabel the speculative architecture manifest
+## Task 2 — Relabel the speculative architecture manifest ✅ DONE
 
 **Why second:** also cheap, and it's the single biggest credibility risk if
 this repo goes public as-is.
@@ -86,7 +86,7 @@ point to the new speculative-ideas.md location.
 
 ---
 
-## Task 3 — Build a genuinely blinded feedback capture tool
+## Task 3 — Build a genuinely blinded feedback capture tool ✅ DONE
 
 **Why this is its own task:** the existing dashboard feedback buttons show
 the score before asking for a rating, which makes the data useless for
@@ -176,7 +176,7 @@ the correlation to be meaningful.
 
 ---
 
-## Task 6 — Build the plain-language translation layer
+## Task 6 — Build the plain-language translation layer ✅ DONE
 
 **This is the actual v1 user-facing deliverable.** Only start this once
 Task 5 has run at least once — even on a small sample — so the tier cutoffs
