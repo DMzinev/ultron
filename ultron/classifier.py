@@ -61,6 +61,23 @@ class CallSequenceVisitor(ast.NodeVisitor):
             self.current_sequence.append((name, node.lineno))
         self.generic_visit(node)
 
+def get_attribute_chain(node):
+    """
+    Given an ast.Attribute or ast.Name, returns (base_name, [attr1, attr2, ...])
+    For example:
+    Name(id='os') -> ('os', [])
+    Attribute(value=Name(id='os'), attr='path') -> ('os', ['path'])
+    Attribute(value=Attribute(value=Name(id='os'), attr='path'), attr='abspath') -> ('os', ['path', 'abspath'])
+    """
+    attrs = []
+    curr = node
+    while isinstance(curr, ast.Attribute):
+        attrs.append(curr.attr)
+        curr = curr.value
+    if isinstance(curr, ast.Name):
+        return curr.id, list(reversed(attrs))
+    return None, []
+
 def build_models(dirpath, exclude_file=None, os=os):
     """
     Scans the repository and trains the models:
@@ -82,13 +99,32 @@ def build_models(dirpath, exclude_file=None, os=os):
                 try:
                     with open(filepath, 'r', encoding='utf-8') as f:
                         tree = ast.parse(f.read())
-                    for node in ast.walk(tree):
+                    
+                    # Top-level names (globals, functions, classes, imports)
+                    for node in tree.body:
                         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                             defined_names.add(node.name)
+                            if isinstance(node, ast.ClassDef):
+                                # Also collect method names defined inside the class
+                                for subnode in node.body:
+                                    if isinstance(subnode, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                                        defined_names.add(subnode.name)
                         elif isinstance(node, ast.Assign):
                             for target in node.targets:
                                 if isinstance(target, ast.Name):
                                     defined_names.add(target.id)
+                                elif isinstance(target, ast.Tuple):
+                                    for elt in target.elts:
+                                        if isinstance(elt, ast.Name):
+                                            defined_names.add(elt.id)
+                        elif isinstance(node, ast.Import):
+                            for alias in node.names:
+                                defined_names.add(alias.name.split('.')[0])
+                        elif isinstance(node, ast.ImportFrom):
+                            if node.names:
+                                for alias in node.names:
+                                    defined_names.add(alias.name)
+                    
                     seq_visitor = CallSequenceVisitor()
                     seq_visitor.visit(tree)
                     for seq in seq_visitor.sequences:
@@ -119,33 +155,190 @@ def audit_target_file(filepath, defined_names, transition_probs, typo_threshold=
     """
     Audits a single python file for spelling typos and sequence anomalies.
     """
+    import importlib
     anomalies = []
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
             tree = ast.parse(f.read())
+            
+        # Compile a set of built-in type method names dynamically
+        builtin_methods = set()
+        for t in (list, dict, set, str, tuple, bytes, bytearray, frozenset, range, float, int, complex, bool):
+            try:
+                for attr in dir(t):
+                    if not attr.startswith('_') or attr in ('__init__', '__call__'):
+                        builtin_methods.add(attr)
+            except Exception:
+                pass
+
+        # Parse local imports and top-level definitions in target file
+        local_names = set()
+        local_imports = {}
+
+        # Safely determine stdlib modules (available in Python 3.10+)
+        stdlib_names = getattr(sys, 'stdlib_module_names', frozenset())
+
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                local_names.add(node.name)
+                if isinstance(node, ast.ClassDef):
+                    for subnode in node.body:
+                        if isinstance(subnode, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                            local_names.add(subnode.name)
+            elif isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        local_names.add(target.id)
+                    elif isinstance(target, ast.Tuple):
+                        for elt in target.elts:
+                            if isinstance(elt, ast.Name):
+                                local_names.add(elt.id)
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    name = alias.name
+                    asname = alias.asname or name
+                    local_names.add(asname.split('.')[0])
+                    
+                    base_module = name.split('.')[0]
+                    if base_module in stdlib_names:
+                        try:
+                            mod = importlib.import_module(name)
+                            local_imports[asname] = mod
+                        except Exception:
+                            local_imports[asname] = 'PLACEHOLDER'
+                    else:
+                        local_imports[asname] = 'PLACEHOLDER'
+            elif isinstance(node, ast.ImportFrom):
+                module_name = node.module
+                if node.level > 0 or not module_name:
+                    # Relative import or empty module name: do not dynamically import, mark as placeholder
+                    for alias in node.names:
+                        asname = alias.asname or alias.name
+                        local_names.add(asname)
+                        local_imports[asname] = 'PLACEHOLDER'
+                else:
+                    base_module = module_name.split('.')[0]
+                    if base_module in stdlib_names:
+                        try:
+                            mod = importlib.import_module(module_name)
+                            for alias in node.names:
+                                name = alias.name
+                                asname = alias.asname or name
+                                local_names.add(asname)
+                                
+                                if name == '*':
+                                    # Handle wildcard import of stdlib module
+                                    if hasattr(mod, '__all__'):
+                                        for n in mod.__all__:
+                                            local_names.add(n)
+                                    else:
+                                        for n in dir(mod):
+                                            if not n.startswith('_'):
+                                                local_names.add(n)
+                                elif hasattr(mod, name):
+                                    local_imports[asname] = getattr(mod, name)
+                                else:
+                                    try:
+                                        sub_mod = importlib.import_module(f"{module_name}.{name}")
+                                        local_imports[asname] = sub_mod
+                                    except Exception:
+                                        local_imports[asname] = 'PLACEHOLDER'
+                        except Exception:
+                            # Fallback
+                            for alias in node.names:
+                                asname = alias.asname or alias.name
+                                local_names.add(asname)
+                                local_imports[asname] = 'PLACEHOLDER'
+                    else:
+                        for alias in node.names:
+                            asname = alias.asname or alias.name
+                            local_names.add(asname)
+                            local_imports[asname] = 'PLACEHOLDER'
+
+        def is_valid_attribute_chain(base_name, attrs):
+            if base_name not in local_imports:
+                return False
+            obj = local_imports[base_name]
+            if obj == 'PLACEHOLDER':
+                return True
+            try:
+                for attr in attrs:
+                    if hasattr(obj, attr):
+                        obj = getattr(obj, attr)
+                    else:
+                        return False
+                return True
+            except Exception:
+                return False
+
         called_names = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
-                name = None
                 if isinstance(node.func, ast.Name):
-                    name = node.func.id
+                    called_names.add(('Name', node.func.id, (), node.lineno))
                 elif isinstance(node.func, ast.Attribute):
-                    name = node.func.attr
-                if name:
-                    called_names.add((name, node.lineno))
-        for call_name, lineno in called_names:
-            if call_name not in defined_names and (not call_name.startswith('_')):
+                    base, attrs = get_attribute_chain(node.func)
+                    if base:
+                        called_names.add(('Attribute', base, tuple(attrs), node.lineno))
+
+        for call_type, base_or_id, attrs, lineno in called_names:
+            if call_type == 'Name':
+                call_name = base_or_id
+                if call_name.startswith('_'):
+                    continue
                 if call_name in (__builtins__ if isinstance(__builtins__, dict) else dir(__builtins__)):
                     continue
+                if call_name in local_names or call_name in local_imports:
+                    continue
+                if call_name in defined_names:
+                    continue
+                
                 best_match = None
                 best_sim = 0.0
-                for def_name in defined_names:
-                    sim = string_similarity(call_name, def_name)
-                    if sim > best_sim:
-                        best_sim = sim
-                        best_match = def_name
+                search_pool = set(defined_names).union(__builtins__ if isinstance(__builtins__, dict) else dir(__builtins__))
+                for def_name in search_pool:
+                    if not def_name.startswith('_'):
+                        sim = string_similarity(call_name, def_name)
+                        if sim > best_sim:
+                            best_sim = sim
+                            best_match = def_name
                 if typo_threshold <= best_sim < 1.0:
-                    anomalies.append({'type': 'Spelling Typo / Name Confusion', 'file': os.path.basename(filepath), 'line': lineno, 'details': f"Called identifier '{call_name}' is not defined in codebase. Did you mean '{best_match}'? (spelling similarity: {best_sim:.2%})"})
+                    anomalies.append({
+                        'type': 'Spelling Typo / Name Confusion',
+                        'file': os.path.basename(filepath),
+                        'line': lineno,
+                        'details': f"Called identifier '{call_name}' is not defined in codebase. Did you mean '{best_match}'? (spelling similarity: {best_sim:.2%})"
+                    })
+            elif call_type == 'Attribute':
+                base_name = base_or_id
+                attr_name = attrs[-1]
+                if base_name in local_imports:
+                    if is_valid_attribute_chain(base_name, attrs):
+                        continue
+                if attr_name in builtin_methods:
+                    continue
+                if attr_name in defined_names:
+                    continue
+                if attr_name.startswith('_'):
+                    continue
+                
+                best_match = None
+                best_sim = 0.0
+                search_pool = set(defined_names).union(builtin_methods)
+                for def_name in search_pool:
+                    if not def_name.startswith('_'):
+                        sim = string_similarity(attr_name, def_name)
+                        if sim > best_sim:
+                            best_sim = sim
+                            best_match = def_name
+                if typo_threshold <= best_sim < 1.0:
+                    anomalies.append({
+                        'type': 'Spelling Typo / Name Confusion',
+                        'file': os.path.basename(filepath),
+                        'line': lineno,
+                        'details': f"Called attribute '{attr_name}' is not defined in codebase or standard built-ins. Did you mean '{best_match}'? (spelling similarity: {best_sim:.2%})"
+                    })
+
         seq_visitor = CallSequenceVisitor()
         seq_visitor.visit(tree)
         for seq in seq_visitor.sequences:
@@ -172,7 +365,8 @@ def audit_target_file(filepath, defined_names, transition_probs, typo_threshold=
                     anom_line = prev_line if curr_name == '[END]' else curr_line
                     anomalies.append({'type': 'Markov Causal Flow Anomaly', 'file': os.path.basename(filepath), 'line': anom_line, 'details': f"Transition '{prev_prev_name} -> {prev_name} -> {curr_name}' has {prob:.2%} occurrence probability in baseline codebase (at or below threshold {prob_threshold:.2%}). Highly improbable execution path."})
     except Exception as e:
-        anomalies.append({'type': 'Parse Error', 'file': os.path.basename(filepath), 'line': 1, 'details': str(e)})
+        import traceback
+        anomalies.append({'type': 'Parse Error', 'file': os.path.basename(filepath), 'line': 1, 'details': f"{e}\n{traceback.format_exc()}"})
     return anomalies
 if __name__ == '__main__':
     if len(sys.argv) < 3:
