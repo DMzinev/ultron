@@ -54,4 +54,3 @@ to use, so a silent no-op never gets mistaken for a working feature again.
         print(f"[-] Target section header not found in {filepath}")
 
 update_file("ROADMAP.md")
-update_file("PROJECT_STATUS.md")

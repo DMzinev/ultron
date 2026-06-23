@@ -3,8 +3,14 @@ import os
 import json
 import traceback
 
-# Ensure the parent folder/ultron path is in the import search path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Configure sys.path to find moved files under their new subdirectories
+_dir = os.path.dirname(os.path.abspath(__file__))
+_root = os.path.abspath(os.path.join(_dir, "..", ".."))
+for _subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
+    sys.path.append(os.path.abspath(os.path.join(_root, "ultron", _subdir)))
+sys.path.append(_root)
+sys.path.append(os.path.abspath(os.path.join(_root, "umags")))
+
 import analyzer
 import risk
 import prompt

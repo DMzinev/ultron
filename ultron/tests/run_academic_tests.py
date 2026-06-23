@@ -8,8 +8,14 @@ import tempfile
 import unittest
 import math
 
-# Add root folder to import search path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Configure sys.path to find moved files under their new subdirectories
+_dir = os.path.dirname(os.path.abspath(__file__))
+_root = os.path.abspath(os.path.join(_dir, "..", ".."))
+for _subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
+    sys.path.append(os.path.abspath(os.path.join(_root, "ultron", _subdir)))
+sys.path.append(_root)
+sys.path.append(os.path.abspath(os.path.join(_root, "umags")))
+
 import risk
 import predict
 import meta_layer
@@ -75,7 +81,7 @@ class TestAPIFuzzing(unittest.TestCase):
         self.assertEqual(response.get("path"), "scratch/ultron_playground")
         
         # Verify the folders exist
-        playground_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scratch", "ultron_playground"))
+        playground_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "scratch", "ultron_playground"))
         self.assertTrue(os.path.exists(os.path.join(playground_dir, "math_utils.py")))
         self.assertTrue(os.path.exists(os.path.join(playground_dir, "test_math_utils.py")))
 
@@ -303,9 +309,10 @@ if __name__ == "__main__":
         print("[-] Skipping TestAPIFuzzing (requires active server).")
         # Run only offline tests
         suite = unittest.TestSuite()
-        suite.addTest(unittest.makeSuite(TestRollbackIntegrity))
-        suite.addTest(unittest.makeSuite(TestDeltaRisk))
-        suite.addTest(unittest.makeSuite(TestPredictionCalibration))
+        loader = unittest.TestLoader()
+        suite.addTest(loader.loadTestsFromTestCase(TestRollbackIntegrity))
+        suite.addTest(loader.loadTestsFromTestCase(TestDeltaRisk))
+        suite.addTest(loader.loadTestsFromTestCase(TestPredictionCalibration))
         runner = unittest.TextTestRunner()
         runner.run(suite)
     else:

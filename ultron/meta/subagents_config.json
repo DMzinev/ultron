@@ -41,7 +41,7 @@
       "objectives": [
         "Ensure the system changes align with the original execution contract.",
         "Review both the Builder claims and the Auditor's objections.",
-        "Authorize state changes in ROADMAP.md and PROJECT_STATUS.md if and only if verification is 100% complete."
+        "Authorize state changes in ROADMAP.md if and only if verification is 100% complete."
       ],
       "instructions": [
         "1. Compare Builder's proposed status change in ROADMAP.md with the actual task bounds.",

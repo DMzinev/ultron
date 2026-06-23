@@ -210,7 +210,7 @@ and --detail output for each.
 ---
 
 ## Later (not yet scoped into atomic tasks)
-- **[Outstanding]** Run `python ultron/ultron.py --check-anomaly ultron/risk.py` with the updated classifier to confirm the two known false positives (`abspath`, `keys`) no longer appear. This is the real-file confirmation missing from the 2026-06-21 unit-test-only fix.
+- **[Outstanding]** Run `python ultron/interfaces/ultron.py --check-anomaly ultron/core/risk.py` with the updated classifier to confirm the two known false positives (`abspath`, `keys`) no longer appear. This is the real-file confirmation missing from the 2026-06-21 unit-test-only fix.
 - Fix the typo-classifier false positives (stdlib + method-call awareness) — *partial fix landed 2026-06-21; real-file confirmation above is still outstanding*
 - Test mutation/fuzzing against a boundary-sensitive mutation (`>` vs `>=`),
   not just literal renames

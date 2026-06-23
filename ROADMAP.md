@@ -83,7 +83,7 @@ so far are trivial refactors; none test a boundary-sensitive case like
 Flags identifiers that look like likely misspellings of names used elsewhere
 in the codebase.
 
-**Real-file audit result (2026-06-21):** Running `--check-anomaly ultron/risk.py` on the
+**Real-file audit result (2026-06-21):** Running `--check-anomaly ultron/core/risk.py` on the
 repository produced 36 warnings. The original two false positives (`abspath`, `keys`) are
 no longer present — that fix worked. But the Markov Causal Flow layer now generates ~35
 new anomalies, all at 0.00% probability. Root cause: the model is trained on the same

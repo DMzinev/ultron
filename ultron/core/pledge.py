@@ -2,8 +2,10 @@ import os
 import json
 import time
 
-PLEDGE_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta", "active_pledges.json")
-LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta", "experiment_log.jsonl")
+_dir = os.path.dirname(os.path.abspath(__file__))
+_root = os.path.abspath(os.path.join(_dir, "..", ".."))
+PLEDGE_DB_PATH = os.path.join(_root, "ultron", "meta", "active_pledges.json")
+LOG_PATH = os.path.join(_root, "ultron", "meta", "experiment_log.jsonl")
 
 def load_active_pledges():
     if not os.path.exists(PLEDGE_DB_PATH):

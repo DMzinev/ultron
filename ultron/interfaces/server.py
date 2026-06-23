@@ -7,8 +7,14 @@ import traceback
 import shutil
 import subprocess
 
-# Ensure the parent folder/ultron path is in the import search path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Configure sys.path to find moved files under their new subdirectories
+_dir = os.path.dirname(os.path.abspath(__file__))
+_root = os.path.abspath(os.path.join(_dir, "..", ".."))
+for _subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
+    sys.path.append(os.path.abspath(os.path.join(_root, "ultron", _subdir)))
+sys.path.append(_root)
+sys.path.append(os.path.abspath(os.path.join(_root, "umags")))
+
 import analyzer
 import risk
 import prompt
@@ -18,6 +24,8 @@ import delta
 import pledge
 import fuzz
 import logistic
+import design_oracle
+
 
 LAST_ANALYSIS = {
     "file_path": None,
@@ -121,6 +129,8 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_pledge_verify()
         elif self.path == "/api/report":
             self.handle_report()
+        elif self.path == "/api/design-oracle":
+            self.handle_design_oracle()
         else:
             self.send_response(404)
             self.send_header("Content-Type", "application/json")
@@ -358,8 +368,8 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             test_cmd = [sys.executable, "-m", "unittest", "discover"]
             if os.path.exists(os.path.join(repo_path, "run_tests.py")):
                 test_cmd = [sys.executable, "run_tests.py"]
-            elif os.path.exists(os.path.join(repo_path, "ultron", "run_tests.py")):
-                test_cmd = [sys.executable, "ultron/run_tests.py"]
+            elif os.path.exists(os.path.join(repo_path, "ultron", "tests", "run_tests.py")):
+                test_cmd = [sys.executable, "ultron/tests/run_tests.py"]
                 
             res = subprocess.run(
                 test_cmd,
@@ -448,7 +458,7 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             
             test_file_path = os.path.join(repo_path, "run_tests.py")
             if not os.path.exists(test_file_path):
-                test_file_path = os.path.join(repo_path, "ultron", "run_tests.py")
+                test_file_path = os.path.join(repo_path, "ultron", "tests", "run_tests.py")
                 
             codebase = analyzer.analyze_directory(repo_path)
             predictions = predict.predict_test_impact(codebase, changed_files, changed_functions, test_file_path)
@@ -497,7 +507,7 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_playground(self):
         try:
-            playground_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scratch", "ultron_playground"))
+            playground_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "scratch", "ultron_playground"))
             os.makedirs(playground_dir, exist_ok=True)
             
             # 1. Write math_utils.py (sample file with McCabe complexity and mutual coupling)
@@ -572,7 +582,7 @@ if __name__ == "__main__":
                 f.write(run_tests_code)
                 
             # 4. Write mock synapse ledger records to project's synapse folder
-            synapse_mutator_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "synapse_project", "synapse_mutator"))
+            synapse_mutator_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "synapse_project", "synapse_mutator"))
             os.makedirs(synapse_mutator_dir, exist_ok=True)
             ledger_file = os.path.join(synapse_mutator_dir, "ledger.jsonl")
             
@@ -606,7 +616,9 @@ if __name__ == "__main__":
                 self.send_json_response(400, {"error": "Missing 'file' parameter."})
                 return
                 
-            feedback_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta", "human_feedback.jsonl")
+            _dir = os.path.dirname(os.path.abspath(__file__))
+            _root = os.path.abspath(os.path.join(_dir, "..", ".."))
+            feedback_path = os.path.join(_root, "ultron", "meta", "human_feedback.jsonl")
             os.makedirs(os.path.dirname(feedback_path), exist_ok=True)
             
             import time
@@ -670,7 +682,9 @@ if __name__ == "__main__":
 
     def handle_report(self):
         try:
-            log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta", "experiment_log.jsonl")
+            _dir = os.path.dirname(os.path.abspath(__file__))
+            _root = os.path.abspath(os.path.join(_dir, "..", ".."))
+            log_path = os.path.join(_root, "ultron", "meta", "experiment_log.jsonl")
             
             total_pledges = 0
             kept_pledges = 0
@@ -775,6 +789,88 @@ if __name__ == "__main__":
             })
         except Exception as e:
             self.send_json_response(500, {"error": str(e)})
+
+    def handle_design_oracle(self):
+        try:
+            data = self.get_post_data()
+            if not isinstance(data, dict):
+                self.send_json_response(400, {"error": "Invalid request payload. Expected JSON object."})
+                return
+                
+            action = data.get("action")
+            if action not in ("audit", "recommend", "simulate"):
+                self.send_json_response(400, {"error": f"Invalid or missing action '{action}'. Must be 'audit', 'recommend', or 'simulate'."})
+                return
+                
+            repo = data.get("repo", "")
+            codebase = {}
+            repo_path = ""
+            if action in ("audit", "simulate") or (action == "recommend" and repo):
+                if not isinstance(repo, str) or not repo.strip():
+                    self.send_json_response(400, {"error": "Missing or empty 'repo' parameter."})
+                    return
+                repo_path = os.path.abspath(repo)
+                if not os.path.isdir(repo_path):
+                    self.send_json_response(400, {"error": f"Repository path '{repo_path}' is not a directory."})
+                    return
+                codebase = analyzer.analyze_directory(repo_path)
+
+            if action == "audit":
+                cycles = design_oracle.detect_circular_dependencies(codebase)
+                globals_found = design_oracle.detect_global_mutations(codebase, repo_path)
+                self.send_json_response(200, {
+                    "success": True,
+                    "circular_dependencies": cycles,
+                    "global_mutations": globals_found
+                })
+                
+            elif action == "recommend":
+                intent = data.get("intent")
+                if not isinstance(intent, str) or not intent.strip():
+                    self.send_json_response(400, {"error": "Missing or empty 'intent' parameter."})
+                    return
+                if len(intent) > 5000:
+                    self.send_json_response(400, {"error": "Intent length exceeds limit of 5000 characters."})
+                    return
+                recommendations = design_oracle.recommend_patterns(codebase, intent)
+                self.send_json_response(200, {
+                    "success": True,
+                    "recommendations": recommendations
+                })
+                
+            elif action == "simulate":
+                src_file = data.get("src_file")
+                dest_file = data.get("dest_file")
+                if not isinstance(src_file, str) or not src_file.strip():
+                    self.send_json_response(400, {"error": "Missing or empty 'src_file' parameter."})
+                    return
+                if not isinstance(dest_file, str) or not dest_file.strip():
+                    self.send_json_response(400, {"error": "Missing or empty 'dest_file' parameter."})
+                    return
+                    
+                src_file_norm = src_file.replace("\\", "/").strip()
+                dest_file_norm = dest_file.replace("\\", "/").strip()
+                
+                if src_file_norm not in codebase:
+                    self.send_json_response(400, {"error": f"Source file '{src_file_norm}' not found in codebase."})
+                    return
+                if dest_file_norm not in codebase:
+                    self.send_json_response(400, {"error": f"Destination file '{dest_file_norm}' not found in codebase."})
+                    return
+                    
+                res = design_oracle.simulate_future_coupling(codebase, src_file_norm, dest_file_norm)
+                self.send_json_response(200, {
+                    "success": True,
+                    "simulation": res
+                })
+                
+        except (ValueError, TypeError) as e:
+            self.send_json_response(400, {"error": str(e)})
+        except Exception as e:
+            self.send_json_response(500, {
+                "error": f"Internal Server Error: {e}",
+                "traceback": traceback.format_exc()
+            })
 
 def serve():
     # Make sure static files folder exists

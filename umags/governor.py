@@ -11,15 +11,16 @@ def get_git_diff(repo_path, files):
             ["git", "rev-parse", "--is-inside-work-tree"],
             capture_output=True,
             text=True,
-            cwd=repo_path
+            cwd=repo_path,
+            errors="ignore"
         )
         if chk.returncode == 0 and chk.stdout.strip() == "true":
-            cmd = ["git", "diff"] + files
-            res = subprocess.run(cmd, capture_output=True, text=True, cwd=repo_path)
+            cmd = ["git", "diff", "--cached", "--find-renames"]
+            res = subprocess.run(cmd, capture_output=True, text=True, cwd=repo_path, errors="ignore")
             if res.returncode == 0 and res.stdout.strip():
                 return res.stdout
-    except Exception:
-        pass
+    except Exception as e:
+        sys.stderr.write(f"Warning: Git diff check failed: {e}\n")
         
     # Fallback to diffing against .bak files in the directory
     diff_text = ""
@@ -38,8 +39,8 @@ def get_git_diff(repo_path, files):
                     tofile=f
                 )
                 diff_text += "".join(diff) + "\n"
-            except Exception:
-                pass
+            except Exception as e:
+                sys.stderr.write(f"Warning: Fallback diff generation failed for {f}: {e}\n")
     return diff_text
 
 def run_tests(repo_path, cmd_str):
@@ -56,7 +57,7 @@ def main():
     parser = argparse.ArgumentParser(description="Ultron Governor: Compiles the AUDIT_PACKAGE evidence contract")
     parser.add_argument("--task", required=True, help="Task ID (e.g. Task-1)")
     parser.add_argument("--files", required=True, help="Comma-separated target files")
-    parser.add_argument("--test-cmd", default="python ultron/run_tests.py", help="Test execution command")
+    parser.add_argument("--test-cmd", default="python ultron/tests/run_tests.py", help="Test execution command")
     parser.add_argument("--outcomes", required=True, help="Expected outcomes description")
     parser.add_argument("--limitations", required=True, help="Declared known limitations or constraints")
     parser.add_argument("--self-audit", default="", help="Self-audit checklist results summary")
@@ -77,8 +78,8 @@ def main():
         h_res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=repo_path)
         if h_res.returncode == 0:
             commit_hash = h_res.stdout.strip()
-    except Exception:
-        pass
+    except Exception as e:
+        sys.stderr.write(f"Warning: Git commit hash check failed: {e}\n")
 
     # Read plan hash from EXECUTION_PLAN.md if exists
     plan_hash = "N/A"
@@ -87,8 +88,8 @@ def main():
         try:
             with open(plan_path, "r", encoding="utf-8") as f:
                 plan_hash = str(hash(f.read()))
-        except Exception:
-            pass
+        except Exception as e:
+            sys.stderr.write(f"Warning: Execution plan read failed: {e}\n")
 
     package = {
         "TASK_ID": args.task,

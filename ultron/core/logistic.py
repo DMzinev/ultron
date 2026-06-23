@@ -2,7 +2,9 @@ import os
 import json
 import math
 
-WEIGHTS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta", "logistic_weights.json")
+_dir = os.path.dirname(os.path.abspath(__file__))
+_root = os.path.abspath(os.path.join(_dir, "..", ".."))
+WEIGHTS_PATH = os.path.join(_root, "ultron", "meta", "logistic_weights.json")
 
 DEFAULT_COEFFICIENTS = {
     "beta_0": -1.0,  # intercept

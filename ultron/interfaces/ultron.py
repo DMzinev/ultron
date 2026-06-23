@@ -3,12 +3,19 @@ import sys
 import os
 import json
 
-# Ensure local folder is in import search path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add repository root and micro folders to sys.path to enable absolute/flat imports
+_dir = os.path.dirname(os.path.abspath(__file__))
+_root = os.path.abspath(os.path.join(_dir, "..", ".."))
+for _subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
+    sys.path.append(os.path.abspath(os.path.join(_root, "ultron", _subdir)))
+sys.path.append(_root)
+sys.path.append(os.path.abspath(os.path.join(_root, "umags")))
+
 import analyzer
 import risk
 import prompt
 import classifier
+import translate
 
 def main():
     parser = argparse.ArgumentParser(description="Ultron: AI Pre-Execution Boundary Optimizer")
@@ -20,13 +27,11 @@ def main():
     parser.add_argument("--typo-threshold", type=float, default=0.75, help="Spelling similarity threshold (0.0 to 1.0) for typo detection")
     parser.add_argument("--prob-threshold", type=float, default=0.0, help="Probability threshold (0.0 to 1.0) for call transition anomalies")
     parser.add_argument("--json", action="store_true", help="Output results in JSON format to stdout")
+    parser.add_argument("--detail", action="store_true", help="Show detailed risk statistics and formula breakdown")
     args = parser.parse_args()
     
     def log(msg):
-        if args.json:
-            print(msg, file=sys.stderr)
-        else:
-            print(msg)
+        print(msg, file=sys.stderr)
             
     repo_path = os.path.abspath(args.repo)
     if not os.path.isdir(repo_path):
@@ -113,9 +118,10 @@ def main():
         }))
     else:
         if not args.output:
-            print("\n" + "="*80)
-            print(opt_prompt)
-            print("="*80 + "\n")
+            for r in risks:
+                print(translate.plain_language_summary(r))
+                if args.detail:
+                    print(translate.detailed_breakdown(r))
 
 if __name__ == "__main__":
     main()

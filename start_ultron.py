@@ -26,7 +26,7 @@ def main():
     install_deps()
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    server_script = os.path.join(script_dir, "ultron", "server.py")
+    server_script = os.path.join(script_dir, "ultron", "interfaces", "server.py")
     
     if not os.path.exists(server_script):
         print(f"[-] Error: Server script not found at {server_script}")

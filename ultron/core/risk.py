@@ -13,7 +13,7 @@ def load_mkr_stats(ledger_path=None):
     global _MKR_CACHE, _LAST_CACHE_TIME
     if not ledger_path:
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        ledger_path = os.path.abspath(os.path.join(script_dir, "..", "synapse_project", "synapse_mutator", "ledger.jsonl"))
+        ledger_path = os.path.abspath(os.path.join(script_dir, "..", "..", "synapse_project", "synapse_mutator", "ledger.jsonl"))
     
     if os.path.exists(ledger_path):
         try:

@@ -94,10 +94,15 @@ def compute_cest_divergence(file_path, old_code, new_code, repo_path=None):
             
         harness_code = f"""
 import sys
+import os
 import json
 import traceback
 
 sys.path.append({repr(repo_path)})
+# Add micro folders to sys.path for the subprocess
+for subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
+    sys.path.append(os.path.abspath(os.path.join({repr(repo_path)}, "ultron", subdir)))
+sys.path.append(os.path.abspath(os.path.join({repr(repo_path)}, "umags")))
 sys.path.append({repr(tmpdir)})
 
 import old_mod

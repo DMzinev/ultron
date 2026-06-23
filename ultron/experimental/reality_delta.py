@@ -7,13 +7,15 @@ import subprocess
 import shlex
 
 # Import prediction engine for weights calibration
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+_dir = os.path.dirname(os.path.abspath(__file__))
+_root = os.path.abspath(os.path.join(_dir, "..", ".."))
+sys.path.append(os.path.abspath(os.path.join(_root, "ultron", "experimental")))
 import delta
 
-FUSION_WEIGHTS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta", "fusion_weights.json")
-REALITY_DELTAS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta", "reality_deltas.jsonl")
-HUMAN_FEEDBACK_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta", "human_feedback.jsonl")
-LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta", "experiment_log.jsonl")
+FUSION_WEIGHTS_PATH = os.path.join(_root, "ultron", "meta", "fusion_weights.json")
+REALITY_DELTAS_PATH = os.path.join(_root, "ultron", "meta", "reality_deltas.jsonl")
+HUMAN_FEEDBACK_PATH = os.path.join(_root, "ultron", "meta", "human_feedback.jsonl")
+LOG_PATH = os.path.join(_root, "ultron", "meta", "experiment_log.jsonl")
 
 DEFAULT_FUSION_WEIGHTS = {
     "w_test": 0.35,

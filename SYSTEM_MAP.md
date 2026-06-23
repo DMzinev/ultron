@@ -1,4 +1,4 @@
-﻿# SYSTEM MAP
+# SYSTEM MAP
 ## Read this before any other file. This is the ground truth.
 
 ---
@@ -33,22 +33,22 @@ The risk-scoring / governance / mutation testing system.
 
 | File | Status |
 |---|---|
-| `ultron/analyzer.py` | DONE — parses AST, call graph, git history |
-| `ultron/risk.py` | DONE — Impact Score, HIGH/MEDIUM/LOW tiers |
-| `ultron/translate.py` | DONE — plain English output, --detail flag (Task 6) |
-| `ultron/ultron.py` | DONE — CLI entry point |
-| `ultron/classifier.py` | FIX UNCONFIRMED — stdlib false-positive fix landed but not tested on real files yet |
-| `ultron/blind_rate.py` | DONE — score-hidden human rating tool (Task 3) |
-| `ultron/logistic.py` | UNVALIDATED — falls back to hardcoded weights (not enough real data) |
-| `ultron/fuzz.py` | UNVALIDATED — random input pool, not boundary-aware |
-| `ultron/predict.py` | UNVALIDATED |
-| `ultron/guard.py` | UNVALIDATED |
-| `ultron/design_oracle.py` | UNVALIDATED — reclassified from UMAGS 2026-06-21 |
-| `ultron/reality_delta.py` | UNVALIDATED — reclassified from UMAGS 2026-06-21 |
-| `ultron/delta.py` | UNVALIDATED — reclassified from UMAGS 2026-06-21 |
-| `ultron/models.py` | STABLE — AnalysisPacket dataclass |
-| `ultron/server.py` | WORKING — HTTP API |
-| `ultron/run_tests.py` | 19 tests passing |
+| `ultron/core/analyzer.py` | DONE — parses AST, call graph, git history |
+| `ultron/core/risk.py` | DONE — Impact Score, HIGH/MEDIUM/LOW tiers |
+| `ultron/core/translate.py` | DONE — plain English output, --detail flag (Task 6) |
+| `ultron/interfaces/ultron.py` | DONE — CLI entry point |
+| `ultron/core/classifier.py` | FIX UNCONFIRMED — stdlib false-positive fix landed but not tested on real files yet |
+| `ultron/validation/blind_rate.py` | DONE — score-hidden human rating tool (Task 3) |
+| `ultron/core/logistic.py` | UNVALIDATED — falls back to hardcoded weights (not enough real data) |
+| `ultron/core/fuzz.py` | UNVALIDATED — random input pool, not boundary-aware |
+| `ultron/core/predict.py` | UNVALIDATED |
+| `ultron/core/guard.py` | UNVALIDATED |
+| `ultron/experimental/design_oracle.py` | UNVALIDATED — reclassified from UMAGS 2026-06-21 |
+| `ultron/experimental/reality_delta.py` | UNVALIDATED — reclassified from UMAGS 2026-06-21 |
+| `ultron/experimental/delta.py` | UNVALIDATED — reclassified from UMAGS 2026-06-21 |
+| `ultron/core/models.py` | STABLE — AnalysisPacket dataclass |
+| `ultron/interfaces/server.py` | WORKING — HTTP API |
+| `ultron/tests/run_tests.py` | 19 tests passing |
 
 ### ultron/meta/ — runtime data files
 
@@ -75,6 +75,11 @@ Contains NO risk-scoring code. The moment it does, it has become an undeclared s
 | `PROTOCOL.md` | Moment-to-moment rules |
 | `umags/checks.py` | AST scope and diff verification |
 | `umags/failure_space.py` | Pure counter: untested paths + missing boundaries = R |
+| `umags/governor.py` | Compiles audit evidence |
+| `umags/run_verification_loop.py` | Runs the B/A/J/H loop |
+| `umags/tools/analyze_blind_study.py` | Spearman correlation calculation for study |
+| `umags/tools/run_stratified_sampling.py` | Generates stratified samples for study |
+| `umags/tools/compare_ai_ratings.py` | Compares AI ratings against formula |
 | `ROADMAP.md` | Feature status (DONE / UNVALIDATED / INERT / SPECULATIVE) |
 | `EXECUTION_PLAN.md` | Atomic task list with done/parked status |
 | `PROJECT_LOG.md` | Claim-and-evidence log |

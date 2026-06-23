@@ -4,7 +4,9 @@ import json
 import subprocess
 import time
 
-META_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta")
+_dir = os.path.dirname(os.path.abspath(__file__))
+_root = os.path.abspath(os.path.join(_dir, "..", ".."))
+META_DIR = os.path.join(_root, "ultron", "meta")
 LEDGER_PATH = os.path.join(META_DIR, "evolution_ledger.json")
 
 def initialize_ledger():
@@ -44,10 +46,10 @@ def write_ledger(ledger):
 def run_test_suite():
     print("[Meta-Ultron] Running test suite (run_tests.py)...")
     res = subprocess.run(
-        [sys.executable, "ultron/run_tests.py"],
+        [sys.executable, "ultron/tests/run_tests.py"],
         capture_output=True,
         text=True,
-        cwd=os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        cwd=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     )
     passed = res.returncode == 0
     print(res.stdout)
@@ -61,10 +63,10 @@ def run_test_suite():
 def run_controlled_experiment():
     print("[Meta-Ultron] Setting up and running controlled experiment...")
     # Execute Ultron CLI against our sandboxed anomaly target
-    cwd = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    cwd = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     res = subprocess.run(
         [
-            sys.executable, "ultron/ultron.py",
+            sys.executable, "ultron/interfaces/ultron.py",
             "--repo", "scratch/test_anomaly_dir",
             "--check-anomaly", "scratch/test_anomaly_dir/target_anomaly.py",
             "--json"

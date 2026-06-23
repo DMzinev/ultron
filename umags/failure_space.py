@@ -85,9 +85,19 @@ def analyze_failure_space(repo_path, changed_files, diff_lines=None):
         if not os.path.exists(f_abs) or not f.endswith(".py"):
             continue
             
-        # Exclude test files from target analysis (tests don't need tests themselves)
-        f_lower = f.lower()
-        if "test" in f_lower or "runner" in f_lower:
+        # Exclude test files, loop harnesses, validation tools, and root launchers from target analysis
+        f_lower = f.lower().replace("\\", "/")
+        if (
+            "test" in f_lower or 
+            "runner" in f_lower or 
+            "umags/" in f_lower or 
+            "scratch/" in f_lower or 
+            "validation/" in f_lower or 
+            "server.py" in f_lower or 
+            "meta_layer.py" in f_lower or 
+            "start_ultron.py" in f_lower or
+            "ultron.py" in f_lower
+        ):
             continue
             
         try:

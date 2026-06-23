@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.bak
+*.bak
+.idea/
+.vscode/
+.agents/
+.synapse/
+ultron/meta/audit_package.yaml
+ultron/meta/audit_telemetry.jsonl

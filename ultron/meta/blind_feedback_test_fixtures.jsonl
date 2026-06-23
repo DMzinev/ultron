@@ -1,0 +1,2 @@
+{"file": "synapse_project/synapse_mutator/mutate.py", "rater_id": "RATER_1", "complexity_rating": 3, "critical_boundary": true, "reasoning": "Initial automated test rating", "timestamp": "2026-06-21T08:48:04Z"}
+{"file": "ultron/guard.py", "rater_id": "RATER_2", "complexity_rating": 4, "critical_boundary": false, "reasoning": "Second automated test rating", "timestamp": "2026-06-21T08:48:13Z"}

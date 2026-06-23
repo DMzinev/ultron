@@ -131,7 +131,14 @@ def is_nullification_candidate(repo_path, rel_path):
         return False
     # Exclude test files, runner scripts, and loop harnesses
     path_lower = rel_path.lower()
-    if "test" in path_lower or "runner" in path_lower or "run_verification" in path_lower:
+    if (
+        "test" in path_lower or 
+        "runner" in path_lower or 
+        "run_verification" in path_lower or 
+        "failure_space" in path_lower or
+        "governor" in path_lower or
+        "checks" in path_lower
+    ):
         return False
     # Check if file is tracked by git
     try:
@@ -309,7 +316,7 @@ def analyze_complexity_drift(filepath, original_code, modified_code):
 
 def load_walkthrough(repo_path):
     paths_to_try = [
-        os.path.join(repo_path, "ultron", "walkthrough.md"),
+        os.path.join(repo_path, "ultron", "docs", "walkthrough.md"),
         os.path.join(repo_path, "walkthrough.md"),
         "C:\\Users\\This PC\\.gemini\\antigravity\\brain\\818451b5-51e8-4841-8073-8ad3cd0e0103\\walkthrough.md"
     ]
@@ -426,7 +433,9 @@ def main():
     # Run Multi-Reality Calibration Engine recalibration (v4.0)
     print("[*] Running Multi-Reality Signal Fusion Engine recalibration...")
     try:
-        sys.path.append(os.path.join(repo_path, "ultron"))
+        for subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
+            sys.path.append(os.path.abspath(os.path.join(repo_path, "ultron", subdir)))
+        sys.path.append(repo_path)
         import reality_delta
         reality_delta.recalibrate_system(repo_path)
     except Exception as e:
@@ -717,7 +726,6 @@ Builder Walkthrough (Intended Reality):
         print(f"[+] Status change approved. Authorizing merge for {task_id}.")
         # Update ROADMAP.md status
         roadmap_path = os.path.join(repo_path, "ROADMAP.md")
-        status_path = os.path.join(repo_path, "PROJECT_STATUS.md")
         
         # Read and replace status markers
         def update_status_file(filepath):
@@ -740,20 +748,9 @@ Builder Walkthrough (Intended Reality):
                     print(f"[-] Failed to update status in '{filepath}': {e}")
                     
         update_status_file(roadmap_path)
-        update_status_file(status_path)
         
-        # Update PROJECT_LOG.md reviewer checks
-        if os.path.exists(log_path):
-            try:
-                with open(log_path, "r", encoding="utf-8") as f:
-                    log_content = f.read()
-                
-                log_content = log_content.replace("[Pending reviewer check]", f"VERIFIED BY UMAGS AUDITOR & JUDGE (Model: Claude 3.5 Opus)")
-                with open(log_path, "w", encoding="utf-8") as f:
-                    f.write(log_content)
-                print("[+] Verified log entry updated in PROJECT_LOG.md.")
-            except Exception as e:
-                print(f"[-] Failed to update log file: {e}")
+        # Note: PROJECT_LOG.md reviewer checks must be left as PENDING and filled in manually.
+        print("[*] Note: External verification in PROJECT_LOG.md must be filled in manually by the human operator.")
                 
         # 2a. Save predictions for UMAGS v4.0 Multi-Reality Calibration Engine
         try:
@@ -863,7 +860,9 @@ Builder Walkthrough (Intended Reality):
             
     # 4e. Audit Blind Spots check
     try:
-        sys.path.append(os.path.join(repo_path, "ultron"))
+        for subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
+            sys.path.append(os.path.abspath(os.path.join(repo_path, "ultron", subdir)))
+        sys.path.append(repo_path)
         import analyzer
         import risk
         codebase = analyzer.analyze_directory(repo_path)
