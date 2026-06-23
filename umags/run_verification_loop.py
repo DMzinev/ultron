@@ -449,6 +449,10 @@ def main():
         
     package = parse_yaml(pkg_path)
     task_id = package.get("TASK_ID", "Unknown-Task")
+    task_type = package.get("TASK_TYPE", "LOGIC_CHANGE").strip().upper()
+    if task_type not in ("LOGIC_CHANGE", "STRUCTURE_ONLY"):
+        print(f"[!] Warning: Unrecognized TASK_TYPE '{task_type}', defaulting to LOGIC_CHANGE.")
+        task_type = "LOGIC_CHANGE"
     changed_files = package.get("CHANGED_FILES", [])
     test_commands = package.get("TEST_COMMANDS", [])
     
@@ -464,7 +468,12 @@ def main():
     
     # 2. AUDITOR STEPS
     print(f"====================================================================")
-    print(f"🔍 AUDITOR (Claude 3.5 Opus)")
+    # Auditor runs: (a) mechanical scope/test checks always, (b) cognitive LLM review
+    # only when ANTHROPIC_API_KEY or GEMINI_API_KEY is set in the environment.
+    # The label below reflects which path will execute.
+    _has_api_key = bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("GEMINI_API_KEY"))
+    _auditor_label = "🔍 AUDITOR (Mechanical + Cognitive LLM)" if _has_api_key else "🔍 AUDITOR (Mechanical Scope & Test Verifier — no API key set)"
+    print(_auditor_label)
     print(f"====================================================================")
     print(f"[*] Auditor: Starting independent verification for {task_id}...")
     auditor_comments = []
@@ -512,7 +521,11 @@ def main():
             print("[+] Verification passed: Baseline test suite passed.")
             
     # Programmatic Nullification Check (Anti-Test Laundering)
-    if not test_failed_baseline and changed_files:
+    # SKIPPED for STRUCTURE_ONLY tasks: content did not change, reverting a moved file
+    # would only confirm that an empty/old path makes tests fail, which is trivially true.
+    if task_type == "STRUCTURE_ONLY":
+        print("[*] Nullification check: SKIPPED (STRUCTURE_ONLY — no content changed).")
+    elif not test_failed_baseline and changed_files:
         print("[*] Running programmatic Nullification check...")
         nullification_passed = True
         
@@ -560,68 +573,76 @@ def main():
                     os.remove(temp_backup)
                     
         if not nullification_passed:
-            auditor_verified = False
+            auditor_verified = False    # Programmatic UMAGS AST-based Rules and Residual Risk checks
+    # SKIPPED for STRUCTURE_ONLY: relocated-but-unmodified files produce only
+    # false-positive drift noise (every moved function appears "new").
+    if task_type == "STRUCTURE_ONLY":
+        print("[*] AST compliance + Residual Risk checks: SKIPPED (STRUCTURE_ONLY — no content changed).")
+        R = 0
+    else:
+        print("[*] Running UMAGS programmatic AST compliance checks...")
+        sys.path.append(repo_path)
+        R = 0
+        try:
+            from umags.checks import check_file_ast
+            from umags.failure_space import analyze_failure_space
             
-    # Programmatic UMAGS AST-based Rules and Residual Risk checks
-    print("[*] Running UMAGS programmatic AST compliance checks...")
-    sys.path.append(repo_path)
-    R = 0
-    try:
-        from umags.checks import check_file_ast
-        from umags.failure_space import analyze_failure_space
-        
-        # Parse diff lines to get modified line numbers
-        diff_lines = parse_patch_diff_lines(patch_diff)
-        
-        ast_ok = True
-        for f in changed_files:
-            f_abs = os.path.join(repo_path, f)
-            if os.path.exists(f_abs) and f.endswith(".py"):
-                f_norm = f.replace("\\", "/").lower()
-                if f_norm in diff_lines:
-                    file_changed_lines = diff_lines[f_norm]
-                else:
-                    # If file is untracked (new file), check all lines.
-                    # If it is tracked but unmodified in diff, check no lines.
-                    is_untracked = False
-                    try:
-                        res = subprocess.run(["git", "ls-files", "--error-unmatch", f], cwd=repo_path, capture_output=True)
-                        is_untracked = (res.returncode != 0)
-                    except Exception as e:
-                        _err = e
-                    file_changed_lines = None if is_untracked else set()
+            # Parse diff lines to get modified line numbers
+            diff_lines = parse_patch_diff_lines(patch_diff)
+            
+            ast_ok = True
+            for f in changed_files:
+                f_abs = os.path.join(repo_path, f)
+                if os.path.exists(f_abs) and f.endswith(".py"):
+                    f_norm = f.replace("\\", "/").lower()
+                    if f_norm in diff_lines:
+                        file_changed_lines = diff_lines[f_norm]
+                    else:
+                        # If file is untracked (new file), check all lines.
+                        # If it is tracked but unmodified in diff, check no lines.
+                        is_untracked = False
+                        try:
+                            res = subprocess.run(["git", "ls-files", "--error-unmatch", f], cwd=repo_path, capture_output=True)
+                            is_untracked = (res.returncode != 0)
+                        except Exception as e:
+                            _err = e
+                        file_changed_lines = None if is_untracked else set()
+                    
+                    violations = check_file_ast(f_abs, changed_lines=file_changed_lines)
+                    if violations:
+                        ast_ok = False
+                        for v in violations:
+                            obj = f"AST Violation in '{f}' line {v['line']}: [{v['rule']}] {v['message']}"
+                            auditor_comments.append(f"Objection: {obj}")
+                            print(f"[-] {obj}")
+            if ast_ok:
+                print("[+] Programmatic AST compliance checks passed.")
+            else:
+                auditor_verified = False
                 
-                violations = check_file_ast(f_abs, changed_lines=file_changed_lines)
-                if violations:
-                    ast_ok = False
-                    for v in violations:
-                        obj = f"AST Violation in '{f}' line {v['line']}: [{v['rule']}] {v['message']}"
-                        auditor_comments.append(f"Objection: {obj}")
-                        print(f"[-] {obj}")
-        if ast_ok:
-            print("[+] Programmatic AST compliance checks passed.")
-        else:
-            auditor_verified = False
+            print("[*] Running programmatic Failure Space / Residual Risk analysis...")
+            untested, missing_bounds, R = analyze_failure_space(repo_path, changed_files, diff_lines=diff_lines)
+            print(f"  - Untested Paths: {', '.join(untested) if untested else 'None'}")
+            print(f"  - Missing Boundary Cases: {', '.join(missing_bounds) if missing_bounds else 'None'}")
+            print(f"  - Residual Risk Score (R): {R}")
             
-        print("[*] Running programmatic Failure Space / Residual Risk analysis...")
-        untested, missing_bounds, R = analyze_failure_space(repo_path, changed_files, diff_lines=diff_lines)
-        print(f"  - Untested Paths: {', '.join(untested) if untested else 'None'}")
-        print(f"  - Missing Boundary Cases: {', '.join(missing_bounds) if missing_bounds else 'None'}")
-        print(f"  - Residual Risk Score (R): {R}")
-        
-        if R > 0:
-            auditor_comments.append(f"Objection: Residual Risk Score R={R} is above threshold (0). Resolve untested paths or missing boundary guards/tests.")
+            if R > 0:
+                auditor_comments.append(f"Objection: Residual Risk Score R={R} is above threshold (0). Resolve untested paths or missing boundary guards/tests.")
+                auditor_verified = False
+                print(f"[-] Verification failed: Residual Risk Score R={R} > 0.")
+            else:
+                print("[+] Verification passed: Residual Risk Score R=0.")
+        except Exception as e:
+            print(f"[-] UMAGS Engine error during execution verification: {e}")
+            auditor_comments.append(f"Objection: UMAGS engine verification failed to execute: {e}")
             auditor_verified = False
-            print(f"[-] Verification failed: Residual Risk Score R={R} > 0.")
-        else:
-            print("[+] Verification passed: Residual Risk Score R=0.")
-    except Exception as e:
-        print(f"[-] UMAGS Engine error during execution verification: {e}")
-        auditor_comments.append(f"Objection: UMAGS engine verification failed to execute: {e}")
-        auditor_verified = False
-            
+
+
     # Cognitive Auditor check (evaluates code patch and task bounds, walkthrough is strictly excluded to prevent bias)
-    if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("GEMINI_API_KEY"):
+    # SKIPPED for STRUCTURE_ONLY: no logic changed, semantic review of relocated code is noise.
+    if task_type == "STRUCTURE_ONLY":
+        print("[*] Cognitive Auditor review: SKIPPED (STRUCTURE_ONLY — no content changed).")
+    elif os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("GEMINI_API_KEY"):
         print("[*] Auditor: Querying cognitive agent for semantic review (isolated from walkthrough)...")
         system_prompt = (
             "You are a hostile Auditor. Review the task specification, declared target files, and code patch (physics). "
@@ -752,57 +773,12 @@ Builder Walkthrough (Intended Reality):
         # Note: PROJECT_LOG.md reviewer checks must be left as PENDING and filled in manually.
         print("[*] Note: External verification in PROJECT_LOG.md must be filled in manually by the human operator.")
                 
-        # 2a. Save predictions for UMAGS v4.0 Multi-Reality Calibration Engine
-        try:
-            import risk
-            import analyzer
-            import fuzz
-            import reality_delta
-            import delta
-            REALITY_DELTAS_PATH = reality_delta.REALITY_DELTAS_PATH
-            
-            codebase = analyzer.analyze_directory(repo_path)
-            
-            # Default test command and log file path from package
-            default_test_cmd = test_commands[0] if test_commands else ""
-            default_log_path = os.path.join(repo_path, "ultron", "meta", "experiment_log.jsonl")
-            
-            for f in changed_files:
-                f_abs = os.path.join(repo_path, f)
-                if os.path.exists(f_abs) and f.endswith(".py"):
-                    orig_code = get_original_code(repo_path, f)
-                    with open(f_abs, "r", encoding="utf-8", errors="ignore") as file_obj:
-                        mod_code = file_obj.read()
-                        
-                    packet = risk.evaluate_diff_risk(codebase, f, orig_code, mod_code)
-                    delta_i = packet.impact_score
-                    mkr = packet.mk_r
-                    
-                    try:
-                        delta_cest = fuzz.compute_cest_divergence(f_abs, orig_code, mod_code, repo_path=repo_path)
-                    except Exception:
-                        delta_cest = 0.0
-                        
-                    predicted_risk = delta.predict_change_risk(delta_i, mkr, delta_cest)
-                    
-                    record = {
-                        "file": f,
-                        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                        "delta_i": float(delta_i),
-                        "mkr": float(mkr),
-                        "delta_cest": float(delta_cest),
-                        "predicted_risk": float(predicted_risk),
-                        "test_cmd": default_test_cmd,
-                        "log_path": default_log_path,
-                        "attribution": {"test": 0.0, "git": 0.0, "runtime": 0.0, "human": 0.0}
-                    }
-                    
-                    os.makedirs(os.path.dirname(REALITY_DELTAS_PATH), exist_ok=True)
-                    with open(REALITY_DELTAS_PATH, "a", encoding="utf-8") as ledger_file:
-                        ledger_file.write(json.dumps(record) + "\n")
-                    print(f"[+] Reality prediction vector logged for '{f}' (P={predicted_risk:.3f}).")
-        except Exception as e:
-            print(f"[-] Failed to log prediction vector for calibration: {e}")
+        # NOTE: Per-file reality_delta/delta.predict_change_risk prediction logging has been
+        # REMOVED. The P-values produced by delta.predict_change_risk are unvalidated
+        # (no ground-truth outcome data, no disjoint evaluation set, no calibration evidence).
+        # Re-enable only after ROADMAP.md validation requirements for this subsystem are met.
+        # The O(n_files) per-file loop was also the primary source of redundant compute on
+        # structural-only tasks — see PROTOCOL.md task-type tiers.
                 
         print("Verdict: APPROVED")
     else:

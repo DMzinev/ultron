@@ -61,6 +61,17 @@ def main():
     parser.add_argument("--outcomes", required=True, help="Expected outcomes description")
     parser.add_argument("--limitations", required=True, help="Declared known limitations or constraints")
     parser.add_argument("--self-audit", default="", help="Self-audit checklist results summary")
+    parser.add_argument(
+        "--task-type",
+        choices=["LOGIC_CHANGE", "STRUCTURE_ONLY"],
+        default="LOGIC_CHANGE",
+        help=(
+            "Task type controlling verification depth. "
+            "LOGIC_CHANGE (default): full suite — nullification, AST, residual risk, cognitive review. "
+            "STRUCTURE_ONLY: single full test run + import check only — no per-file nullification, "
+            "no AST drift, no architecture drift. Use only when no file content changed (git mv / rename only)."
+        )
+    )
     args = parser.parse_args()
 
     repo_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -93,6 +104,7 @@ def main():
 
     package = {
         "TASK_ID": args.task,
+        "TASK_TYPE": args.task_type,
         "BUILDER_VERSION": "v2.0",
         "COMMIT_HASH": commit_hash,
         "PLAN_HASH": plan_hash,

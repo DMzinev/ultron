@@ -87,6 +87,44 @@ haven't been collected by a human yet. This is a HUMAN-ONLY step.
 Logging BLOCKED to PROJECT_LOG.md and stopping here.
 ```
 
+## Task-Type Tiers: Matched Verification
+
+Not all tasks are the same, and running the full verification suite on every task
+regardless of what changed is the primary source of O(n_files) compute multipliers.
+
+Before running `run_verification_loop.py`, classify the task as one of two types:
+
+### STRUCTURE-ONLY
+A task is STRUCTURE-ONLY if and only if **no file's logic or content changed** —
+only its location, name, or import path changed. Examples: `git mv`, module renames,
+import path updates, directory reorganizations.
+
+**Verification for STRUCTURE-ONLY tasks:**
+- Run the full test suite **once** (`python ultron/tests/run_tests.py`)
+- Confirm `git status` shows the expected file movements and nothing else
+- Run one import-resolution check (`python -c "import ultron"` or equivalent)
+- **Skip:** per-file nullification, per-file AST drift, per-file reality scoring, architecture drift detection
+- **Rationale:** content did not change; per-file checks on relocated but unmodified code
+  produce only false-positive noise (every moved function appears "new" in drift detection)
+
+### LOGIC-CHANGE
+A task is LOGIC-CHANGE if **any file's content changed** — new functions, modified
+behavior, bug fixes, added tests, configuration changes.
+
+**Verification for LOGIC-CHANGE tasks:**
+- Run the full test suite
+- Run per-file nullification check for all `.py` files in `CHANGED_FILES`
+- Run AST compliance and residual-risk analysis
+- Run cognitive LLM review if API key is available
+- **Architecture drift detection** is informational only — do not fail on it for files
+  that were moved in a prior commit
+
+### How to declare in governor.py
+Add `--task-type STRUCTURE_ONLY` or `--task-type LOGIC_CHANGE` as a CLI argument.
+If omitted, the loop defaults to `LOGIC_CHANGE` (conservative).
+
+---
+
 ## One-line summary to keep in view
 
 **Read the task. Say what you're about to do before doing it. If it
