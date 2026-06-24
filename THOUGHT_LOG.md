@@ -21,3 +21,5 @@ This log is reserved for recording thinking processes, cognitive state tracking,
 [2026-06-24T10:45:00Z] About to run the governor to compile the evidence contract for the Pre-flight Risk Gate task. Evidence of success: governor.py runs successfully and writes the new audit package for this task.
 
 [2026-06-24T10:46:00Z] About to run the verification loop (run_verification_loop.py). Evidence of success: run_verification_loop.py executes successfully, runs the pre-flight risk gate (evaluating the modified files as HIGH risk because run_verification_loop.py is modified), executes the full verification checks, writes the telemetry record, and exits with an APPROVED verdict and an ESCALATE notice.
+
+[2026-06-24T10:55:00Z] About to run a fast path test on ultron/core/pledge.py. Action: add a comment to pledge.py, compile the audit package as STRUCTURE_ONLY, and run run_verification_loop.py. Evidence of success: the loop output clearly shows skipping nullification and cognitive review, and it passes without an ESCALATE flag (Verdict: APPROVED).
