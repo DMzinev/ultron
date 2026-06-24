@@ -1,1 +1,0 @@
-<!DOCTYPE html><html><body><script>fetch('/controllers/practiceController.js').then(r=>r.text()).then(code=>{try{new Function(code); fetch('/log?res=SUCCESS');}catch(e){fetch('/log?res=ERROR:'+encodeURIComponent(e.message+' at line '+e.lineNumber));}});</script></body></html>
