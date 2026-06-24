@@ -165,6 +165,11 @@ but those roles perform only the fast-path subset of checks.
 > that review happens at *planning time*, before governor is invoked.
 > UMAGS §1 is satisfied by the planning-time Critic, not by the loop.
 
+> [!IMPORTANT]
+> **The Two Cognitive-Review Paths:**
+> 1. **Platform-Level Subagents (Plan-Time Audit):** Triggered by calling `invoke_subagent` (e.g. for `auditor_critic`). These run in isolated sandboxes using the hosted platform's internal API keys and execute fully regardless of local environment variables.
+> 2. **Local Env-Gated Engine (Loop-Time Cognitive Checks):** Run inside `run_verification_loop.py` (e.g. loop-time Judge/Auditor) querying keys locally from `os.environ.get("ANTHROPIC_API_KEY")` or `os.environ.get("GEMINI_API_KEY")`. If these local env keys are absent, these loop checks are skipped/mechanical-only.
+
 ### FULL PATH — `HIGH tier`, OR `Category-B=true`, OR `LOGIC_CHANGE`
 
 All existing checks run. At the end of the loop, if `tier=HIGH` or

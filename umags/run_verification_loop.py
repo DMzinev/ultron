@@ -238,26 +238,50 @@ def get_log_bug_occurrences_for_file(repo_path, filepath):
     return occurrences
 
 def get_original_code(repo_path, rel_path):
-    f_abs = os.path.join(repo_path, rel_path)
-    f_bak = f_abs + ".bak"
-    if os.path.exists(f_bak):
-        try:
-            with open(f_bak, "r", encoding="utf-8", errors="ignore") as f:
-                return f.read()
-        except Exception:
-            pass
+    git_path = rel_path.replace("\\", "/")
+    # 1. Prioritize Git log/show history at the file's current path
     try:
-        res = subprocess.run(
-            ["git", "show", f"HEAD:{rel_path}"],
+        chk = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
             capture_output=True,
             text=True,
             cwd=repo_path,
             errors="ignore"
         )
-        if res.returncode == 0:
-            return res.stdout
+        if chk.returncode == 0 and chk.stdout.strip() == "true":
+            # Get the last commit that touched the file at its current path
+            log_res = subprocess.run(
+                ["git", "log", "-n", "1", "--format=%H", "--", git_path],
+                capture_output=True,
+                text=True,
+                cwd=repo_path,
+                errors="ignore"
+            )
+            if log_res.returncode == 0 and log_res.stdout.strip():
+                commit_hash = log_res.stdout.strip()
+                res = subprocess.run(
+                    ["git", "show", f"{commit_hash}:{git_path}"],
+                    capture_output=True,
+                    text=True,
+                    cwd=repo_path,
+                    errors="ignore"
+                )
+                if res.returncode == 0:
+                    return res.stdout
     except Exception:
         pass
+
+    # 2. Fallback to .bak file (only if not a 9-byte dummy stub)
+    f_abs = os.path.join(repo_path, rel_path)
+    f_bak = f_abs + ".bak"
+    if os.path.exists(f_bak):
+        try:
+            with open(f_bak, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+                if len(content.strip()) > 20:
+                    return content
+        except Exception:
+            pass
     return None
 
 def analyze_complexity_drift(filepath, original_code, modified_code):
