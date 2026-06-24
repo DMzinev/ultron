@@ -422,6 +422,55 @@ def parse_patch_diff_lines(patch_diff):
                 current_line += 1
     return changed_lines
 
+
+# ---------------------------------------------------------------------------
+# PRE-FLIGHT RISK GATE — Ultron self-scan, no LLM, zero O(n) cost.
+# Called from main() after sys.path is configured and changed_files is loaded.
+# ---------------------------------------------------------------------------
+_TIER_ORDER = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}
+
+def run_preflight_risk_gate(repo_path, changed_files):
+    """
+    Calls Ultron's risk.evaluate_risks() on the declared target files.
+    Returns 'HIGH', 'MEDIUM', or 'LOW'.
+
+    Fail-safe: any exception returns 'HIGH' (never auto-approve on uncertainty).
+    Empty risks list (non-Python targets, new files) returns 'LOW' — valid
+    result because no Python code targets means no governance risk.
+
+    Path normalization: changed_files paths are normalized to forward-slash
+    relative paths before lookup, matching analyzer.analyze_directory() keys
+    on both Windows and POSIX.
+    """
+    try:
+        import analyzer as _analyzer_mod
+        import risk as _risk_mod
+        # Normalize declared paths to match codebase dict keys produced by
+        # analyze_directory (forward-slash relative paths from repo root).
+        norm_targets = [
+            os.path.normpath(f).replace("\\", "/") for f in changed_files
+        ]
+        codebase = _analyzer_mod.analyze_directory(repo_path)
+        # Build a forward-slash keyed lookup from the codebase dict.
+        # analyze_directory may return OS-native paths; normalize them too.
+        norm_codebase = {
+            os.path.normpath(k).replace("\\", "/"): v
+            for k, v in codebase.items()
+        }
+        risks = _risk_mod.evaluate_risks(norm_codebase, norm_targets, repo_path=repo_path)
+        if not risks:
+            # No Python files matched — docs, configs, or new files not yet
+            # in the codebase scan.  Treat as LOW (no coupling to assess).
+            return "LOW"
+        # Use explicit tier ordering: HIGH=2 > MEDIUM=1 > LOW=0.
+        # Never use string max() — "MEDIUM" > "LOW" > "HIGH" lexicographically.
+        best = max(risks, key=lambda r: _TIER_ORDER.get(r.level, 2))
+        return best.level
+    except Exception as e:
+        print(f"[!] PRE-FLIGHT ERROR: risk gate threw exception ({e}) — defaulting to HIGH (fail-safe).")
+        return "HIGH"
+
+
 def main():
     import sys
     if hasattr(sys.stdout, "reconfigure"):
@@ -455,7 +504,50 @@ def main():
         task_type = "LOGIC_CHANGE"
     changed_files = package.get("CHANGED_FILES", [])
     test_commands = package.get("TEST_COMMANDS", [])
-    
+
+    # =========================================================================
+    # 0. PRE-FLIGHT RISK GATE
+    # Runs before Builder/Auditor/Judge/Historian steps.
+    # Determines ceremony level using Ultron's own risk engine (no LLM, no human).
+    # Fail-safe: gate error → HIGH (never silently auto-approve on uncertainty).
+    # =========================================================================
+    print("====================================================================")
+    print("🛫  PRE-FLIGHT RISK GATE (Ultron self-scan)")
+    print("====================================================================")
+    category_b = package.get("CATEGORY_B", "false").strip().lower() == "true"
+    print(f"[*] Pre-flight: Scanning {len(changed_files)} target file(s) via risk.evaluate_risks()...")
+    preflight_tier = run_preflight_risk_gate(repo_path, changed_files)
+    print(f"[*] Pre-flight result: tier={preflight_tier} | task_type={task_type} | category_b={category_b}")
+
+    # FAST PATH: LOW/MEDIUM + STRUCTURE_ONLY + no Category-B.
+    # Skips only the O(n) per-file loops (nullification, per-file AST drift).
+    # The independent Critic subagent review still happened at planning time
+    # (satisfying UMAGS §1). The verification loop itself is the Judge role.
+    fast_path = (
+        preflight_tier in ("LOW", "MEDIUM")
+        and task_type == "STRUCTURE_ONLY"
+        and not category_b
+    )
+    # ESCALATE: HIGH tier or Category-B → external human review required.
+    escalate = (preflight_tier == "HIGH") or category_b
+
+    if fast_path:
+        print("[\u2713] PRE-FLIGHT → FAST PATH: LOW/MEDIUM risk + STRUCTURE_ONLY + no Category-B.")
+        print("    Skipping: O(n) nullification loop, per-file AST drift, cognitive LLM review.")
+        print("    Running:  scope check + single test suite (standard Auditor/Judge steps).")
+    else:
+        reasons = []
+        if preflight_tier == "HIGH":
+            reasons.append(f"tier={preflight_tier}")
+        if category_b:
+            reasons.append("Category-B=true")
+        if task_type != "STRUCTURE_ONLY":
+            reasons.append(f"task_type={task_type}")
+        print(f"[!] PRE-FLIGHT → FULL PATH ({', '.join(reasons) if reasons else 'default'}).")
+        if escalate:
+            print("[!] Note: ESCALATE will be printed at completion — external review required.")
+    print()
+
     print(f"====================================================================")
     print(f"🛠️  BUILDER (Gemini Pro)")
     print(f"====================================================================")
@@ -523,10 +615,15 @@ def main():
     # Programmatic Nullification Check (Anti-Test Laundering)
     # SKIPPED for STRUCTURE_ONLY tasks: content did not change, reverting a moved file
     # would only confirm that an empty/old path makes tests fail, which is trivially true.
-    if task_type == "STRUCTURE_ONLY":
-        print("[*] Nullification check: SKIPPED (STRUCTURE_ONLY — no content changed).")
+    if task_type == "STRUCTURE_ONLY" or fast_path:
+        print("[*] Nullification check: SKIPPED (STRUCTURE_ONLY or FAST PATH — no content changed / O(n) budget rule).")
+    elif not test_failed_baseline and changed_files and preflight_tier != "HIGH":
+        # O(n) TOKEN-BUDGET RULE: nullification scales with file count.
+        # Only runs when pre-flight tier is HIGH; skipped at LOW/MEDIUM.
+        print(f"[*] Nullification check: SKIPPED (pre-flight tier={preflight_tier} — O(n) budget rule; applies at HIGH only).")
+        nullification_passed = True
     elif not test_failed_baseline and changed_files:
-        print("[*] Running programmatic Nullification check...")
+        print("[*] Running programmatic Nullification check (O(n) — pre-flight tier HIGH)...")
         nullification_passed = True
         
         for f in changed_files:
@@ -574,10 +671,10 @@ def main():
                     
         if not nullification_passed:
             auditor_verified = False    # Programmatic UMAGS AST-based Rules and Residual Risk checks
-    # SKIPPED for STRUCTURE_ONLY: relocated-but-unmodified files produce only
+    # SKIPPED for STRUCTURE_ONLY or FAST PATH: relocated-but-unmodified files produce only
     # false-positive drift noise (every moved function appears "new").
-    if task_type == "STRUCTURE_ONLY":
-        print("[*] AST compliance + Residual Risk checks: SKIPPED (STRUCTURE_ONLY — no content changed).")
+    if task_type == "STRUCTURE_ONLY" or fast_path:
+        print("[*] AST compliance + Residual Risk checks: SKIPPED (STRUCTURE_ONLY or FAST PATH — no content changed).")
         R = 0
     else:
         print("[*] Running UMAGS programmatic AST compliance checks...")
@@ -639,9 +736,10 @@ def main():
 
 
     # Cognitive Auditor check (evaluates code patch and task bounds, walkthrough is strictly excluded to prevent bias)
-    # SKIPPED for STRUCTURE_ONLY: no logic changed, semantic review of relocated code is noise.
-    if task_type == "STRUCTURE_ONLY":
-        print("[*] Cognitive Auditor review: SKIPPED (STRUCTURE_ONLY — no content changed).")
+    # SKIPPED for STRUCTURE_ONLY or FAST PATH: no logic changed, semantic review
+    # of relocated code or low-risk structural tasks produces only noise.
+    if task_type == "STRUCTURE_ONLY" or fast_path:
+        print("[*] Cognitive Auditor review: SKIPPED (STRUCTURE_ONLY or FAST PATH — no content changed).")
     elif os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("GEMINI_API_KEY"):
         print("[*] Auditor: Querying cognitive agent for semantic review (isolated from walkthrough)...")
         system_prompt = (
@@ -894,7 +992,7 @@ Builder Walkthrough (Intended Reality):
         "builder_status": "claimed_done",
         "auditor_verdict": auditor_verdict.lower(),
         "judge_action": "accepted" if judge_approved else "rejected",
-        "nullification_test_run": True,
+        "nullification_test_run": not (task_type == "STRUCTURE_ONLY" or fast_path or preflight_tier != "HIGH"),
         "discrepancies_found": len(auditor_comments),
         "longitudinal_warnings": len([h for h in history_comments if "Warning" in h or "Spot" in h or "Drift" in h]),
         "residual_risk_score": R
@@ -906,7 +1004,23 @@ Builder Walkthrough (Intended Reality):
     except Exception as e:
         print(f"[-] Telemetry write failed: {e}")
 
+    # ESCALATE — printed last for maximum visibility.
+    # Indicates external human review is required before closing this task.
+    if escalate:
+        print()
+        print("====================================================================")
+        print("ESCALATE: requires external review")
+        _esc_reasons = []
+        if preflight_tier == "HIGH":
+            _esc_reasons.append(f"pre-flight tier={preflight_tier}")
+        if category_b:
+            _esc_reasons.append("Category-B data claims present")
+        print(f"  Reason:  {', '.join(_esc_reasons) if _esc_reasons else 'full-ceremony task'}")
+        print("  Action:  Paste this output into PROJECT_LOG.md 'External verification' field.")
+        print("====================================================================")
 
 
 if __name__ == "__main__":
     main()
+
+

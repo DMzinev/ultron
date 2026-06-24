@@ -122,6 +122,20 @@ study to use it properly (see Phase 1 plan).
 
 ---
 
+## 🔇 DORMANT — Working code, not in active use
+
+### AI Rater + Compare AI Ratings (`ultron/validation/ai_rater.py`, `umags/tools/compare_ai_ratings.py`)
+Both files are syntactically valid and were written for an AI-vs-human rating comparison
+study. Neither is currently called by any active pipeline. The comparison study they support
+is BLOCKED on the human feedback collection step (see `blind_rate.py` above — the
+`blind_feedback.jsonl` file is still empty).
+
+**Decision (2026-06-24):** Kept in place, not deleted. If human ratings are collected and
+the pipeline resumes, these are the correct next step. Removing them would require
+re-implementation. Marked dormant, not dead. Do not touch without a specific plan.
+
+---
+
 ## 🪦 Documented, not implemented
 
 The following are described in `research-notes/speculative-ideas.md` but have

@@ -72,6 +72,16 @@ def main():
             "no AST drift, no architecture drift. Use only when no file content changed (git mv / rename only)."
         )
     )
+    parser.add_argument(
+        "--category-b",
+        action="store_true",
+        default=False,
+        help=(
+            "Flag this task as containing Category-B data claims (numbers derived from data: "
+            "precision, recall, F1, rating comparisons, etc.). "
+            "Forces full verification path and an ESCALATE notice requiring external human review."
+        )
+    )
     args = parser.parse_args()
 
     repo_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -115,7 +125,8 @@ def main():
         "RAW_STDOUT": stdout,
         "RAW_STDERR": stderr,
         "SELF_AUDIT": args.self_audit,
-        "KNOWN_LIMITATIONS": args.limitations
+        "KNOWN_LIMITATIONS": args.limitations,
+        "CATEGORY_B": "true" if args.category_b else "false"
     }
 
     # Write as YAML to ultron/meta/audit_package.yaml

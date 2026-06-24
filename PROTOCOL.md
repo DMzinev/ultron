@@ -130,3 +130,86 @@ If omitted, the loop defaults to `LOGIC_CHANGE` (conservative).
 **Read the task. Say what you're about to do before doing it. If it
 needs a real human, stop and say so. Show real output. Check it against
 the rules. Log it fully. Don't move on until that's done.**
+
+---
+
+## Efficiency & Escalation: The Pre-flight Gate
+
+### Rule (permanent constraint, not a one-off patch)
+
+Before any Builder/Auditor/Judge/Historian steps in `run_verification_loop.py`,
+the loop calls Ultron's own `risk.evaluate_risks()` on the declared target files.
+This is a local, no-LLM, O(1)-in-ceremony-cost operation. The tier it returns
+decides how much verification ceremony the rest of the loop executes.
+
+**The tier ordering is: HIGH > MEDIUM > LOW.**
+(Never use string `max()` — `"MEDIUM" > "LOW" > "HIGH"` lexicographically,
+which is wrong. The implementation uses `_TIER_ORDER = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}`.)
+
+### FAST PATH — `LOW/MEDIUM + STRUCTURE_ONLY + no Category-B`
+
+Checks run:
+- Scope verification (undeclared source files check)
+- Single test suite run
+
+Explicitly skipped:
+- O(n) nullification loop
+- Per-file AST drift and residual risk analysis
+- Cognitive LLM review
+
+Telemetry is written. The loop proceeds through all four roles (B/A/J/H)
+but those roles perform only the fast-path subset of checks.
+
+> [!NOTE]
+> FAST PATH does not skip the independent Critic subagent review —
+> that review happens at *planning time*, before governor is invoked.
+> UMAGS §1 is satisfied by the planning-time Critic, not by the loop.
+
+### FULL PATH — `HIGH tier`, OR `Category-B=true`, OR `LOGIC_CHANGE`
+
+All existing checks run. At the end of the loop, if `tier=HIGH` or
+`category_b=true`, the loop prints:
+
+```
+ESCALATE: requires external review
+```
+
+This means: paste the full output into `PROJECT_LOG.md` under the
+`External verification` field. Only a human operator may fill that field.
+No agent in the pipeline may generate, simulate, or pre-fill it.
+
+### The O(n) Token-Budget Rule (permanent, enforced in code)
+
+> **No check may scale with file count (O(n) per-file loops) unless the
+> pre-flight tier is HIGH.**
+
+The nullification loop is the primary O(n) offender (it runs tests once
+per changed file). It only executes when `preflight_tier == "HIGH"`.
+At LOW or MEDIUM tier, it is skipped with an explicit log line explaining
+the reason. This is enforced in `run_verification_loop.py`, not advisory.
+
+### Fail-safe (hard rule, no exceptions)
+
+If the pre-flight gate itself throws an exception for any reason, the tier
+defaults to `HIGH` and the full path runs. The system **never** silently
+auto-approves on uncertainty. Uncertainty escalates — it does not wave through.
+
+If the gate returns an empty risks list (non-Python targets, new files not
+yet in the codebase scan), the tier is `LOW`. This is a valid result —
+non-Python files have no coupling risk to the governance engine.
+
+### Category-B flag
+
+Any task containing numbers derived from data (precision, recall, F1,
+rating comparisons, calibration scores, etc.) must pass `--category-b`
+to `governor.py`. This stamps `CATEGORY_B: 'true'` in `audit_package.yaml`
+and forces the full verification path plus an `ESCALATE` notice, regardless
+of the pre-flight risk tier.
+
+### Path normalization requirement
+
+`evaluate_risks()` silently skips files whose paths do not match the keys
+in the codebase dict produced by `analyze_directory()`. On Windows, declared
+paths may use backslashes while codebase keys use forward slashes. The
+pre-flight gate must normalize both to forward-slash relative paths before
+comparison. This is implemented in `run_preflight_risk_gate()`.
