@@ -45,7 +45,7 @@ class TestAPIFuzzing(unittest.TestCase):
         Ensure traversal attempts to get-file or save-file are blocked.
         """
         payloads = [
-            "../../Study_Portal.html",
+            "../../nonexistent_traversal_target.html",
             "../server.py",
             "../../../etc/passwd"
         ]

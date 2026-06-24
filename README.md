@@ -1,13 +1,19 @@
-﻿# What is in this folder
+# What is in this folder
 
-Two unrelated projects share this directory.
+Two projects share this directory.
 
 ---
 
-## 1. Cost Accounting Study Portal
+## 1. Cost Accounting Study Portal — **moved**
 
-An interactive learning app for cost accounting (ABC, CVP, variance analysis).
-Entry point: `Study_Portal.html` — open in a browser.
+The interactive cost accounting learning app (`Study_Portal.html`, `cognitive/`,
+`domain/`, `controllers/`, `storage/`, `ui/`, `utilities/`, `study_materials/`)
+has been extracted to its own repository:
+
+**`cost-accounting-study-app`** (sibling directory on Desktop)
+
+History of all files prior to the split is preserved in the backup at
+`cost_accounting_backup_20260623_140859`.
 
 ---
 

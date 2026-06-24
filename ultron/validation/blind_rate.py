@@ -79,7 +79,7 @@ def select_ratable_files(repo_path):
     import pathlib
     for rel_path in codebase.keys():
         path_segments = [p.lower() for p in pathlib.Path(rel_path).parts]
-        exclude_terms = {"scratch", "study_portal_qa", "synapse_project", "setup.py", "start_ultron.py", "server.py"}
+        exclude_terms = {"scratch", "synapse_project", "setup.py", "start_ultron.py"}
         
         is_excluded = False
         for segment in path_segments:

@@ -144,7 +144,7 @@ def analyze_failure_space(repo_path, changed_files, diff_lines=None):
 
     visitor = TestSuiteVisitor(list(target_functions.keys()))
     
-    test_dirs = ["ultron", "tests", "scratch", "study_portal_qa", "synapse_project"]
+    test_dirs = ["ultron", "tests", "scratch", "synapse_project"]
     for d in test_dirs:
         d_abs = os.path.join(repo_path, d)
         if os.path.exists(d_abs):
