@@ -255,3 +255,50 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None.
 
+
+---
+
+## Log Entry: Repo Split — Study Portal Extraction
+
+**Date:** 2026-06-24
+**Task type:** STRUCTURE_WITH_DOC_UPDATES (upgraded from STRUCTURE_ONLY after Critic review)
+**Commits:** 8132d1c (pre-split cleanup), b554d43 (structural split)
+
+### What was done
+Extracted the Cost Accounting Study Portal from the Ultron/UMAGS monorepo into
+a standalone git repository at C:\Users\This PC\Desktop\cost-accounting-study-app.
+
+62 Study Portal files (JS, HTML, CSS, PDF, Python QA scripts) were removed from
+the Ultron repo and committed to the new repo as a single initial commit (732e189,
+64 files including README.md and .gitignore).
+
+### Pre-split content fixes (required by Critic audit)
+The Adversarial Auditor (UMAGS) rejected the initial STRUCTURE_ONLY plan and
+identified four live cross-references. All were fixed in commit 8132d1c:
+
+1. umags/failure_space.py: removed "study_portal_qa" from test_dirs (silent
+   failure risk: os.path.exists() would return False silently post-split).
+2. ultron/validation/blind_rate.py: removed "study_portal_qa" and "server.py"
+   from exclude_terms (dead exclusion code post-split).
+3. ultron/tests/run_academic_tests.py: replaced "../../Study_Portal.html"
+   traversal payload with "../../nonexistent_traversal_target.html" (the
+   specific filename was irrelevant to the test's correctness).
+4. README.md: replaced Study Portal section with a forwarding note pointing to
+   the new repo.
+
+Also confirmed: import server in run_tests.py resolves to
+ultron/interfaces/server.py (NOT root-level Study Portal server.py).
+
+### Verification results (verbatim)
+- git ls-files anchored check: PASS — Zero Study Portal files in Ultron repo
+- Study Portal repo structure: PASS — All 12 expected items PRESENT
+- Ultron test suite: Ran 20 tests in 4.142s — OK
+- Post-split false-positive audit: 8 flagged paths were all substring matches
+  on Ultron-internal names (e.g., "ui" in "requirements", "css" in "index.css",
+  "server.py" in "mcp_server.py"). Zero actual leakage.
+
+### Category B checklist
+No numerical claims derived from data in this task. N/A.
+
+### External verification
+PENDING — not yet reviewed by an external party.
