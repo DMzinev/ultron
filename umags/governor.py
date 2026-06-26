@@ -47,7 +47,7 @@ def run_tests(repo_path, cmd_str):
     try:
         # Run command using system executable
         parts = cmd_str.split()
-        res = subprocess.run(parts, capture_output=True, text=True, cwd=repo_path, timeout=10.0)
+        res = subprocess.run(parts, capture_output=True, text=True, cwd=repo_path, timeout=90.0)
         return res.returncode == 0, res.stdout, res.stderr
     except Exception as e:
         return False, "", str(e)
