@@ -2,11 +2,24 @@
 
 This guide explains how to integrate **Ultron** (Pre-Execution Intelligence Layer) into AI developer tools (Claude Code, Codex, Antigravity) and git workflows.
 
+## 👥 The Two Consumers of Ultron
+
+Ultron separates its outputs based on who is consuming the information:
+
+1. **A Person (Human Developer):** Needs high-level, plain-language summaries without raw metrics or technical jargon. Powered by `ultron/core/translate.py`.
+2. **An AI Coding Agent (Machine-to-Machine):** Needs structured contract specifications, caller contexts, function signatures, and boundary checklists to perform safe edits. Powered by `ultron/core/prompt.py`.
+
 ---
 
 ## 1. Model Context Protocol (MCP) Server Setup
 
-The built-in MCP server (`ultron/mcp_server.py`) provides stdio-based tool execution, allowing compatible LLMs to query Ultron's analyzers directly.
+The built-in MCP server (`ultron/interfaces/mcp_server.py`) exposes tools for stdio-based execution, allowing compatible LLMs or local agents to call Ultron's analyzers directly.
+
+### Exposed MCP Tools:
+- **`get_plain_summary`**: Generates a human-readable, plain-language summary of integration risks for target files (no jargon or metrics).
+- **`get_contract_spec`**: Generates a contract-pruned, optimized prompt with exact signatures and caller context (contract spec) for AI agents to consume mid-task.
+- **`analyze_codebase`**: Analyzes the codebase structure, McCabe complexity, module coupling, and generates integration risk scores.
+- **`audit_file_anomalies`**: Audits a modified file for spelling typos/name confusion and Markovian call sequence flows.
 
 ### A. Claude Desktop (Windows)
 To add Ultron to Claude Desktop, edit your config file:
@@ -20,7 +33,7 @@ Add the following under the `mcpServers` block (substituting the absolute path t
     "ultron": {
       "command": "python",
       "args": [
-        "C:/Users/This PC/Desktop/cost accounting/ultron/mcp_server.py"
+        "C:/Users/This PC/Desktop/cost accounting/ultron/interfaces/mcp_server.py"
       ]
     }
   }
@@ -30,7 +43,7 @@ Add the following under the `mcpServers` block (substituting the absolute path t
 ### B. Claude Code
 For the Claude Code CLI, configure the MCP server using:
 ```bash
-claude mcp add ultron python -- "C:/Users/This PC/Desktop/cost accounting/ultron/mcp_server.py"
+claude mcp add ultron python -- "C:/Users/This PC/Desktop/cost accounting/ultron/interfaces/mcp_server.py"
 ```
 
 ### C. Antigravity & Gemini Agents
@@ -41,7 +54,7 @@ Add the MCP configuration to the system-wide or project-specific MCP loader conf
     "ultron": {
       "type": "stdio",
       "command": "python",
-      "args": ["C:/Users/This PC/Desktop/cost accounting/ultron/mcp_server.py"]
+      "args": ["C:/Users/This PC/Desktop/cost accounting/ultron/interfaces/mcp_server.py"]
     }
   }
 }

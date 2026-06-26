@@ -15,6 +15,7 @@ import analyzer
 import risk
 import prompt
 import classifier
+import translate
 
 # Standard tool definitions
 TOOLS = [
@@ -71,6 +72,54 @@ TOOLS = [
     {
         "name": "generate_prompt",
         "description": "Generates a contract-pruned, optimized prompt with exact signatures and caller context for AI agents.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Absolute path to the codebase repository root directory."
+                },
+                "intent": {
+                    "type": "string",
+                    "description": "Natural language intent describing what modifications are planned."
+                },
+                "files": {
+                    "type": "string",
+                    "description": "Comma-separated list of relative file paths targeted for modification."
+                }
+            },
+            "required": ["repo", "intent"]
+        }
+    },
+    {
+        "name": "get_plain_summary",
+        "description": "Generates a human-readable, plain-language summary of integration risks for target files (no jargon or metrics).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Absolute path to the codebase repository root directory."
+                },
+                "intent": {
+                    "type": "string",
+                    "description": "The natural language change intent or description of the modification."
+                },
+                "files": {
+                    "type": "string",
+                    "description": "Comma-separated list of relative file paths targeted for modification."
+                },
+                "detail": {
+                    "type": "boolean",
+                    "description": "If true, also appends detailed risk statistics and formula breakdown."
+                }
+            },
+            "required": ["repo"]
+        }
+    },
+    {
+        "name": "get_contract_spec",
+        "description": "Generates a contract-pruned, optimized prompt with exact signatures and caller context (contract spec) for AI agents to consume mid-task.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -155,6 +204,30 @@ def handle_generate_prompt(args):
     
     return opt_prompt
 
+def handle_get_plain_summary(args):
+    repo_path = os.path.abspath(args["repo"])
+    if not os.path.isdir(repo_path):
+        return f"Error: Repository path '{repo_path}' is not a directory."
+        
+    intent = args.get("intent", "")
+    files_str = args.get("files", "")
+    target_files = [f.strip() for f in files_str.split(",") if f.strip()] if files_str else []
+    detail = bool(args.get("detail", False))
+    
+    codebase = analyzer.analyze_directory(repo_path)
+    risks = risk.evaluate_risks(codebase, target_files, intent, repo_path=repo_path)
+    
+    summaries = []
+    for r in risks:
+        summaries.append(translate.plain_language_summary(r))
+        if detail:
+            summaries.append(translate.detailed_breakdown(r))
+            
+    return "\n".join(summaries)
+
+def handle_get_contract_spec(args):
+    return handle_generate_prompt(args)
+
 def serve():
     debug_log("Starting stdio MCP Server...")
     while True:
@@ -205,6 +278,10 @@ def serve():
                         result_text = handle_audit_file_anomalies(tool_args)
                     elif tool_name == "generate_prompt":
                         result_text = handle_generate_prompt(tool_args)
+                    elif tool_name == "get_plain_summary":
+                        result_text = handle_get_plain_summary(tool_args)
+                    elif tool_name == "get_contract_spec":
+                        result_text = handle_get_contract_spec(tool_args)
                     else:
                         raise ValueError(f"Unknown tool: {tool_name}")
                         

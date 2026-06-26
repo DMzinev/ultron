@@ -802,6 +802,163 @@ Patch Diff:
             print(f"  - {c}")
     print()
 
+    # 2.5 SENTINEL STEPS (Assumption & Entropy Auditor)
+    print(f"====================================================================")
+    print(f"🛡️  SENTINEL (Assumption & Entropy Auditor)")
+    print(f"====================================================================")
+    
+    sentinel_verified = True
+    sentinel_comments = []
+    
+    # Run programmatic Sentinel checks
+    import sentinel
+    import re
+    
+    try:
+        baseline_entropy = sentinel.calculate_entropy(repo_path, changed_files, original_base=True)
+        current_entropy = sentinel.calculate_entropy(repo_path, changed_files, original_base=False)
+        entropy_delta = round(current_entropy - baseline_entropy, 4)
+    except Exception as se_err:
+        print(f"[!] Sentinel Error calculating entropy: {se_err}")
+        baseline_entropy = 0.0
+        current_entropy = 0.0
+        entropy_delta = 0.0
+
+    # Scan assumptions, future risks, and abstraction bloat for changed files
+    silent_assumptions = []
+    future_fragility_risks = []
+    bloat_instances = []
+    
+    total_integrity = 1.0
+    total_fragility = 0.0
+    total_bloat = 0.0
+    
+    integrity_scores = []
+    fragility_scores = []
+    bloat_scores = []
+    
+    for f in changed_files:
+        # Load code contents
+        original_code = sentinel.get_file_content(repo_path, f, original_base=True)
+        modified_code = sentinel.get_file_content(repo_path, f, original_base=False)
+        
+        # Scan
+        try:
+            assumptions, integrity_score = sentinel.scan_assumptions(f, original_code, modified_code)
+            silent_assumptions.extend(assumptions)
+            integrity_scores.append(integrity_score)
+        except Exception as e:
+            print(f"[!] Sentinel scan_assumptions failed for {f}: {e}")
+            
+        try:
+            risks, fragility_score = sentinel.scan_future_risks(f, original_code, modified_code)
+            future_fragility_risks.extend(risks)
+            fragility_scores.append(fragility_score)
+        except Exception as e:
+            print(f"[!] Sentinel scan_future_risks failed for {f}: {e}")
+            
+        try:
+            bloat, bloat_score = sentinel.detect_abstraction_bloat(f, original_code, modified_code)
+            bloat_instances.extend(bloat)
+            bloat_scores.append(bloat_score)
+        except Exception as e:
+            print(f"[!] Sentinel detect_abstraction_bloat failed for {f}: {e}")
+
+    if integrity_scores:
+        total_integrity = round(sum(integrity_scores) / len(integrity_scores), 2)
+    if fragility_scores:
+        total_fragility = round(sum(fragility_scores) / len(fragility_scores), 2)
+    if bloat_scores:
+        total_bloat = round(sum(bloat_scores) / len(bloat_scores), 2)
+
+    # Merge with cognitive observer if keys are present
+    if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("GEMINI_API_KEY"):
+        print("[*] Sentinel: Querying cognitive agent for assumption inversion and future risks...")
+        system_prompt = (
+            "You are the UMAGS Sentinel (Constitutional Observer). You do not write code or check for immediate compilation bugs. "
+            "Your task is to identify silent assumptions, future fragility risks, and abstraction bloat in the provided changes.\n"
+            "Evaluate:\n"
+            "A. Foundation Integrity: What assumptions are silently being made? Are we solving root causes or symptoms?\n"
+            "B. Future Fragility: Can this create bugs 10 commits later? Are we creating hidden dependency/signature debt?\n"
+            "C. Abstraction Bloat: Are we piling bricks or building a house? Is complexity added without necessity?\n"
+            "Provide your findings, list silent assumptions and risks, and provide numeric scores (0.0 to 1.0) for:\n"
+            "- foundation_integrity\n"
+            "- future_fragility\n"
+            "- abstraction_bloat\n"
+            "Respond in JSON format only with these keys: foundation_integrity, future_fragility, abstraction_bloat, silent_assumptions, future_risks, and bloat_instances."
+        )
+        user_prompt = f"""
+Target Files: {changed_files}
+Patch Diff:
+{patch_diff}
+"""
+        cognitive_response = query_cognitive_agent(system_prompt, user_prompt)
+        if cognitive_response:
+            try:
+                # Find JSON block in response
+                json_match = re.search(r"\{.*\}", cognitive_response, re.DOTALL)
+                if json_match:
+                    sentinel_data = json.loads(json_match.group(0))
+                    total_integrity = round((total_integrity + float(sentinel_data.get("foundation_integrity", total_integrity))) / 2.0, 2)
+                    total_fragility = round((total_fragility + float(sentinel_data.get("future_fragility", total_fragility))) / 2.0, 2)
+                    total_bloat = round((total_bloat + float(sentinel_data.get("abstraction_bloat", total_bloat))) / 2.0, 2)
+                    if sentinel_data.get("silent_assumptions"):
+                        silent_assumptions.extend(sentinel_data["silent_assumptions"])
+                    if sentinel_data.get("future_risks"):
+                        future_fragility_risks.extend(sentinel_data["future_risks"])
+                    if sentinel_data.get("bloat_instances"):
+                        bloat_instances.extend(sentinel_data["bloat_instances"])
+            except Exception as j_err:
+                print(f"[!] Sentinel warning: Failed to parse cognitive JSON: {j_err}")
+
+    # Format silent assumptions and risks into unique lists
+    silent_assumptions = sorted(list(set(silent_assumptions)))
+    future_fragility_risks = sorted(list(set(future_fragility_risks)))
+    bloat_instances = sorted(list(set(bloat_instances)))
+
+    # Output formatted JSON block as requested
+    sentinel_report = {
+        "foundation_integrity": total_integrity,
+        "future_fragility": total_fragility,
+        "entropy_delta": round(entropy_delta, 4),
+        "silent_assumptions": silent_assumptions
+    }
+    
+    print("\n--- Sentinel Evaluation JSON ---")
+    print(json.dumps(sentinel_report, indent=2))
+    print("--------------------------------\n")
+    
+    # Raise objections if thresholds are crossed
+    if entropy_delta > 0.05:
+        msg = f"Objection: Architecture Entropy Delta is positive (+{entropy_delta}), indicating structural degradation or rot."
+        sentinel_comments.append(msg)
+        sentinel_verified = False
+        print(f"[-] Sentinel failed: {msg}")
+        
+    if total_integrity < 0.70:
+        msg = f"Objection: Foundation Integrity score is too low ({total_integrity} < 0.70) due to excessive silent assumptions."
+        sentinel_comments.append(msg)
+        sentinel_verified = False
+        print(f"[-] Sentinel failed: {msg}")
+
+    if total_fragility > 0.50:
+        msg = f"Objection: Future Fragility score is too high ({total_fragility} > 0.50), indicating high risk of downstream bugs."
+        sentinel_comments.append(msg)
+        sentinel_verified = False
+        print(f"[-] Sentinel failed: {msg}")
+
+    if bloat_instances:
+        print("[!] Sentinel Abstraction Bloat Detected:")
+        for b in bloat_instances:
+            print(f"  - {b}")
+            
+    sentinel_verdict = "VERIFIED" if sentinel_verified else "FAILED"
+    print(f"\nSentinel Verdict: {sentinel_verdict}")
+    if sentinel_comments:
+        for c in sentinel_comments:
+            print(f"  - {c}")
+    print()
+
     # 3. JUDGE STEPS (Legitimization - Constitutional Court)
     print(f"====================================================================")
     print(f"⚖️  JUDGE (Gemini Pro)")
@@ -814,6 +971,9 @@ Patch Diff:
     if auditor_verdict != "VERIFIED":
         judge_comments.append("Objection: Auditor verification failed.")
     
+    if sentinel_verdict != "VERIFIED":
+        judge_comments.append("Objection: Sentinel verification failed.")
+        
     if not task_id:
         judge_comments.append("Objection: Invalid or missing TASK_ID.")
         
@@ -839,6 +999,10 @@ Auditor Verdict: {auditor_verdict}
 Auditor Objections:
 {chr(10).join(auditor_comments) if auditor_comments else "None"}
 
+Sentinel Verdict: {sentinel_verdict}
+Sentinel Objections:
+{chr(10).join(sentinel_comments) if sentinel_comments else "None"}
+
 Builder Walkthrough (Intended Reality):
 {walkthrough_content}
 """
@@ -848,14 +1012,14 @@ Builder Walkthrough (Intended Reality):
             print(judge_response)
             print("-----------------------\n")
             # Parse verdict
-            if "Verdict: APPROVED" in judge_response:
+            if "Verdict: APPROVED" in judge_response and not judge_comments:
                 judge_approved = True
-                if "Objection: Auditor verification failed." in judge_comments:
-                    # Let the cognitive Judge override or override failure status
-                    pass
-            elif "Verdict: REJECTED" in judge_response:
+            else:
                 judge_approved = False
-                judge_comments.append("Objection: Cognitive Judge rejected the changes.")
+                if "Verdict: REJECTED" in judge_response:
+                    judge_comments.append("Objection: Cognitive Judge rejected the changes.")
+                elif judge_comments:
+                    judge_comments.append("Objection: Programmatic checks failed, overriding cognitive approval.")
         else:
             print("[!] Cognitive Judge warning: API query returned None (network error or invalid key). Falling back to programmatic verdict.")
             if not judge_comments:
@@ -1015,9 +1179,13 @@ Builder Walkthrough (Intended Reality):
         "patch_hash": patch_hash,
         "builder_status": "claimed_done",
         "auditor_verdict": auditor_verdict.lower(),
+        "sentinel_verdict": sentinel_verdict.lower(),
+        "foundation_integrity": total_integrity,
+        "future_fragility": total_fragility,
+        "entropy_delta": round(entropy_delta, 4),
         "judge_action": "accepted" if judge_approved else "rejected",
         "nullification_test_run": not (task_type == "STRUCTURE_ONLY" or fast_path or preflight_tier != "HIGH"),
-        "discrepancies_found": len(auditor_comments),
+        "discrepancies_found": len(auditor_comments) + len(sentinel_comments),
         "longitudinal_warnings": len([h for h in history_comments if "Warning" in h or "Spot" in h or "Drift" in h]),
         "residual_risk_score": R
     }

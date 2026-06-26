@@ -916,7 +916,7 @@ class TestSample(unittest.TestCase):
             level="HIGH"
         )
         summary_high = translate.plain_language_summary(packet_high)
-        self.assertIn("ultron/core/risk.py — High risk to change.", summary_high)
+        self.assertIn("ultron/core/risk.py - High risk to change.", summary_high)
         self.assertIn("4 other files depend on it directly", summary_high)
         self.assertNotIn("15.0", summary_high) # No numbers/jargon in default
         
@@ -936,7 +936,7 @@ class TestSample(unittest.TestCase):
             level="MEDIUM"
         )
         summary_med = translate.plain_language_summary(packet_med)
-        self.assertIn("ultron/core/pledge.py — Moderate risk.", summary_med)
+        self.assertIn("ultron/core/pledge.py - Moderate risk.", summary_med)
         self.assertNotIn("6.0", summary_med)
         
         # Test LOW risk translation
@@ -950,7 +950,7 @@ class TestSample(unittest.TestCase):
             level="LOW"
         )
         summary_low = translate.plain_language_summary(packet_low)
-        self.assertIn("ultron/core/models.py — Low risk. Nothing else in the project depends on this directly", summary_low)
+        self.assertIn("ultron/core/models.py - Low risk. Nothing else in the project depends on this directly", summary_low)
         self.assertNotIn("1.5", summary_low)
         
         # Test dictionary-based input compatibility
@@ -960,7 +960,7 @@ class TestSample(unittest.TestCase):
             "coupling": 3
         }
         summary_dict = translate.plain_language_summary(dict_input)
-        self.assertIn("ultron/experimental/delta.py — Moderate risk.", summary_dict)
+        self.assertIn("ultron/experimental/delta.py - Moderate risk.", summary_dict)
 
     def test_load_mkr_stats(self):
         import risk
@@ -971,6 +971,121 @@ class TestSample(unittest.TestCase):
         # Test negative/boundary cases (empty or invalid files)
         stats_nonexistent = risk.load_mkr_stats(ledger_path="nonexistent_file.jsonl")
         self.assertEqual(stats_nonexistent, {})
+
+    def test_zero_network_local_only(self):
+        import socket
+        from unittest.mock import patch
+        import os
+        import risk
+        import translate
+        import analyzer
+
+        # 1. Block network calls at socket level
+        def block_socket(*args, **kwargs):
+            raise RuntimeError("Permit Violation: Network call attempted via socket creation!")
+
+        # 2. Intercept environment variable checks for API keys/licensing
+        accessed_keys = []
+        original_getenv = os.getenv
+        original_environ_get = os.environ.get
+
+        def mock_getenv(key, default=None):
+            accessed_keys.append(key)
+            return original_getenv(key, default)
+
+        def mock_environ_get(key, default=None):
+            accessed_keys.append(key)
+            return original_environ_get(key, default)
+
+        # Apply blocks and run analysis
+        with patch('socket.socket', side_effect=block_socket):
+            with patch('os.getenv', side_effect=mock_getenv):
+                with patch('os.environ.get', side_effect=mock_environ_get):
+                    # Run analyzer on a sample directory
+                    sample_dir = os.path.dirname(os.path.abspath(__file__))
+                    codebase = analyzer.analyze_directory(sample_dir)
+                    
+                    # Run risk evaluation on a target file in the codebase
+                    target_file = "run_tests.py"
+                    risks = risk.evaluate_risks(codebase, [target_file], intent="run test suite", repo_path=sample_dir)
+                    
+                    # Run translate
+                    for r in risks:
+                        plain = translate.plain_language_summary(r)
+                        detail = translate.detailed_breakdown(r)
+                        self.assertIsNotNone(plain)
+                        self.assertIsNotNone(detail)
+
+        # Assert no environment variables related to API keys/licensing/permits were read
+        forbidden_substrings = ["key", "license", "token", "auth", "permission", "credential"]
+        for key in accessed_keys:
+            key_lower = key.lower()
+            for pattern in forbidden_substrings:
+                self.assertNotIn(pattern, key_lower, f"Permit Violation: API key or licensing variable '{key}' was read!")
+
+    def test_mcp_server_tools(self):
+        import mcp_server
+        import os
+
+        repo_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+        # 1. Test get_plain_summary tool handler
+        args_plain = {
+            "repo": repo_path,
+            "files": "ultron/core/pledge.py",
+            "intent": "modify pledges"
+        }
+        res_plain = mcp_server.handle_get_plain_summary(args_plain)
+        self.assertIn("ultron/core/pledge.py - Moderate risk.", res_plain)
+
+        # 2. Test get_contract_spec tool handler
+        args_spec = {
+            "repo": repo_path,
+            "intent": "modify active pledges",
+            "files": "ultron/core/pledge.py"
+        }
+        res_spec = mcp_server.handle_get_contract_spec(args_spec)
+        self.assertIn("CONTRACT SPECIFICATION", res_spec)
+        self.assertIn("[USER INTENT]", res_spec)
+
+    def test_sentinel_entropy(self):
+        import sentinel
+        repo_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        entropy_base = sentinel.calculate_entropy(repo_path, ["ultron/core/pledge.py"], original_base=True)
+        entropy_curr = sentinel.calculate_entropy(repo_path, ["ultron/core/pledge.py"], original_base=False)
+        self.assertGreaterEqual(entropy_base, 0)
+        self.assertGreaterEqual(entropy_curr, 0)
+
+    def test_sentinel_scan_assumptions(self):
+        import sentinel
+        code = """def my_func(a, b):
+    # No type hints
+    open("file.txt", "r") # missing encoding
+    x = a / b # potential div by zero
+"""
+        violations, score = sentinel.scan_assumptions("test.py", "", code)
+        self.assertGreater(len(violations), 0)
+        self.assertLess(score, 1.0)
+        
+        # Test empty input handling
+        empty_violations, empty_score = sentinel.scan_assumptions("test.py", "", "")
+        self.assertEqual(empty_violations, [])
+        self.assertEqual(empty_score, 1.0)
+
+    def test_sentinel_scan_future_risks(self):
+        import sentinel
+        orig = "def add_user(username, age):\n    pass\n"
+        mod = "def add_user(username, age, email):\n    pass\n"
+        risks, score = sentinel.scan_future_risks("test.py", orig, mod)
+        self.assertIn("Public signature change in 'add_user'", risks[0])
+        self.assertGreater(score, 0.0)
+
+    def test_sentinel_detect_abstraction_bloat(self):
+        import sentinel
+        code = "def wrapper(x):\n    return target(x)\n"
+        bloat, score = sentinel.detect_abstraction_bloat("test.py", "", code)
+        self.assertIn("Function 'wrapper' is a pass-through wrapper for 'target'", bloat[0])
+        self.assertGreater(score, 0.0)
 
 
 if __name__ == "__main__":
