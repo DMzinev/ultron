@@ -127,12 +127,17 @@ study to use it properly (see Phase 1 plan).
 ### AI Rater + Compare AI Ratings (`ultron/validation/ai_rater.py`, `umags/tools/compare_ai_ratings.py`)
 Both files are syntactically valid and were written for an AI-vs-human rating comparison
 study. Neither is currently called by any active pipeline. The comparison study they support
-is BLOCKED on the human feedback collection step (see `blind_rate.py` above — the
+is BLOCKED on the human feedback collection step (see `ultron/validation/blind_rate.py` above — the
 `blind_feedback.jsonl` file is still empty).
 
 **Decision (2026-06-24):** Kept in place, not deleted. If human ratings are collected and
 the pipeline resumes, these are the correct next step. Removing them would require
 re-implementation. Marked dormant, not dead. Do not touch without a specific plan.
+
+### Constitutional Sentinel (`ultron/core/sentinel.py`)
+Computes codebase structural entropy, scans comments/docstrings for behavioral assumptions, and flags potential abstraction bloat or architecture drift.
+
+**Decision (2026-06-26):** Marked dormant in `umags/run_verification_loop.py` to keep the UMAGS governance process lightweight and token-efficient. The code is preserved but skipped during verification loops. Do not reactivate without explicit instruction.
 
 ---
 

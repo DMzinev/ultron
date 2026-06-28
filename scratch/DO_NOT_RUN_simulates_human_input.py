@@ -56,7 +56,7 @@ RATINGS = {
 
 def run_one_rating(repo_path):
     proc = subprocess.Popen(
-        [sys.executable, "-u", "ultron/blind_rate.py", repo_path],
+        [sys.executable, "-u", "ultron/validation/blind_rate.py", repo_path],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

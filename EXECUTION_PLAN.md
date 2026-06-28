@@ -94,7 +94,7 @@ validation. This needs a separate, score-hidden capture path.
 
 ```
 ANTIGRAVITY INSTRUCTION:
-Create a new standalone script, ultron/blind_rate.py, that:
+Create a new standalone script, ultron/validation/blind_rate.py, that:
 1. Takes a repo path as input.
 2. Picks one file at random from that repo that has NOT yet been rated
    (check against existing entries in ultron/meta/blind_feedback.jsonl).
@@ -142,7 +142,7 @@ comparison but isn't accidentally seen during rating.
 - [ ] The "DO_NOT_LOOK" file is in a clearly separate location from the sample list
 
 > **This is where you (not Antigravity) do the actual rating** — go through
-> `blind_study_sample.txt` using `blind_rate.py`, file by file, honestly,
+> `blind_study_sample.txt` using `ultron/validation/blind_rate.py`, file by file, honestly,
 > without peeking at the scores file. This step can't be automated away;
 > it's the actual ground-truth collection.
 

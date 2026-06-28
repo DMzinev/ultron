@@ -5,7 +5,7 @@ import sys
 def main():
     repo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     proc = subprocess.Popen(
-        [sys.executable, "-u", "ultron/blind_rate.py", repo_path],
+        [sys.executable, "-u", "ultron/validation/blind_rate.py", repo_path],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

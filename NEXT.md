@@ -1,4 +1,4 @@
-﻿# NEXT — one action only
+# NEXT — one action only
 
 This file contains exactly ONE thing to do. When it is done, update this file.
 Do not start anything else until this is done.
@@ -17,7 +17,7 @@ The only thing that unblocks the project is:
 
 > Open a terminal. Run:
 > ```
-> python ultron/blind_rate.py .
+> python ultron/validation/blind_rate.py .
 > ```
 > Rate each file in `ultron/meta/blind_study_sample.txt` honestly.
 > That file has ~15 filenames. Run the command once per file.

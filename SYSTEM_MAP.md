@@ -97,7 +97,7 @@ Contains NO risk-scoring code. The moment it does, it has become an undeclared s
 ### DONE — do not redo these
 - Task 1: git-history silent failure fixed
 - Task 2: speculative manifest moved with disclaimer
-- Task 3: blind_rate.py built (score-hidden)
+- Task 3: `ultron/validation/blind_rate.py` built (score-hidden)
 - Task 6: translate.py built, wired into CLI
 - Reclassification: design_oracle, reality_delta, delta moved into Ultron ROADMAP
 
@@ -105,7 +105,7 @@ Contains NO risk-scoring code. The moment it does, it has become an undeclared s
 See NEXT.md — one command, nothing else.
 
 ### BLOCKED ON HUMAN INPUT — AI cannot do these
-- Tasks 4 & 5: Human must run blind_rate.py and actually rate files
+- Tasks 4 & 5: Human must run `ultron/validation/blind_rate.py` and actually rate files
 - Logistic calibration: needs real feedback data (currently 0 valid entries)
 
 ### SPECULATIVE — no code exists, do not build
