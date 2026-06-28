@@ -28,6 +28,7 @@ def main():
     parser.add_argument("--prob-threshold", type=float, default=0.0, help="Probability threshold (0.0 to 1.0) for call transition anomalies")
     parser.add_argument("--json", action="store_true", help="Output results in JSON format to stdout")
     parser.add_argument("--detail", action="store_true", help="Show detailed risk statistics and formula breakdown")
+    parser.add_argument("--brief", action="store_true", help="Generate a compact markdown context brief for AI agent orientation")
     args = parser.parse_args()
     
     def log(msg):
@@ -77,9 +78,38 @@ def main():
                 print("[+] Success: No statistical or structural sequence anomalies detected.")
             sys.exit(0)
             
+    # Context brief mode
+    if args.brief:
+        log("[+] Ultron: Generating codebase context brief...")
+        import context_brief
+        brief = context_brief.compile_brief(repo_path)
+        if args.output:
+            out_path = os.path.abspath(args.output)
+            try:
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write(brief)
+                log(f"[+] Success: Context brief successfully saved to {out_path}")
+            except Exception as e:
+                if args.json:
+                    print(json.dumps({"status": "error", "error": f"Error writing brief: {e}"}))
+                else:
+                    print(f"[-] Error writing brief output file: {e}")
+                sys.exit(1)
+        else:
+            if args.json:
+                print(json.dumps({"status": "success", "brief": brief}))
+            else:
+                if hasattr(sys.stdout, "reconfigure"):
+                    try:
+                        sys.stdout.reconfigure(encoding="utf-8")
+                    except Exception as e:
+                        sys.stderr.write(f"Warning: stdout reconfigure failed: {e}\n")
+                print(brief)
+        sys.exit(0)
+
     # Standard prompt generation mode
     if not args.intent:
-        parser.error("--intent is required when not in --check-anomaly mode.")
+        parser.error("--intent is required when not in --check-anomaly or --brief mode.")
         
     target_files = []
     if args.files:

@@ -41,8 +41,7 @@ Run this for every task, no exceptions:
    `PROJECT_LOG.md` and wait. Do not write any code in service of working
    around this.
 
-4. **ACT** — Do the smallest reversible piece of the task. Don't bundle
-   multiple changes into one step.
+4. **ACT** — Once the implementation plan has been explicitly presented and approved in-conversation by the Critic and the user, do the smallest reversible piece of the task. No source edits or modifying commands may begin until this approval is granted. Don't bundle multiple changes into one step.
 
 5. **SHOW** — Paste raw output. Never paraphrase, never summarize a
    result in place of showing it.
@@ -218,3 +217,9 @@ in the codebase dict produced by `analyze_directory()`. On Windows, declared
 paths may use backslashes while codebase keys use forward slashes. The
 pre-flight gate must normalize both to forward-slash relative paths before
 comparison. This is implemented in `run_preflight_risk_gate()`.
+
+## Walkthrough Integrity Rules
+
+### Labeled Process Answers
+Every walkthrough must directly answer any open process question from the prior review turn, in its own labeled section, before reporting new work. A walkthrough that skips a direct question is incomplete by definition. All metrics and performance numbers reported in the walkthrough must explicitly state whether they are measured or estimated/extrapolated.
+

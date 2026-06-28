@@ -10,7 +10,15 @@ import urllib.error
 import shlex
 import hashlib
 
+# UMAGS Telemetry call counter
+telemetry_call_count = 0
+
+def increment_telemetry_calls(count=1):
+    global telemetry_call_count
+    telemetry_call_count += count
+
 def parse_yaml(yaml_path):
+    increment_telemetry_calls(1)
     data = {}
     if not os.path.exists(yaml_path):
         return data
@@ -80,6 +88,7 @@ def parse_yaml(yaml_path):
     return data
 
 def run_tests(repo_path, cmd):
+    increment_telemetry_calls(1)
     try:
         # Cross-platform safe command split
         parts = shlex.split(cmd, posix=(sys.platform != "win32"))
@@ -90,6 +99,7 @@ def run_tests(repo_path, cmd):
         return False, "", str(e)
 
 def get_git_bug_commits_for_file(repo_path, filepath):
+    increment_telemetry_calls(1)
     try:
         res = subprocess.run(
             ["git", "log", "--oneline", "--", filepath],
@@ -111,6 +121,7 @@ def get_git_bug_commits_for_file(repo_path, filepath):
     return []
 
 def get_prior_failures_for_task(telemetry_path, task_id):
+    increment_telemetry_calls(1)
     failures = 0
     if os.path.exists(telemetry_path):
         try:
@@ -142,6 +153,7 @@ def is_nullification_candidate(repo_path, rel_path):
     ):
         return False
     # Check if file is tracked by git
+    increment_telemetry_calls(1)
     try:
         res = subprocess.run(
             ["git", "ls-files", "--error-unmatch", rel_path],
@@ -155,6 +167,7 @@ def is_nullification_candidate(repo_path, rel_path):
     return True
 
 def get_actual_modified_files(repo_path):
+    increment_telemetry_calls(3)
     modified = set()
     git_worked = False
     try:
@@ -222,6 +235,7 @@ def get_actual_modified_files(repo_path):
 
 
 def get_log_bug_occurrences_for_file(repo_path, filepath):
+    increment_telemetry_calls(1)
     log_path = os.path.join(repo_path, "PROJECT_LOG.md")
     occurrences = []
     if os.path.exists(log_path):
@@ -239,6 +253,7 @@ def get_log_bug_occurrences_for_file(repo_path, filepath):
     return occurrences
 
 def get_original_code(repo_path, rel_path):
+    increment_telemetry_calls(3)
     git_path = rel_path.replace("\\", "/")
     # 1. Prioritize Git log/show history at the file's current path
     try:
@@ -671,15 +686,34 @@ def main():
             try:
                 # Backup current modified file
                 temp_backup = f_abs + ".tmp_verification"
+                increment_telemetry_calls(1)
                 shutil.copy2(f_abs, temp_backup)
                 temp_stored = True
                 
                 # Restore original
                 if has_bak:
+                    increment_telemetry_calls(1)
                     shutil.copy2(f_bak, f_abs)
                 else:
-                    # Try git checkout to restore original
-                    subprocess.run(["git", "checkout", f], cwd=repo_path, capture_output=True)
+                    # Check if file is new in Git HEAD
+                    is_new = True
+                    try:
+                        chk_head = subprocess.run(
+                            ["git", "cat-file", "-e", f"HEAD:{f}"],
+                            cwd=repo_path,
+                            capture_output=True
+                        )
+                        if chk_head.returncode == 0:
+                            is_new = False
+                    except Exception as e:
+                        _err = e
+                    
+                    if is_new:
+                        with open(f_abs, "w", encoding="utf-8") as f_new:
+                            f_new.write("# NULLIFIED")
+                    else:
+                        increment_telemetry_calls(1)
+                        subprocess.run(["git", "checkout", f], cwd=repo_path, capture_output=True)
                 
                 # Run the tests - they MUST fail now!
                 for cmd in test_commands:
@@ -729,12 +763,14 @@ def main():
                         # If it is tracked but unmodified in diff, check no lines.
                         is_untracked = False
                         try:
+                            increment_telemetry_calls(1)
                             res = subprocess.run(["git", "ls-files", "--error-unmatch", f], cwd=repo_path, capture_output=True)
                             is_untracked = (res.returncode != 0)
                         except Exception as e:
                             _err = e
                         file_changed_lines = None if is_untracked else set()
                     
+                    increment_telemetry_calls(1)
                     violations = check_file_ast(f_abs, changed_lines=file_changed_lines)
                     if violations:
                         ast_ok = False
@@ -1013,6 +1049,7 @@ Builder Walkthrough (Intended Reality):
         if os.path.exists(f_abs):
             try:
                 orig_code = get_original_code(repo_path, f)
+                increment_telemetry_calls(1)
                 with open(f_abs, "r", encoding="utf-8", errors="ignore") as file_obj:
                     mod_code = file_obj.read()
                 drift = analyze_complexity_drift(f, orig_code, mod_code)
@@ -1050,7 +1087,9 @@ Builder Walkthrough (Intended Reality):
         "nullification_test_run": not (task_type == "STRUCTURE_ONLY" or fast_path or preflight_tier != "HIGH"),
         "discrepancies_found": len(auditor_comments) + len(sentinel_comments),
         "longitudinal_warnings": len([h for h in history_comments if "Warning" in h or "Spot" in h or "Drift" in h]),
-        "residual_risk_score": R
+        "residual_risk_score": R,
+        "verification_path": "FAST" if fast_path else "FULL",
+        "telemetry_call_count": telemetry_call_count
     }
     try:
         with open(telemetry_path, "a", encoding="utf-8") as f:

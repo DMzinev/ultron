@@ -63,9 +63,10 @@ For every non-trivial coding task or request:
     *   Declared target files list (`CHANGED_FILES`).
     *   Expected outcomes.
     *   Known limitations.
-2.  **Query Adversarial Critic Subagent:** 
+2.  **Query Adversarial Critic Subagent & Obtain User Approval:** 
     *   Invoke the `auditor_critic` subagent. Send the proposed plan and context.
     *   Wait for its verdict. If it rejects (`REJECTED`), refine the plan and repeat.
+    *   **CRITICAL CONSTRAINT**: No source code edits or modifying commands of any kind may begin until the implementation plan has been explicitly reviewed and approved by the Critic and the user in the conversation transcript.
 3.  **Implement and Compile Evidence:**
     *   Once the plan is approved, implement the changes.
     *   Compile the evidence contract using `governor.py`.
@@ -95,3 +96,8 @@ For every non-trivial coding task or request:
 3.  **Identify Test Laundering:** Ensure the tests assert the actual return values and state side-effects of the modified code, rather than just executing the path without asserting correctness.
 4.  **Check Scope Integrity:** Compare the declared `CHANGED_FILES` list against the actual modified files. If the Builder modified any source file not declared in the plan, raise a Scope Discrepancy block.
 
+---
+
+## 7. Walkthrough Integrity Rules
+1.  **Labeled Process Answers:** Every walkthrough must directly answer any open process question from the prior review turn, in its own labeled section, before reporting new work. A walkthrough that skips a direct question is incomplete by definition.
+2.  **No Fabricated Metrics:** All metrics and performance numbers reported in the walkthrough must explicitly state whether they are measured or estimated/extrapolated. Unmeasured estimates must never be formatted or presented as empirical data.
