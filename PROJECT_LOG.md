@@ -500,7 +500,7 @@ PENDING — not yet reviewed by an external party.
 
 **Walkthrough / Evidence:**
 1. Excluded all `*.bak` files from the context brief directory tree walk.
-2. Fixed the risk tier assignment inconsistency in the brief table by recalculating risk levels strictly according to base thresholds (HIGH >= 10.0, MEDIUM >= 3.0, LOW < 3.0), resolving divergent labels (e.g., `get_next_blind_target.py` is now consistently MEDIUM).
+2. Reverted context brief risk level calculations to return the real value from the risk engine, and added threshold-adjustment footnotes next to files where git-history scaling or human feedback shifted the risk tier (e.g. `get_next_blind_target.py` is shown as HIGH with a footnote detailing that 2 bug fixes lowered its HIGH threshold to 7.0).
 3. Resolved spelling and confirmed `umags/tools/run_stratified_sampling.py` is correctly formatted in both the tree structure and the Leaf Modules list.
 4. Added strict plan-approval rules to step 4 in `PROTOCOL.md` and Section 4 in `.agents/AGENTS.md` stating no source code edits may begin until the plan is approved in the conversation.
 5. Successfully ran the full UMAGS verification loop (verdict: `APPROVED`, residual risk `R = 0`).
