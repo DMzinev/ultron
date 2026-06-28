@@ -10,6 +10,14 @@ import urllib.error
 import shlex
 import hashlib
 
+# UMAGS Budget Governor (execution economics: command caching, poll depth guard, scope compression)
+_budget_governor = None
+try:
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)))))
+    import budget_governor as _budget_governor
+except ImportError as _bg_import_err:
+    print(f"[*] Budget Governor: module unavailable ({_bg_import_err}) — degrading to no-op mode.")
+
 # UMAGS Telemetry call counter
 telemetry_call_count = 0
 
@@ -87,12 +95,23 @@ def parse_yaml(yaml_path):
         print(f"Error parsing YAML: {e}")
     return data
 
-def run_tests(repo_path, cmd):
+def run_tests(repo_path, cmd, force_refresh=False):
     increment_telemetry_calls(1)
     try:
         # Cross-platform safe command split
         parts = shlex.split(cmd, posix=(sys.platform != "win32"))
         from umags.config import TEST_TIMEOUT_SECONDS
+        # Use budget governor cache to skip re-running an identical command against an unchanged repo state
+        if _budget_governor is not None and not force_refresh:
+            try:
+                stdout, stderr, returncode, is_cached = _budget_governor.execute_command_cached(
+                    repo_path, parts, force_refresh=False
+                )
+                if is_cached:
+                    print(f"[*] Budget Governor: Returning cached result for '{cmd}'")
+                return returncode == 0, stdout, stderr
+            except (OSError, ValueError, RuntimeError) as _cache_err:
+                print(f"[*] Budget Governor: cache lookup failed ({_cache_err}) — falling through to direct execution.")
         res = subprocess.run(parts, capture_output=True, text=True, cwd=repo_path, timeout=TEST_TIMEOUT_SECONDS)
         return res.returncode == 0, res.stdout, res.stderr
     except Exception as e:
@@ -538,6 +557,15 @@ def main():
         task_type = "LOGIC_CHANGE"
     changed_files = package.get("CHANGED_FILES", [])
     test_commands = package.get("TEST_COMMANDS", [])
+
+    # Budget Governor: enforce MAX_POLL=3 guard before doing any work
+    if _budget_governor is not None:
+        try:
+            poll_count = _budget_governor.track_poll(repo_path, task_id, max_poll=3)
+            print(f"[*] Budget Governor: Poll #{poll_count} for task '{task_id}'.")
+        except TimeoutError as te:
+            print(f"[!] Budget Governor: {te}")
+            sys.exit(2)
 
     # =========================================================================
     # 0. PRE-FLIGHT RISK GATE

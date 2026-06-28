@@ -1162,6 +1162,80 @@ Another gap.
         if False:
             context_brief.walk_dir("", "")
 
+
+class TestBudgetGovernor(unittest.TestCase):
+
+    def setUp(self):
+        import budget_governor
+        self.bg = budget_governor
+        import tempfile
+        import shutil
+        self.temp_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    # --------------- get_repo_state_hash ---------------
+    def test_repo_state_hash_returns_string(self):
+        h = self.bg.get_repo_state_hash(_root)
+        self.assertIsInstance(h, str)
+
+    def test_repo_state_hash_non_repo_returns_string(self):
+        # Non-git directory must still return a string, not raise
+        h = self.bg.get_repo_state_hash(self.temp_dir)
+        self.assertIsInstance(h, str)
+
+    # --------------- execute_command_cached ---------------
+    def test_command_cache_first_run_is_not_cached(self):
+        cmd = ["python", "--version"]
+        _, _, rc, is_cached = self.bg.execute_command_cached(_root, cmd)
+        self.assertFalse(is_cached)
+        self.assertEqual(rc, 0)
+
+    def test_command_cache_second_run_is_cached(self):
+        cmd = ["python", "--version"]
+        self.bg.execute_command_cached(_root, cmd)          # prime the cache
+        _, _, rc, is_cached = self.bg.execute_command_cached(_root, cmd)
+        self.assertTrue(is_cached)
+        self.assertEqual(rc, 0)
+
+    def test_command_cache_force_refresh_bypasses_cache(self):
+        cmd = ["python", "--version"]
+        self.bg.execute_command_cached(_root, cmd)          # prime the cache
+        _, _, rc, is_cached = self.bg.execute_command_cached(_root, cmd, force_refresh=True)
+        self.assertFalse(is_cached)
+
+    # --------------- track_poll ---------------
+    def test_track_poll_increments_count(self):
+        count = self.bg.track_poll(self.temp_dir, "Task-TestBudgetPoll", max_poll=3)
+        self.assertEqual(count, 1)
+        count = self.bg.track_poll(self.temp_dir, "Task-TestBudgetPoll", max_poll=3)
+        self.assertEqual(count, 2)
+
+    def test_track_poll_raises_on_budget_exceeded(self):
+        for _ in range(3):
+            self.bg.track_poll(self.temp_dir, "Task-TestPollLimit", max_poll=3)
+        with self.assertRaises(TimeoutError):
+            self.bg.track_poll(self.temp_dir, "Task-TestPollLimit", max_poll=3)
+
+    def test_track_poll_empty_task_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            self.bg.track_poll(self.temp_dir, "", max_poll=3)
+
+    # --------------- get_affected_files ---------------
+    def test_get_affected_files_returns_superset(self):
+        changed = ["ultron/core/risk.py"]
+        affected = self.bg.get_affected_files(_root, changed)
+        # The original file must always be in the affected set
+        self.assertIn("ultron/core/risk.py", affected)
+
+    def test_get_affected_files_empty_changed_returns_empty(self):
+        affected = self.bg.get_affected_files(_root, [])
+        self.assertIsInstance(affected, set)
+        self.assertEqual(len(affected), 0)
+
+
 if __name__ == "__main__":
     print("[+] Running Ultron Core Tests...")
     unittest.main()

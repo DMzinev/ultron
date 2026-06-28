@@ -1,51 +1,400 @@
-TASK_ID: 'Task-NewFileNullificationMode'
+TASK_ID: 'Task-BudgetGovernorV7'
 TASK_TYPE: 'LOGIC_CHANGE'
 BUILDER_VERSION: 'v2.0'
-COMMIT_HASH: '8677a15a5a98dffd5f33a38aeba9a42866711cb6'
-PLAN_HASH: '-6178366864674523341'
+COMMIT_HASH: '76d86f583df5abbf59da2d2aa10c554d85146877'
+PLAN_HASH: '-5326364965528847223'
 CHANGED_FILES:
+- 'umags/budget_governor.py'
 - 'umags/run_verification_loop.py'
+- 'ultron/tests/run_tests.py'
 PATCH_DIFF: |
+  diff --git a/ultron/tests/run_tests.py b/ultron/tests/run_tests.py
+  index adfead6..f329333 100644
+  --- a/ultron/tests/run_tests.py
+  +++ b/ultron/tests/run_tests.py
+  @@ -1162,6 +1162,80 @@ Another gap.
+           if False:
+               context_brief.walk_dir("", "")
+   
+  +
+  +class TestBudgetGovernor(unittest.TestCase):
+  +
+  +    def setUp(self):
+  +        import budget_governor
+  +        self.bg = budget_governor
+  +        import tempfile
+  +        import shutil
+  +        self.temp_dir = tempfile.mkdtemp()
+  +
+  +    def tearDown(self):
+  +        import shutil
+  +        shutil.rmtree(self.temp_dir, ignore_errors=True)
+  +
+  +    # --------------- get_repo_state_hash ---------------
+  +    def test_repo_state_hash_returns_string(self):
+  +        h = self.bg.get_repo_state_hash(_root)
+  +        self.assertIsInstance(h, str)
+  +
+  +    def test_repo_state_hash_non_repo_returns_string(self):
+  +        # Non-git directory must still return a string, not raise
+  +        h = self.bg.get_repo_state_hash(self.temp_dir)
+  +        self.assertIsInstance(h, str)
+  +
+  +    # --------------- execute_command_cached ---------------
+  +    def test_command_cache_first_run_is_not_cached(self):
+  +        cmd = ["python", "--version"]
+  +        _, _, rc, is_cached = self.bg.execute_command_cached(_root, cmd)
+  +        self.assertFalse(is_cached)
+  +        self.assertEqual(rc, 0)
+  +
+  +    def test_command_cache_second_run_is_cached(self):
+  +        cmd = ["python", "--version"]
+  +        self.bg.execute_command_cached(_root, cmd)          # prime the cache
+  +        _, _, rc, is_cached = self.bg.execute_command_cached(_root, cmd)
+  +        self.assertTrue(is_cached)
+  +        self.assertEqual(rc, 0)
+  +
+  +    def test_command_cache_force_refresh_bypasses_cache(self):
+  +        cmd = ["python", "--version"]
+  +        self.bg.execute_command_cached(_root, cmd)          # prime the cache
+  +        _, _, rc, is_cached = self.bg.execute_command_cached(_root, cmd, force_refresh=True)
+  +        self.assertFalse(is_cached)
+  +
+  +    # --------------- track_poll ---------------
+  +    def test_track_poll_increments_count(self):
+  +        count = self.bg.track_poll(self.temp_dir, "Task-TestBudgetPoll", max_poll=3)
+  +        self.assertEqual(count, 1)
+  +        count = self.bg.track_poll(self.temp_dir, "Task-TestBudgetPoll", max_poll=3)
+  +        self.assertEqual(count, 2)
+  +
+  +    def test_track_poll_raises_on_budget_exceeded(self):
+  +        for _ in range(3):
+  +            self.bg.track_poll(self.temp_dir, "Task-TestPollLimit", max_poll=3)
+  +        with self.assertRaises(TimeoutError):
+  +            self.bg.track_poll(self.temp_dir, "Task-TestPollLimit", max_poll=3)
+  +
+  +    def test_track_poll_empty_task_raises_value_error(self):
+  +        with self.assertRaises(ValueError):
+  +            self.bg.track_poll(self.temp_dir, "", max_poll=3)
+  +
+  +    # --------------- get_affected_files ---------------
+  +    def test_get_affected_files_returns_superset(self):
+  +        changed = ["ultron/core/risk.py"]
+  +        affected = self.bg.get_affected_files(_root, changed)
+  +        # The original file must always be in the affected set
+  +        self.assertIn("ultron/core/risk.py", affected)
+  +
+  +    def test_get_affected_files_empty_changed_returns_empty(self):
+  +        affected = self.bg.get_affected_files(_root, [])
+  +        self.assertIsInstance(affected, set)
+  +        self.assertEqual(len(affected), 0)
+  +
+  +
+   if __name__ == "__main__":
+       print("[+] Running Ultron Core Tests...")
+       unittest.main()
+  diff --git a/umags/budget_governor.py b/umags/budget_governor.py
+  new file mode 100644
+  index 0000000..edad3c0
+  --- /dev/null
+  +++ b/umags/budget_governor.py
+  @@ -0,0 +1,235 @@
+  +import os
+  +import sys
+  +import json
+  +import time
+  +import hashlib
+  +import subprocess
+  +import unittest
+  +
+  +def get_repo_state_hash(repo_path):
+  +    """
+  +    Computes a stable hash representing the current repository status (HEAD and modified state).
+  +    """
+  +    try:
+  +        # 1. Get current HEAD commit hash
+  +        res_head = subprocess.run(
+  +            ["git", "rev-parse", "HEAD"],
+  +            cwd=repo_path,
+  +            capture_output=True,
+  +            text=True
+  +        )
+  +        head_hash = res_head.stdout.strip() if res_head.returncode == 0 else ""
+  +        
+  +        # 2. Get porcelain status
+  +        res_status = subprocess.run(
+  +            ["git", "status", "--porcelain"],
+  +            cwd=repo_path,
+  +            capture_output=True,
+  +            text=True
+  +        )
+  +        status_out = res_status.stdout if res_status.returncode == 0 else ""
+  +        
+  +        # 3. Get diff
+  +        res_diff = subprocess.run(
+  +            ["git", "diff"],
+  +            cwd=repo_path,
+  +            capture_output=True,
+  +            text=True
+  +        )
+  +        diff_out = res_diff.stdout if res_diff.returncode == 0 else ""
+  +        
+  +        combined = head_hash + "\n" + status_out + "\n" + diff_out
+  +        return hashlib.sha256(combined.encode("utf-8")).hexdigest()
+  +    except Exception as e:
+  +        _err = e
+  +        return ""
+  +
+  +def execute_command_cached(repo_path, cmd, force_refresh=False):
+  +    """
+  +    Executes a command and caches the result.
+  +    Returns (stdout, stderr, returncode, is_cached).
+  +    """
+  +    cmd_str = " ".join(cmd) if isinstance(cmd, list) else cmd
+  +    repo_hash = get_repo_state_hash(repo_path)
+  +    
+  +    cache_key = hashlib.sha256((cmd_str + ":" + repo_hash).encode("utf-8")).hexdigest()
+  +    cache_dir = os.path.join(repo_path, "umags", ".cache")
+  +    os.makedirs(cache_dir, exist_ok=True)
+  +    cache_file = os.path.join(cache_dir, "cmd_cache.json")
+  +    
+  +    cache_data = {}
+  +    if os.path.exists(cache_file):
+  +        try:
+  +            with open(cache_file, "r", encoding="utf-8") as f:
+  +                cache_data = json.load(f)
+  +        except Exception as e:
+  +            _err = e
+  +            
+  +    if not force_refresh and cache_key in cache_data:
+  +        entry = cache_data[cache_key]
+  +        return entry["stdout"], entry["stderr"], entry["returncode"], True
+  +        
+  +    res = subprocess.run(
+  +        cmd,
+  +        cwd=repo_path,
+  +        capture_output=True,
+  +        text=True
+  +    )
+  +    
+  +    cache_data[cache_key] = {
+  +        "cmd": cmd_str,
+  +        "stdout": res.stdout,
+  +        "stderr": res.stderr,
+  +        "returncode": res.returncode,
+  +        "repo_hash": repo_hash
+  +    }
+  +    
+  +    try:
+  +        with open(cache_file, "w", encoding="utf-8") as f:
+  +            json.dump(cache_data, f, indent=2)
+  +    except Exception as e:
+  +        _err = e
+  +        
+  +    return res.stdout, res.stderr, res.returncode, False
+  +
+  +def track_poll(repo_path, task_name, max_poll=3):
+  +    """
+  +    Tracks task polling occurrences. Raises TimeoutError if max_poll is exceeded.
+  +    """
+  +    if not task_name:
+  +        raise ValueError("Task name must not be empty.")
+  +        
+  +    cache_dir = os.path.join(repo_path, "umags", ".cache")
+  +    os.makedirs(cache_dir, exist_ok=True)
+  +    state_file = os.path.join(cache_dir, "poll_state.json")
+  +    
+  +    state = {}
+  +    if os.path.exists(state_file):
+  +        try:
+  +            with open(state_file, "r", encoding="utf-8") as f:
+  +                state = json.load(f)
+  +        except Exception as e:
+  +            _err = e
+  +            
+  +    task_entry = state.setdefault(task_name, {"poll_count": 0, "last_poll_time": 0.0})
+  +    
+  +    now = time.time()
+  +    if now - task_entry["last_poll_time"] > 1800:
+  +        task_entry["poll_count"] = 0
+  +        
+  +    task_entry["poll_count"] += 1
+  +    task_entry["last_poll_time"] = now
+  +    
+  +    try:
+  +        with open(state_file, "w", encoding="utf-8") as f:
+  +            json.dump(state, f, indent=2)
+  +    except Exception as e:
+  +        _err = e
+  +        
+  +    if task_entry["poll_count"] > max_poll:
+  +        raise TimeoutError(f"UMAGS Budget Governor: Polling limit exceeded for task '{task_name}' (MAX_POLL = {max_poll}). Aborting to prevent token burn.")
+  +        
+  +    return task_entry["poll_count"]
+  +
+  +def get_affected_files(repo_path, changed_files):
+  +    """
+  +    Traces imports in codebase to identify all dependent files.
+  +    """
+  +    core_dir = os.path.join(repo_path, "ultron", "core")
+  +    sys.path.append(core_dir)
+  +    import analyzer
+  +    
+  +    codebase = analyzer.analyze_directory(repo_path)
+  +    
+  +    dependents = {}
+  +    for rel_path, analysis in codebase.items():
+  +        for imp in analysis.get("imports", []):
+  +            for candidate in codebase.keys():
+  +                cand_base = os.path.splitext(os.path.basename(candidate))[0]
+  +                if cand_base == imp:
+  +                    dependents.setdefault(candidate, []).append(rel_path)
+  +                    
+  +    affected = set(changed_files)
+  +    queue = list(changed_files)
+  +    while queue:
+  +        current = queue.pop(0)
+  +        for dep in dependents.get(current, []):
+  +            if dep not in affected:
+  +                affected.add(dep)
+  +                queue.append(dep)
+  +    return affected
+  +
+  +def get_test_targets(repo_path, changed_files):
+  +    """
+  +    Returns specific test targets based on dependency fanout.
+  +    """
+  +    affected = get_affected_files(repo_path, changed_files)
+  +    
+  +    # Central hubs trigger full suite
+  +    hubs = {"ultron/core/models.py", "ultron/core/analyzer.py", "ultron/core/risk.py", "umags/run_verification_loop.py"}
+  +    if any(h in affected for h in hubs):
+  +        return []
+  +        
+  +    basenames = {os.path.splitext(os.path.basename(f))[0] for f in affected}
+  +    
+  +    test_dir = os.path.join(repo_path, "ultron", "tests")
+  +    sys.path.append(test_dir)
+  +    import run_tests
+  +    
+  +    targets = []
+  +    for name, obj in inspect_members(run_tests):
+  +        if is_test_case_class(obj):
+  +            for m_name, _ in inspect_functions(obj):
+  +                if m_name.startswith("test_"):
+  +                    matched = False
+  +                    for b in basenames:
+  +                        if b in m_name:
+  +                            matched = True
+  +                            break
+  +                    if matched:
+  +                        targets.append(f"{name}.{m_name}")
+  +                        
+  +    if not targets and changed_files:
+  +        return []
+  +    return targets
+  +
+  +def inspect_members(module):
+  +    import inspect
+  +    return inspect.getmembers(module)
+  +
+  +def inspect_functions(cls):
+  +    import inspect
+  +    return inspect.getmembers(cls, predicate=inspect.isfunction)
+  +
+  +def is_test_case_class(obj):
+  +    import inspect
+  +    return inspect.isclass(obj) and issubclass(obj, unittest.TestCase)
+  +
+  +def create_sandbox_worktree(repo_path, task_name):
+  +    """
+  +    Spins up an isolated sandbox worktree.
+  +    """
+  +    import tempfile
+  +    temp_dir = tempfile.mkdtemp(prefix=f"umags_wt_{task_name.lower()}_")
+  +    res = subprocess.run(
+  +        ["git", "worktree", "add", "--detach", temp_dir, "HEAD"],
+  +        cwd=repo_path,
+  +        capture_output=True,
+  +        text=True
+  +    )
+  +    if res.returncode != 0:
+  +        raise RuntimeError(f"Failed to create git worktree: {res.stderr}")
+  +    return temp_dir
+  +
+  +def destroy_sandbox_worktree(repo_path, temp_dir):
+  +    """
+  +    Prunes and destroys git worktree.
+  +    """
+  +    subprocess.run(
+  +        ["git", "worktree", "prune"],
+  +        cwd=repo_path,
+  +        capture_output=True
+  +    )
+  +    import shutil
+  +    if os.path.exists(temp_dir):
+  +        shutil.rmtree(temp_dir, ignore_errors=True)
   diff --git a/umags/run_verification_loop.py b/umags/run_verification_loop.py
-  index 46f8b8e..d6ef6ab 100644
+  index d6ef6ab..ea82094 100644
   --- a/umags/run_verification_loop.py
   +++ b/umags/run_verification_loop.py
-  @@ -695,11 +695,21 @@ def main():
-                       increment_telemetry_calls(1)
-                       shutil.copy2(f_bak, f_abs)
-                   else:
-  -                    # Check if file is new in Git HEAD
-  +                    # Check if file is new relative to the task's baseline commit (last commit touching PROJECT_LOG.md)
-                       is_new = True
-                       try:
-  +                        baseline = "HEAD"
-  +                        res_log = subprocess.run(
-  +                            ["git", "log", "-n", "1", "--format=%H", "--", "PROJECT_LOG.md"],
-  +                            cwd=repo_path,
-  +                            capture_output=True,
-  +                            text=True
-  +                        )
-  +                        if res_log.returncode == 0 and res_log.stdout.strip():
-  +                            baseline = res_log.stdout.strip()
-  +                            
-                           chk_head = subprocess.run(
-  -                            ["git", "cat-file", "-e", f"HEAD:{f}"],
-  +                            ["git", "cat-file", "-e", f"{baseline}:{f}"],
-                               cwd=repo_path,
-                               capture_output=True
-                           )
-  @@ -709,8 +719,8 @@ def main():
-                           _err = e
-                       
-                       if is_new:
-  -                        with open(f_abs, "w", encoding="utf-8") as f_new:
-  -                            f_new.write("# NULLIFIED")
-  +                        if os.path.exists(f_abs):
-  +                            os.remove(f_abs)
-                       else:
-                           increment_telemetry_calls(1)
-                           subprocess.run(["git", "checkout", f], cwd=repo_path, capture_output=True)
-EXPECTED_OUTCOMES: "Verify new file nullification mode deletes the file outright instead of writing '# NULLIFIED' or checking it out from HEAD"
+  @@ -10,6 +10,14 @@ import urllib.error
+   import shlex
+   import hashlib
+   
+  +# UMAGS Budget Governor (execution economics: command caching, poll depth guard, scope compression)
+  +_budget_governor = None
+  +try:
+  +    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)))))
+  +    import budget_governor as _budget_governor
+  +except ImportError as _bg_import_err:
+  +    print(f"[*] Budget Governor: module unavailable ({_bg_import_err}) â€” degrading to no-op mode.")
+  +
+   # UMAGS Telemetry call counter
+   telemetry_call_count = 0
+   
+  @@ -87,12 +95,23 @@ def parse_yaml(yaml_path):
+           print(f"Error parsing YAML: {e}")
+       return data
+   
+  -def run_tests(repo_path, cmd):
+  +def run_tests(repo_path, cmd, force_refresh=False):
+       increment_telemetry_calls(1)
+       try:
+           # Cross-platform safe command split
+           parts = shlex.split(cmd, posix=(sys.platform != "win32"))
+           from umags.config import TEST_TIMEOUT_SECONDS
+  +        # Use budget governor cache to skip re-running an identical command against an unchanged repo state
+  +        if _budget_governor is not None and not force_refresh:
+  +            try:
+  +                stdout, stderr, returncode, is_cached = _budget_governor.execute_command_cached(
+  +                    repo_path, parts, force_refresh=False
+  +                )
+  +                if is_cached:
+  +                    print(f"[*] Budget Governor: Returning cached result for '{cmd}'")
+  +                return returncode == 0, stdout, stderr
+  +            except (OSError, ValueError, RuntimeError) as _cache_err:
+  +                print(f"[*] Budget Governor: cache lookup failed ({_cache_err}) â€” falling through to direct execution.")
+           res = subprocess.run(parts, capture_output=True, text=True, cwd=repo_path, timeout=TEST_TIMEOUT_SECONDS)
+           return res.returncode == 0, res.stdout, res.stderr
+       except Exception as e:
+  @@ -539,6 +558,15 @@ def main():
+       changed_files = package.get("CHANGED_FILES", [])
+       test_commands = package.get("TEST_COMMANDS", [])
+   
+  +    # Budget Governor: enforce MAX_POLL=3 guard before doing any work
+  +    if _budget_governor is not None:
+  +        try:
+  +            poll_count = _budget_governor.track_poll(repo_path, task_id, max_poll=3)
+  +            print(f"[*] Budget Governor: Poll #{poll_count} for task '{task_id}'.")
+  +        except TimeoutError as te:
+  +            print(f"[!] Budget Governor: {te}")
+  +            sys.exit(2)
+  +
+       # =========================================================================
+       # 0. PRE-FLIGHT RISK GATE
+       # Runs before Builder/Auditor/Judge/Historian steps.
+EXPECTED_OUTCOMES: 'Budget Governor enforces MAX_POLL=3 guard, caches duplicate command executions by repo-state hash, and exposes dependency fanout for scope-compressed test selection'
 TEST_COMMANDS:
 - 'python ultron/tests/run_tests.py'
 RAW_STDOUT: |
@@ -62,23 +411,113 @@ RAW_STDOUT: |
   [+] Recalibration complete.
     - New Fusion Weights: w_test=0.341, w_git=0.259, w_runtime=0.141, w_human=0.059, w_test_runtime=0.094, w_git_human=0.106
 RAW_STDERR: |
-  ..[-] Error processing rating: Could not evaluate risks for file
-  .....127.0.0.1 - - [28/Jun/2026 14:21:25] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [28/Jun/2026 14:21:25] "POST /api/design-oracle HTTP/1.1" 400 -
+  Exception in thread Thread-5 (_readerthread):
+  Traceback (most recent call last):
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 1614, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
+      return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+             ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>
+  .Exception in thread Thread-13 (_readerthread):
+  Traceback (most recent call last):
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 1614, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
+      return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+             ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>
+  Exception in thread Thread-19 (_readerthread):
+  Traceback (most recent call last):
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 1614, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
+      return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+             ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>
+  .Exception in thread Thread-27 (_readerthread):
+  Traceback (most recent call last):
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 1614, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
+      return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+             ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>
+  Exception in thread Thread-33 (_readerthread):
+  Traceback (most recent call last):
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 1614, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
+      return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+             ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>
+  ....Exception in thread Thread-45 (_readerthread):
+  Traceback (most recent call last):
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
+      self._context.run(self.run)
+      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1024, in run
+      self._target(*self._args, **self._kwargs)
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 1614, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
+      return codecs.charmap_decode(input,self.errors,decoding_table)[0]
+             ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>
+  ......[-] Error processing rating: Could not evaluate risks for file
+  .....127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 400 -
   C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\tempfile.py:484: ResourceWarning: Implicitly cleaning up <HTTPError 400: 'Bad Request'>
     _warnings.warn(self.warn_message, ResourceWarning)
-  127.0.0.1 - - [28/Jun/2026 14:21:25] "POST /api/design-oracle HTTP/1.1" 400 -
-  127.0.0.1 - - [28/Jun/2026 14:21:25] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [28/Jun/2026 14:21:25] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [28/Jun/2026 14:21:25] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [28/Jun/2026 14:21:25] "POST /api/design-oracle HTTP/1.1" 400 -
-  127.0.0.1 - - [28/Jun/2026 14:21:25] "POST /api/design-oracle HTTP/1.1" 400 -
+  127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 400 -
+  127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 400 -
+  127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 400 -
   ................[+] Ultron: Generating codebase context brief...
   ......
   ----------------------------------------------------------------------
-  Ran 29 tests in 8.197s
+  Ran 39 tests in 12.259s
   
   OK
 SELF_AUDIT: ''
-KNOWN_LIMITATIONS: 'None'
+KNOWN_LIMITATIONS: 'Sandbox worktree isolation requires git worktree support; scope compression falls back to full suite for hub files'
 CATEGORY_B: 'false'
