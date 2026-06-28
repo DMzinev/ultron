@@ -695,11 +695,21 @@ def main():
                     increment_telemetry_calls(1)
                     shutil.copy2(f_bak, f_abs)
                 else:
-                    # Check if file is new in Git HEAD
+                    # Check if file is new relative to the task's baseline commit (last commit touching PROJECT_LOG.md)
                     is_new = True
                     try:
+                        baseline = "HEAD"
+                        res_log = subprocess.run(
+                            ["git", "log", "-n", "1", "--format=%H", "--", "PROJECT_LOG.md"],
+                            cwd=repo_path,
+                            capture_output=True,
+                            text=True
+                        )
+                        if res_log.returncode == 0 and res_log.stdout.strip():
+                            baseline = res_log.stdout.strip()
+                            
                         chk_head = subprocess.run(
-                            ["git", "cat-file", "-e", f"HEAD:{f}"],
+                            ["git", "cat-file", "-e", f"{baseline}:{f}"],
                             cwd=repo_path,
                             capture_output=True
                         )
@@ -709,8 +719,8 @@ def main():
                         _err = e
                     
                     if is_new:
-                        with open(f_abs, "w", encoding="utf-8") as f_new:
-                            f_new.write("# NULLIFIED")
+                        if os.path.exists(f_abs):
+                            os.remove(f_abs)
                     else:
                         increment_telemetry_calls(1)
                         subprocess.run(["git", "checkout", f], cwd=repo_path, capture_output=True)
