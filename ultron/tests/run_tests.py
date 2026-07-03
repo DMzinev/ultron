@@ -1188,8 +1188,9 @@ class TestBudgetGovernor(unittest.TestCase):
 
     # --------------- execute_command_cached ---------------
     def test_command_cache_first_run_is_not_cached(self):
+        # Use self.temp_dir: guarantees no prior cache entry for this (cmd, repo_hash) pair
         cmd = ["python", "--version"]
-        _, _, rc, is_cached = self.bg.execute_command_cached(_root, cmd)
+        _, _, rc, is_cached = self.bg.execute_command_cached(self.temp_dir, cmd)
         self.assertFalse(is_cached)
         self.assertEqual(rc, 0)
 
@@ -1234,6 +1235,191 @@ class TestBudgetGovernor(unittest.TestCase):
         affected = self.bg.get_affected_files(_root, [])
         self.assertIsInstance(affected, set)
         self.assertEqual(len(affected), 0)
+
+
+class TestDesignOracleExtended(unittest.TestCase):
+
+    def setUp(self):
+        import design_oracle
+        self.oracle = design_oracle
+        self.repo_path = _root
+        # Minimal stub codebase for fast, deterministic tests
+        self.stub_codebase = {
+            "a.py": {"imports": ["b"], "definitions": ["func_a"]},
+            "b.py": {"imports": ["c"], "definitions": ["func_b"]},
+            "c.py": {"imports": [],   "definitions": ["func_c"]},
+        }
+
+    # --------------- score_coupling_debt ---------------
+    def test_coupling_debt_returns_sorted_list(self):
+        results = self.oracle.score_coupling_debt(self.stub_codebase)
+        self.assertIsInstance(results, list)
+        self.assertEqual(len(results), 3)
+        # Sorted descending by coupling_debt
+        scores = [r["coupling_debt"] for r in results]
+        self.assertEqual(scores, sorted(scores, reverse=True))
+
+    def test_coupling_debt_instability_in_range(self):
+        for entry in self.oracle.score_coupling_debt(self.stub_codebase):
+            self.assertGreaterEqual(entry["instability"], 0.0)
+            self.assertLessEqual(entry["instability"], 1.0)
+
+    def test_coupling_debt_raises_on_non_dict(self):
+        with self.assertRaises(TypeError):
+            self.oracle.score_coupling_debt("not a dict")
+
+    def test_coupling_debt_raises_on_empty(self):
+        with self.assertRaises(ValueError):
+            self.oracle.score_coupling_debt({})
+
+    # --------------- detect_abstraction_leaks ---------------
+    def test_abstraction_leaks_returns_dict(self):
+        leaks = self.oracle.detect_abstraction_leaks(self.stub_codebase, self.repo_path)
+        self.assertIsInstance(leaks, dict)
+
+    def test_abstraction_leaks_detects_real_repo(self):
+        import analyzer
+        codebase = analyzer.analyze_directory(self.repo_path)
+        leaks = self.oracle.detect_abstraction_leaks(codebase, self.repo_path)
+        # We don't assert a specific file, but the result must be a dict
+        self.assertIsInstance(leaks, dict)
+
+    def test_abstraction_leaks_raises_on_non_dict(self):
+        with self.assertRaises(TypeError):
+            self.oracle.detect_abstraction_leaks([], self.repo_path)
+
+    def test_abstraction_leaks_raises_on_none_repo(self):
+        with self.assertRaises(ValueError):
+            self.oracle.detect_abstraction_leaks(self.stub_codebase, None)
+
+    # --------------- compute_hotspot_scores ---------------
+    def test_hotspot_scores_returns_sorted_list(self):
+        import analyzer
+        codebase = analyzer.analyze_directory(self.repo_path)
+        results = self.oracle.compute_hotspot_scores(codebase, self.repo_path, [])
+        self.assertIsInstance(results, list)
+        self.assertGreater(len(results), 0)
+        scores = [r["hotspot_score"] for r in results]
+        self.assertEqual(scores, sorted(scores, reverse=True))
+
+    def test_hotspot_scores_score_in_range(self):
+        import analyzer
+        codebase = analyzer.analyze_directory(self.repo_path)
+        for entry in self.oracle.compute_hotspot_scores(codebase, self.repo_path, []):
+            self.assertGreaterEqual(entry["hotspot_score"], 0.0)
+            self.assertLessEqual(entry["hotspot_score"], 1.0)
+
+    def test_hotspot_scores_raises_on_non_dict(self):
+        with self.assertRaises(TypeError):
+            self.oracle.compute_hotspot_scores("bad", self.repo_path, [])
+
+    def test_hotspot_scores_raises_on_none_repo(self):
+        with self.assertRaises(ValueError):
+            self.oracle.compute_hotspot_scores(self.stub_codebase, None, [])
+
+    def test_hotspot_scores_raises_on_empty_codebase(self):
+        with self.assertRaises(ValueError):
+            self.oracle.compute_hotspot_scores({}, self.repo_path, [])
+
+    # --------------- generate_oracle_report ---------------
+    def test_oracle_report_contains_all_sections(self):
+        import analyzer
+        codebase = analyzer.analyze_directory(self.repo_path)
+        report = self.oracle.generate_oracle_report(codebase, self.repo_path)
+        self.assertIn("# Design Oracle Report", report)
+        self.assertIn("## Coupling Debt", report)
+        self.assertIn("## Abstraction Leaks", report)
+        self.assertIn("## Complexity Hotspots", report)
+        self.assertIn("## Circular Dependencies", report)
+
+    def test_oracle_report_raises_on_non_dict(self):
+        with self.assertRaises(TypeError):
+            self.oracle.generate_oracle_report("bad", self.repo_path)
+
+    def test_oracle_report_raises_on_empty_repo_path(self):
+        with self.assertRaises(ValueError):
+            self.oracle.generate_oracle_report(self.stub_codebase, "")
+
+    def test_oracle_report_raises_on_none_repo_path(self):
+        with self.assertRaises(ValueError):
+            self.oracle.generate_oracle_report(self.stub_codebase, None)
+
+    # --------------- _count_cyclomatic_complexity (private helper) ---------------
+    def test_count_cyclomatic_zero_on_empty_function(self):
+        import ast
+        tree = ast.parse("def f(): pass")
+        result = self.oracle._count_cyclomatic_complexity(tree)
+        self.assertEqual(result, 0)
+
+    def test_count_cyclomatic_counts_branches(self):
+        import ast
+        src = "def f(x):\n    if x > 0:\n        for i in range(x):\n            pass\n"
+        tree = ast.parse(src)
+        result = self.oracle._count_cyclomatic_complexity(tree)
+        # One If + one For = 2
+        self.assertEqual(result, 2)
+
+    def test_count_cyclomatic_boundary_single_branch(self):
+        import ast
+        tree = ast.parse("if True:\n    pass\n")
+        result = self.oracle._count_cyclomatic_complexity(tree)
+        self.assertEqual(result, 1)
+
+    def test_count_cyclomatic_raises_on_none(self):
+        with self.assertRaises(ValueError):
+            self.oracle._count_cyclomatic_complexity(None)
+
+    # --------------- _get_bug_fix_count (private helper) ---------------
+    def test_get_bug_fix_count_returns_int(self):
+        count = self.oracle._get_bug_fix_count(_root, "ultron/core/risk.py")
+        self.assertIsInstance(count, int)
+        self.assertGreaterEqual(count, 0)
+
+    def test_get_bug_fix_count_nonexistent_file_returns_zero(self):
+        count = self.oracle._get_bug_fix_count(_root, "nonexistent/file.py")
+        self.assertEqual(count, 0)
+
+    def test_get_bug_fix_count_non_git_dir_returns_zero(self):
+        import tempfile
+        import shutil
+        tmpdir = tempfile.mkdtemp()
+        try:
+            count = self.oracle._get_bug_fix_count(tmpdir, "anything.py")
+            self.assertEqual(count, 0)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_get_bug_fix_count_raises_on_none_repo(self):
+        with self.assertRaises(ValueError):
+            self.oracle._get_bug_fix_count(None, "ultron/core/risk.py")
+
+    def test_get_bug_fix_count_raises_on_none_file(self):
+        with self.assertRaises(ValueError):
+            self.oracle._get_bug_fix_count(_root, None)
+
+    # --------------- _normalise (private helper) ---------------
+    def test_normalise_all_zeros_stays_zero(self):
+        result = self.oracle._normalise([0, 0, 0])
+        self.assertEqual(result, [0.0, 0.0, 0.0])
+
+    def test_normalise_range_produces_zero_to_one(self):
+        result = self.oracle._normalise([0, 5, 10])
+        self.assertAlmostEqual(result[0], 0.0)
+        self.assertAlmostEqual(result[1], 0.5)
+        self.assertAlmostEqual(result[2], 1.0)
+
+    def test_normalise_single_value_returns_zero(self):
+        result = self.oracle._normalise([42])
+        self.assertEqual(result, [0.0])
+
+    # --------------- scan_file_for_globals (existing helper, boundary) ---------------
+    def test_scan_file_for_globals_none_raises(self):
+        with self.assertRaises(ValueError):
+            self.oracle.scan_file_for_globals(None)
+
+    def test_scan_file_for_globals_missing_file_returns_empty(self):
+        result = self.oracle.scan_file_for_globals("/nonexistent/path/file.py")
+        self.assertEqual(result, [])
 
 
 if __name__ == "__main__":

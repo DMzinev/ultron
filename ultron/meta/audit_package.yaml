@@ -1,400 +1,632 @@
-TASK_ID: 'Task-BudgetGovernorV7'
+TASK_ID: 'Task-DesignOracleLayer'
 TASK_TYPE: 'LOGIC_CHANGE'
 BUILDER_VERSION: 'v2.0'
-COMMIT_HASH: '76d86f583df5abbf59da2d2aa10c554d85146877'
-PLAN_HASH: '-5326364965528847223'
+COMMIT_HASH: '0039acd15e71ca69aec680c8effb81f1a64d20a0'
+PLAN_HASH: '-241228864176800130'
 CHANGED_FILES:
-- 'umags/budget_governor.py'
-- 'umags/run_verification_loop.py'
+- 'ultron/experimental/design_oracle.py'
+- 'ultron/interfaces/ultron.py'
 - 'ultron/tests/run_tests.py'
+- 'umags/run_verification_loop.py'
 PATCH_DIFF: |
+  diff --git a/ultron/experimental/design_oracle.py b/ultron/experimental/design_oracle.py
+  index 205bdd7..5957d35 100644
+  --- a/ultron/experimental/design_oracle.py
+  +++ b/ultron/experimental/design_oracle.py
+  @@ -1,6 +1,7 @@
+   import ast
+   import os
+   import sys
+  +import subprocess
+   
+   def get_import_mappings(codebase):
+       """
+  @@ -84,7 +85,7 @@ def scan_file_for_globals(filepath):
+                           "lineno": node.lineno
+                       })
+           return globals_declared
+  -    except Exception:
+  +    except (SyntaxError, OSError, ValueError):
+           return []
+   
+   def detect_global_mutations(codebase, repo_path):
+  @@ -192,3 +193,323 @@ def simulate_future_coupling(codebase, src_file, dest_file):
+           },
+           "description": "Simulation completed safely." if is_safe else f"Simulation detected {len(new_cycles)} new circular dependency loop(s)!"
+       }
+  +
+  +# =============================================================================
+  +# Design Oracle Layer (v1)
+  +# =============================================================================
+  +
+  +def score_coupling_debt(codebase):
+  +    """
+  +    Computes per-file coupling debt from the import graph.
+  +
+  +    Returns a list of dicts sorted descending by coupling_debt:
+  +      [{"file": str, "fan_in": int, "fan_out": int,
+  +        "coupling_debt": int, "instability": float}]
+  +
+  +    Raises TypeError if codebase is not a dict.
+  +    Raises ValueError if codebase is empty.
+  +    """
+  +    if not isinstance(codebase, dict):
+  +        raise TypeError("codebase must be a dictionary")
+  +    if not codebase:
+  +        raise ValueError("codebase must not be empty")
+  +
+  +    graph = get_import_mappings(codebase)
+  +
+  +    # fan_out[f] = number of files f imports
+  +    fan_out = {f: len(deps) for f, deps in graph.items()}
+  +
+  +    # fan_in[f] = number of files that import f
+  +    fan_in = {f: 0 for f in codebase}
+  +    for f, deps in graph.items():
+  +        for dep in deps:
+  +            if dep in fan_in:
+  +                fan_in[dep] += 1
+  +
+  +    results = []
+  +    for f in codebase:
+  +        fi = fan_in[f]
+  +        fo = fan_out[f]
+  +        debt = fi * fo
+  +        total = fi + fo
+  +        instability = fo / total if total > 0 else 0.0
+  +        results.append({
+  +            "file": f,
+  +            "fan_in": fi,
+  +            "fan_out": fo,
+  +            "coupling_debt": debt,
+  +            "instability": round(instability, 3)
+  +        })
+  +
+  +    results.sort(key=lambda x: x["coupling_debt"], reverse=True)
+  +    return results
+  +
+  +
+  +def _count_cyclomatic_complexity(tree):
+  +    """
+  +    Approximates cyclomatic complexity of an AST by counting branch nodes.
+  +    Branch nodes: If, For, While, ExceptHandler, With, Assert, comprehensions.
+  +    Raises ValueError if tree is None.
+  +    """
+  +    if tree is None:
+  +        raise ValueError("tree cannot be None")
+  +    branch_types = (
+  +        ast.If, ast.For, ast.While, ast.ExceptHandler,
+  +        ast.With, ast.Assert, ast.comprehension
+  +    )
+  +    return sum(1 for node in ast.walk(tree) if isinstance(node, branch_types))
+  +
+  +
+  +def detect_abstraction_leaks(codebase, repo_path, max_responsibilities=3):
+  +    """
+  +    Detects functions that are doing too many things by counting distinct
+  +    cross-module call target names within each function body.
+  +
+  +    A function is flagged when its count of distinct call-target module names
+  +    exceeds max_responsibilities.
+  +
+  +    Returns a dict:
+  +      {rel_path: [{"function": str, "responsibility_count": int, "lineno": int}]}
+  +
+  +    Raises TypeError if codebase is not a dict.
+  +    Raises ValueError if repo_path is None.
+  +    """
+  +    if not isinstance(codebase, dict):
+  +        raise TypeError("codebase must be a dictionary")
+  +    if repo_path is None:
+  +        raise ValueError("repo_path cannot be None")
+  +
+  +    leaks = {}
+  +
+  +    for rel_path in codebase:
+  +        abs_path = os.path.join(repo_path, rel_path)
+  +        if not os.path.exists(abs_path) or not rel_path.endswith(".py"):
+  +            continue
+  +
+  +        try:
+  +            with open(abs_path, "r", encoding="utf-8") as f:
+  +                source = f.read()
+  +            tree = ast.parse(source)
+  +        except (SyntaxError, OSError, ValueError):
+  +            continue
+  +
+  +        file_leaks = []
+  +        for node in ast.walk(tree):
+  +            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+  +                continue
+  +
+  +            # Collect distinct module names called as `module.method()` inside this function
+  +            called_modules = set()
+  +            for child in ast.walk(node):
+  +                if isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Load):
+  +                    if isinstance(child.value, ast.Name):
+  +                        called_modules.add(child.value.id)
+  +
+  +            if len(called_modules) > max_responsibilities:
+  +                file_leaks.append({
+  +                    "function": node.name,
+  +                    "responsibility_count": len(called_modules),
+  +                    "lineno": node.lineno
+  +                })
+  +
+  +        if file_leaks:
+  +            leaks[rel_path] = file_leaks
+  +
+  +    return leaks
+  +
+  +
+  +def _get_bug_fix_count(repo_path, rel_path):
+  +    """
+  +    Returns the number of commits to rel_path whose message contains fix/bug/patch/hotfix keywords.
+  +    Returns 0 if git is unavailable or the file has no history.
+  +    Raises ValueError if repo_path or rel_path is None.
+  +    """
+  +    if repo_path is None:
+  +        raise ValueError("repo_path cannot be None")
+  +    if rel_path is None:
+  +        raise ValueError("rel_path cannot be None")
+  +    try:
+  +        res = subprocess.run(
+  +            ["git", "log", "--oneline", "--", rel_path],
+  +            cwd=repo_path,
+  +            capture_output=True,
+  +            text=True,
+  +            encoding="utf-8",
+  +            timeout=10
+  +        )
+  +        if res.returncode != 0:
+  +            return 0
+  +        keywords = ("fix", "bug", "patch", "hotfix", "revert")
+  +        count = sum(
+  +            1 for line in res.stdout.splitlines()
+  +            if any(kw in line.lower() for kw in keywords)
+  +        )
+  +        return count
+  +    except (OSError, subprocess.TimeoutExpired):
+  +        return 0
+  +
+  +
+  +def _normalise(values):
+  +    """
+  +    Min-max normalises a list of numeric values to [0.0, 1.0].
+  +    Returns all-zeros if the range is zero (constant input).
+  +    """
+  +    lo, hi = min(values), max(values)
+  +    span = hi - lo
+  +    if span == 0:
+  +        return [0.0] * len(values)
+  +    return [(v - lo) / span for v in values]
+  +
+  +
+  +def compute_hotspot_scores(codebase, repo_path, risks):
+  +    """
+  +    Ranks files by a composite Hotspot Score fusing three signals:
+  +      - Cyclomatic complexity (AST branch count)        weight 0.4
+  +      - Coupling debt (fan_in * fan_out)                weight 0.4
+  +      - Bug-fix commit density                          weight 0.2
+  +
+  +    Each signal is min-max normalised across the file set before weighting.
+  +
+  +    Returns a list of dicts sorted descending by hotspot_score:
+  +      [{"file": str, "hotspot_score": float,
+  +        "complexity": int, "coupling_debt": int, "bug_fix_count": int}]
+  +
+  +    Raises TypeError if codebase is not a dict.
+  +    Raises ValueError if repo_path is None or codebase is empty.
+  +    """
+  +    if not isinstance(codebase, dict):
+  +        raise TypeError("codebase must be a dictionary")
+  +    if repo_path is None:
+  +        raise ValueError("repo_path cannot be None")
+  +    if not codebase:
+  +        raise ValueError("codebase must not be empty")
+  +
+  +    coupling = {entry["file"]: entry["coupling_debt"]
+  +                for entry in score_coupling_debt(codebase)}
+  +
+  +    raw = []
+  +    for rel_path in codebase:
+  +        abs_path = os.path.join(repo_path, rel_path)
+  +        complexity = 0
+  +        if os.path.exists(abs_path) and rel_path.endswith(".py"):
+  +            try:
+  +                with open(abs_path, "r", encoding="utf-8") as f:
+  +                    source = f.read()
+  +                tree = ast.parse(source)
+  +                complexity = _count_cyclomatic_complexity(tree)
+  +            except (SyntaxError, OSError, ValueError):
+  +                complexity = 0
+  +
+  +        bug_fix_count = _get_bug_fix_count(repo_path, rel_path)
+  +        debt = coupling.get(rel_path, 0)
+  +
+  +        raw.append({
+  +            "file": rel_path,
+  +            "complexity": complexity,
+  +            "coupling_debt": debt,
+  +            "bug_fix_count": bug_fix_count
+  +        })
+  +
+  +    # Min-max normalise each signal using module-level _normalise
+  +    complexities  = _normalise([r["complexity"]    for r in raw])
+  +    debts         = _normalise([r["coupling_debt"] for r in raw])
+  +    bugfixes      = _normalise([r["bug_fix_count"] for r in raw])
+  +
+  +    results = []
+  +    for i, entry in enumerate(raw):
+  +        score = round(0.4 * complexities[i] + 0.4 * debts[i] + 0.2 * bugfixes[i], 4)
+  +        results.append({
+  +            "file": entry["file"],
+  +            "hotspot_score": score,
+  +            "complexity": entry["complexity"],
+  +            "coupling_debt": entry["coupling_debt"],
+  +            "bug_fix_count": entry["bug_fix_count"]
+  +        })
+  +
+  +    results.sort(key=lambda x: x["hotspot_score"], reverse=True)
+  +    return results
+  +
+  +
+  +def generate_oracle_report(codebase, repo_path, risks=None):
+  +    """
+  +    Orchestrates all Design Oracle analyses and returns a structured markdown report.
+  +
+  +    Sections:
+  +      1. Coupling Debt (top 10 by coupling_debt)
+  +      2. Abstraction Leaks
+  +      3. Complexity Hotspots (top 10 by hotspot_score)
+  +      4. Circular Dependencies
+  +
+  +    Raises TypeError if codebase is not a dict.
+  +    Raises ValueError if repo_path is empty or None.
+  +    """
+  +    if not isinstance(codebase, dict):
+  +        raise TypeError("codebase must be a dictionary")
+  +    if not repo_path:
+  +        raise ValueError("repo_path must not be empty or None")
+  +
+  +    lines = ["# Design Oracle Report\n"]
+  +
+  +    # 1. Coupling Debt
+  +    lines.append("## Coupling Debt\n")
+  +    lines.append("Files ranked by coupling debt (`fan_in Ã— fan_out`). "
+  +                 "High debt = structurally expensive to change.\n")
+  +    lines.append("| File | Fan-in | Fan-out | Debt | Instability |")
+  +    lines.append("|---|---|---|---|---|")
+  +    debt_scores = score_coupling_debt(codebase)
+  +    for entry in debt_scores[:10]:
+  +        lines.append(
+  +            f"| `{entry['file']}` "
+  +            f"| {entry['fan_in']} "
+  +            f"| {entry['fan_out']} "
+  +            f"| {entry['coupling_debt']} "
+  +            f"| {entry['instability']:.3f} |"
+  +        )
+  +    lines.append("")
+  +
+  +    # 2. Abstraction Leaks
+  +    lines.append("## Abstraction Leaks\n")
+  +    lines.append("Functions calling into more than 3 distinct module namespaces "
+  +                 "(potential single-responsibility violations).\n")
+  +    leaks = detect_abstraction_leaks(codebase, repo_path)
+  +    if leaks:
+  +        for rel_path, fn_leaks in sorted(leaks.items()):
+  +            lines.append(f"**`{rel_path}`**")
+  +            for leak in fn_leaks:
+  +                lines.append(
+  +                    f"- `{leak['function']}` (line {leak['lineno']}) â€” "
+  +                    f"{leak['responsibility_count']} distinct module targets"
+  +                )
+  +            lines.append("")
+  +    else:
+  +        lines.append("_No abstraction leaks detected._\n")
+  +
+  +    # 3. Complexity Hotspots
+  +    lines.append("## Complexity Hotspots\n")
+  +    lines.append("Files ranked by composite Hotspot Score "
+  +                 "(40% cyclomatic complexity + 40% coupling debt + 20% bug-fix density).\n")
+  +    lines.append("| File | Score | Complexity | Coupling Debt | Bug-fix Commits |")
+  +    lines.append("|---|---|---|---|---|")
+  +    hotspots = compute_hotspot_scores(codebase, repo_path, risks or [])
+  +    for entry in hotspots[:10]:
+  +        lines.append(
+  +            f"| `{entry['file']}` "
+  +            f"| {entry['hotspot_score']:.4f} "
+  +            f"| {entry['complexity']} "
+  +            f"| {entry['coupling_debt']} "
+  +            f"| {entry['bug_fix_count']} |"
+  +        )
+  +    lines.append("")
+  +
+  +    # 4. Circular Dependencies
+  +    lines.append("## Circular Dependencies\n")
+  +    cycles = detect_circular_dependencies(codebase)
+  +    if cycles:
+  +        lines.append(f"**{len(cycles)} circular dependency loop(s) detected:**\n")
+  +        for i, cycle in enumerate(cycles, 1):
+  +            lines.append(f"{i}. {' â†’ '.join(cycle)}")
+  +        lines.append("")
+  +    else:
+  +        lines.append("_No circular dependencies detected._\n")
+  +
+  +    return "\n".join(lines)
+  diff --git a/ultron/interfaces/ultron.py b/ultron/interfaces/ultron.py
+  index 45157e9..962d556 100644
+  --- a/ultron/interfaces/ultron.py
+  +++ b/ultron/interfaces/ultron.py
+  @@ -29,6 +29,7 @@ def main():
+       parser.add_argument("--json", action="store_true", help="Output results in JSON format to stdout")
+       parser.add_argument("--detail", action="store_true", help="Show detailed risk statistics and formula breakdown")
+       parser.add_argument("--brief", action="store_true", help="Generate a compact markdown context brief for AI agent orientation")
+  +    parser.add_argument("--oracle", action="store_true", help="Run the Design Oracle: coupling debt, abstraction leaks, hotspots, and circular dependencies")
+       args = parser.parse_args()
+       
+       def log(msg):
+  @@ -107,6 +108,37 @@ def main():
+                   print(brief)
+           sys.exit(0)
+   
+  +    # Design Oracle mode
+  +    if args.oracle:
+  +        log("[+] Ultron: Running Design Oracle analysis...")
+  +        import design_oracle
+  +        codebase = analyzer.analyze_directory(repo_path)
+  +        risks = risk.evaluate_risks(codebase, [], "", repo_path=repo_path)
+  +        report = design_oracle.generate_oracle_report(codebase, repo_path, risks)
+  +        if args.output:
+  +            out_path = os.path.abspath(args.output)
+  +            try:
+  +                with open(out_path, "w", encoding="utf-8") as f:
+  +                    f.write(report)
+  +                log(f"[+] Success: Design Oracle report saved to {out_path}")
+  +            except (OSError, ValueError) as e:
+  +                if args.json:
+  +                    print(json.dumps({"status": "error", "error": f"Error writing oracle report: {e}"}))
+  +                else:
+  +                    print(f"[-] Error writing oracle report: {e}")
+  +                sys.exit(1)
+  +        else:
+  +            if args.json:
+  +                print(json.dumps({"status": "success", "oracle_report": report}))
+  +            else:
+  +                if hasattr(sys.stdout, "reconfigure"):
+  +                    try:
+  +                        sys.stdout.reconfigure(encoding="utf-8")
+  +                    except (OSError, ValueError) as e:
+  +                        sys.stderr.write(f"Warning: stdout reconfigure failed: {e}\n")
+  +                print(report)
+  +        sys.exit(0)
+  +
+       # Standard prompt generation mode
+       if not args.intent:
+           parser.error("--intent is required when not in --check-anomaly or --brief mode.")
   diff --git a/ultron/tests/run_tests.py b/ultron/tests/run_tests.py
-  index adfead6..f329333 100644
+  index f329333..21e918d 100644
   --- a/ultron/tests/run_tests.py
   +++ b/ultron/tests/run_tests.py
-  @@ -1162,6 +1162,80 @@ Another gap.
-           if False:
-               context_brief.walk_dir("", "")
+  @@ -1188,8 +1188,9 @@ class TestBudgetGovernor(unittest.TestCase):
    
-  +
-  +class TestBudgetGovernor(unittest.TestCase):
+       # --------------- execute_command_cached ---------------
+       def test_command_cache_first_run_is_not_cached(self):
+  +        # Use self.temp_dir: guarantees no prior cache entry for this (cmd, repo_hash) pair
+           cmd = ["python", "--version"]
+  -        _, _, rc, is_cached = self.bg.execute_command_cached(_root, cmd)
+  +        _, _, rc, is_cached = self.bg.execute_command_cached(self.temp_dir, cmd)
+           self.assertFalse(is_cached)
+           self.assertEqual(rc, 0)
+   
+  @@ -1236,6 +1237,191 @@ class TestBudgetGovernor(unittest.TestCase):
+           self.assertEqual(len(affected), 0)
+   
+   
+  +class TestDesignOracleExtended(unittest.TestCase):
   +
   +    def setUp(self):
-  +        import budget_governor
-  +        self.bg = budget_governor
+  +        import design_oracle
+  +        self.oracle = design_oracle
+  +        self.repo_path = _root
+  +        # Minimal stub codebase for fast, deterministic tests
+  +        self.stub_codebase = {
+  +            "a.py": {"imports": ["b"], "definitions": ["func_a"]},
+  +            "b.py": {"imports": ["c"], "definitions": ["func_b"]},
+  +            "c.py": {"imports": [],   "definitions": ["func_c"]},
+  +        }
+  +
+  +    # --------------- score_coupling_debt ---------------
+  +    def test_coupling_debt_returns_sorted_list(self):
+  +        results = self.oracle.score_coupling_debt(self.stub_codebase)
+  +        self.assertIsInstance(results, list)
+  +        self.assertEqual(len(results), 3)
+  +        # Sorted descending by coupling_debt
+  +        scores = [r["coupling_debt"] for r in results]
+  +        self.assertEqual(scores, sorted(scores, reverse=True))
+  +
+  +    def test_coupling_debt_instability_in_range(self):
+  +        for entry in self.oracle.score_coupling_debt(self.stub_codebase):
+  +            self.assertGreaterEqual(entry["instability"], 0.0)
+  +            self.assertLessEqual(entry["instability"], 1.0)
+  +
+  +    def test_coupling_debt_raises_on_non_dict(self):
+  +        with self.assertRaises(TypeError):
+  +            self.oracle.score_coupling_debt("not a dict")
+  +
+  +    def test_coupling_debt_raises_on_empty(self):
+  +        with self.assertRaises(ValueError):
+  +            self.oracle.score_coupling_debt({})
+  +
+  +    # --------------- detect_abstraction_leaks ---------------
+  +    def test_abstraction_leaks_returns_dict(self):
+  +        leaks = self.oracle.detect_abstraction_leaks(self.stub_codebase, self.repo_path)
+  +        self.assertIsInstance(leaks, dict)
+  +
+  +    def test_abstraction_leaks_detects_real_repo(self):
+  +        import analyzer
+  +        codebase = analyzer.analyze_directory(self.repo_path)
+  +        leaks = self.oracle.detect_abstraction_leaks(codebase, self.repo_path)
+  +        # We don't assert a specific file, but the result must be a dict
+  +        self.assertIsInstance(leaks, dict)
+  +
+  +    def test_abstraction_leaks_raises_on_non_dict(self):
+  +        with self.assertRaises(TypeError):
+  +            self.oracle.detect_abstraction_leaks([], self.repo_path)
+  +
+  +    def test_abstraction_leaks_raises_on_none_repo(self):
+  +        with self.assertRaises(ValueError):
+  +            self.oracle.detect_abstraction_leaks(self.stub_codebase, None)
+  +
+  +    # --------------- compute_hotspot_scores ---------------
+  +    def test_hotspot_scores_returns_sorted_list(self):
+  +        import analyzer
+  +        codebase = analyzer.analyze_directory(self.repo_path)
+  +        results = self.oracle.compute_hotspot_scores(codebase, self.repo_path, [])
+  +        self.assertIsInstance(results, list)
+  +        self.assertGreater(len(results), 0)
+  +        scores = [r["hotspot_score"] for r in results]
+  +        self.assertEqual(scores, sorted(scores, reverse=True))
+  +
+  +    def test_hotspot_scores_score_in_range(self):
+  +        import analyzer
+  +        codebase = analyzer.analyze_directory(self.repo_path)
+  +        for entry in self.oracle.compute_hotspot_scores(codebase, self.repo_path, []):
+  +            self.assertGreaterEqual(entry["hotspot_score"], 0.0)
+  +            self.assertLessEqual(entry["hotspot_score"], 1.0)
+  +
+  +    def test_hotspot_scores_raises_on_non_dict(self):
+  +        with self.assertRaises(TypeError):
+  +            self.oracle.compute_hotspot_scores("bad", self.repo_path, [])
+  +
+  +    def test_hotspot_scores_raises_on_none_repo(self):
+  +        with self.assertRaises(ValueError):
+  +            self.oracle.compute_hotspot_scores(self.stub_codebase, None, [])
+  +
+  +    def test_hotspot_scores_raises_on_empty_codebase(self):
+  +        with self.assertRaises(ValueError):
+  +            self.oracle.compute_hotspot_scores({}, self.repo_path, [])
+  +
+  +    # --------------- generate_oracle_report ---------------
+  +    def test_oracle_report_contains_all_sections(self):
+  +        import analyzer
+  +        codebase = analyzer.analyze_directory(self.repo_path)
+  +        report = self.oracle.generate_oracle_report(codebase, self.repo_path)
+  +        self.assertIn("# Design Oracle Report", report)
+  +        self.assertIn("## Coupling Debt", report)
+  +        self.assertIn("## Abstraction Leaks", report)
+  +        self.assertIn("## Complexity Hotspots", report)
+  +        self.assertIn("## Circular Dependencies", report)
+  +
+  +    def test_oracle_report_raises_on_non_dict(self):
+  +        with self.assertRaises(TypeError):
+  +            self.oracle.generate_oracle_report("bad", self.repo_path)
+  +
+  +    def test_oracle_report_raises_on_empty_repo_path(self):
+  +        with self.assertRaises(ValueError):
+  +            self.oracle.generate_oracle_report(self.stub_codebase, "")
+  +
+  +    def test_oracle_report_raises_on_none_repo_path(self):
+  +        with self.assertRaises(ValueError):
+  +            self.oracle.generate_oracle_report(self.stub_codebase, None)
+  +
+  +    # --------------- _count_cyclomatic_complexity (private helper) ---------------
+  +    def test_count_cyclomatic_zero_on_empty_function(self):
+  +        import ast
+  +        tree = ast.parse("def f(): pass")
+  +        result = self.oracle._count_cyclomatic_complexity(tree)
+  +        self.assertEqual(result, 0)
+  +
+  +    def test_count_cyclomatic_counts_branches(self):
+  +        import ast
+  +        src = "def f(x):\n    if x > 0:\n        for i in range(x):\n            pass\n"
+  +        tree = ast.parse(src)
+  +        result = self.oracle._count_cyclomatic_complexity(tree)
+  +        # One If + one For = 2
+  +        self.assertEqual(result, 2)
+  +
+  +    def test_count_cyclomatic_boundary_single_branch(self):
+  +        import ast
+  +        tree = ast.parse("if True:\n    pass\n")
+  +        result = self.oracle._count_cyclomatic_complexity(tree)
+  +        self.assertEqual(result, 1)
+  +
+  +    def test_count_cyclomatic_raises_on_none(self):
+  +        with self.assertRaises(ValueError):
+  +            self.oracle._count_cyclomatic_complexity(None)
+  +
+  +    # --------------- _get_bug_fix_count (private helper) ---------------
+  +    def test_get_bug_fix_count_returns_int(self):
+  +        count = self.oracle._get_bug_fix_count(_root, "ultron/core/risk.py")
+  +        self.assertIsInstance(count, int)
+  +        self.assertGreaterEqual(count, 0)
+  +
+  +    def test_get_bug_fix_count_nonexistent_file_returns_zero(self):
+  +        count = self.oracle._get_bug_fix_count(_root, "nonexistent/file.py")
+  +        self.assertEqual(count, 0)
+  +
+  +    def test_get_bug_fix_count_non_git_dir_returns_zero(self):
   +        import tempfile
   +        import shutil
-  +        self.temp_dir = tempfile.mkdtemp()
+  +        tmpdir = tempfile.mkdtemp()
+  +        try:
+  +            count = self.oracle._get_bug_fix_count(tmpdir, "anything.py")
+  +            self.assertEqual(count, 0)
+  +        finally:
+  +            shutil.rmtree(tmpdir, ignore_errors=True)
   +
-  +    def tearDown(self):
-  +        import shutil
-  +        shutil.rmtree(self.temp_dir, ignore_errors=True)
-  +
-  +    # --------------- get_repo_state_hash ---------------
-  +    def test_repo_state_hash_returns_string(self):
-  +        h = self.bg.get_repo_state_hash(_root)
-  +        self.assertIsInstance(h, str)
-  +
-  +    def test_repo_state_hash_non_repo_returns_string(self):
-  +        # Non-git directory must still return a string, not raise
-  +        h = self.bg.get_repo_state_hash(self.temp_dir)
-  +        self.assertIsInstance(h, str)
-  +
-  +    # --------------- execute_command_cached ---------------
-  +    def test_command_cache_first_run_is_not_cached(self):
-  +        cmd = ["python", "--version"]
-  +        _, _, rc, is_cached = self.bg.execute_command_cached(_root, cmd)
-  +        self.assertFalse(is_cached)
-  +        self.assertEqual(rc, 0)
-  +
-  +    def test_command_cache_second_run_is_cached(self):
-  +        cmd = ["python", "--version"]
-  +        self.bg.execute_command_cached(_root, cmd)          # prime the cache
-  +        _, _, rc, is_cached = self.bg.execute_command_cached(_root, cmd)
-  +        self.assertTrue(is_cached)
-  +        self.assertEqual(rc, 0)
-  +
-  +    def test_command_cache_force_refresh_bypasses_cache(self):
-  +        cmd = ["python", "--version"]
-  +        self.bg.execute_command_cached(_root, cmd)          # prime the cache
-  +        _, _, rc, is_cached = self.bg.execute_command_cached(_root, cmd, force_refresh=True)
-  +        self.assertFalse(is_cached)
-  +
-  +    # --------------- track_poll ---------------
-  +    def test_track_poll_increments_count(self):
-  +        count = self.bg.track_poll(self.temp_dir, "Task-TestBudgetPoll", max_poll=3)
-  +        self.assertEqual(count, 1)
-  +        count = self.bg.track_poll(self.temp_dir, "Task-TestBudgetPoll", max_poll=3)
-  +        self.assertEqual(count, 2)
-  +
-  +    def test_track_poll_raises_on_budget_exceeded(self):
-  +        for _ in range(3):
-  +            self.bg.track_poll(self.temp_dir, "Task-TestPollLimit", max_poll=3)
-  +        with self.assertRaises(TimeoutError):
-  +            self.bg.track_poll(self.temp_dir, "Task-TestPollLimit", max_poll=3)
-  +
-  +    def test_track_poll_empty_task_raises_value_error(self):
+  +    def test_get_bug_fix_count_raises_on_none_repo(self):
   +        with self.assertRaises(ValueError):
-  +            self.bg.track_poll(self.temp_dir, "", max_poll=3)
+  +            self.oracle._get_bug_fix_count(None, "ultron/core/risk.py")
   +
-  +    # --------------- get_affected_files ---------------
-  +    def test_get_affected_files_returns_superset(self):
-  +        changed = ["ultron/core/risk.py"]
-  +        affected = self.bg.get_affected_files(_root, changed)
-  +        # The original file must always be in the affected set
-  +        self.assertIn("ultron/core/risk.py", affected)
+  +    def test_get_bug_fix_count_raises_on_none_file(self):
+  +        with self.assertRaises(ValueError):
+  +            self.oracle._get_bug_fix_count(_root, None)
   +
-  +    def test_get_affected_files_empty_changed_returns_empty(self):
-  +        affected = self.bg.get_affected_files(_root, [])
-  +        self.assertIsInstance(affected, set)
-  +        self.assertEqual(len(affected), 0)
+  +    # --------------- _normalise (private helper) ---------------
+  +    def test_normalise_all_zeros_stays_zero(self):
+  +        result = self.oracle._normalise([0, 0, 0])
+  +        self.assertEqual(result, [0.0, 0.0, 0.0])
+  +
+  +    def test_normalise_range_produces_zero_to_one(self):
+  +        result = self.oracle._normalise([0, 5, 10])
+  +        self.assertAlmostEqual(result[0], 0.0)
+  +        self.assertAlmostEqual(result[1], 0.5)
+  +        self.assertAlmostEqual(result[2], 1.0)
+  +
+  +    def test_normalise_single_value_returns_zero(self):
+  +        result = self.oracle._normalise([42])
+  +        self.assertEqual(result, [0.0])
+  +
+  +    # --------------- scan_file_for_globals (existing helper, boundary) ---------------
+  +    def test_scan_file_for_globals_none_raises(self):
+  +        with self.assertRaises(ValueError):
+  +            self.oracle.scan_file_for_globals(None)
+  +
+  +    def test_scan_file_for_globals_missing_file_returns_empty(self):
+  +        result = self.oracle.scan_file_for_globals("/nonexistent/path/file.py")
+  +        self.assertEqual(result, [])
   +
   +
    if __name__ == "__main__":
        print("[+] Running Ultron Core Tests...")
        unittest.main()
-  diff --git a/umags/budget_governor.py b/umags/budget_governor.py
-  new file mode 100644
-  index 0000000..edad3c0
-  --- /dev/null
-  +++ b/umags/budget_governor.py
-  @@ -0,0 +1,235 @@
-  +import os
-  +import sys
-  +import json
-  +import time
-  +import hashlib
-  +import subprocess
-  +import unittest
-  +
-  +def get_repo_state_hash(repo_path):
-  +    """
-  +    Computes a stable hash representing the current repository status (HEAD and modified state).
-  +    """
-  +    try:
-  +        # 1. Get current HEAD commit hash
-  +        res_head = subprocess.run(
-  +            ["git", "rev-parse", "HEAD"],
-  +            cwd=repo_path,
-  +            capture_output=True,
-  +            text=True
-  +        )
-  +        head_hash = res_head.stdout.strip() if res_head.returncode == 0 else ""
-  +        
-  +        # 2. Get porcelain status
-  +        res_status = subprocess.run(
-  +            ["git", "status", "--porcelain"],
-  +            cwd=repo_path,
-  +            capture_output=True,
-  +            text=True
-  +        )
-  +        status_out = res_status.stdout if res_status.returncode == 0 else ""
-  +        
-  +        # 3. Get diff
-  +        res_diff = subprocess.run(
-  +            ["git", "diff"],
-  +            cwd=repo_path,
-  +            capture_output=True,
-  +            text=True
-  +        )
-  +        diff_out = res_diff.stdout if res_diff.returncode == 0 else ""
-  +        
-  +        combined = head_hash + "\n" + status_out + "\n" + diff_out
-  +        return hashlib.sha256(combined.encode("utf-8")).hexdigest()
-  +    except Exception as e:
-  +        _err = e
-  +        return ""
-  +
-  +def execute_command_cached(repo_path, cmd, force_refresh=False):
-  +    """
-  +    Executes a command and caches the result.
-  +    Returns (stdout, stderr, returncode, is_cached).
-  +    """
-  +    cmd_str = " ".join(cmd) if isinstance(cmd, list) else cmd
-  +    repo_hash = get_repo_state_hash(repo_path)
-  +    
-  +    cache_key = hashlib.sha256((cmd_str + ":" + repo_hash).encode("utf-8")).hexdigest()
-  +    cache_dir = os.path.join(repo_path, "umags", ".cache")
-  +    os.makedirs(cache_dir, exist_ok=True)
-  +    cache_file = os.path.join(cache_dir, "cmd_cache.json")
-  +    
-  +    cache_data = {}
-  +    if os.path.exists(cache_file):
-  +        try:
-  +            with open(cache_file, "r", encoding="utf-8") as f:
-  +                cache_data = json.load(f)
-  +        except Exception as e:
-  +            _err = e
-  +            
-  +    if not force_refresh and cache_key in cache_data:
-  +        entry = cache_data[cache_key]
-  +        return entry["stdout"], entry["stderr"], entry["returncode"], True
-  +        
-  +    res = subprocess.run(
-  +        cmd,
-  +        cwd=repo_path,
-  +        capture_output=True,
-  +        text=True
-  +    )
-  +    
-  +    cache_data[cache_key] = {
-  +        "cmd": cmd_str,
-  +        "stdout": res.stdout,
-  +        "stderr": res.stderr,
-  +        "returncode": res.returncode,
-  +        "repo_hash": repo_hash
-  +    }
-  +    
-  +    try:
-  +        with open(cache_file, "w", encoding="utf-8") as f:
-  +            json.dump(cache_data, f, indent=2)
-  +    except Exception as e:
-  +        _err = e
-  +        
-  +    return res.stdout, res.stderr, res.returncode, False
-  +
-  +def track_poll(repo_path, task_name, max_poll=3):
-  +    """
-  +    Tracks task polling occurrences. Raises TimeoutError if max_poll is exceeded.
-  +    """
-  +    if not task_name:
-  +        raise ValueError("Task name must not be empty.")
-  +        
-  +    cache_dir = os.path.join(repo_path, "umags", ".cache")
-  +    os.makedirs(cache_dir, exist_ok=True)
-  +    state_file = os.path.join(cache_dir, "poll_state.json")
-  +    
-  +    state = {}
-  +    if os.path.exists(state_file):
-  +        try:
-  +            with open(state_file, "r", encoding="utf-8") as f:
-  +                state = json.load(f)
-  +        except Exception as e:
-  +            _err = e
-  +            
-  +    task_entry = state.setdefault(task_name, {"poll_count": 0, "last_poll_time": 0.0})
-  +    
-  +    now = time.time()
-  +    if now - task_entry["last_poll_time"] > 1800:
-  +        task_entry["poll_count"] = 0
-  +        
-  +    task_entry["poll_count"] += 1
-  +    task_entry["last_poll_time"] = now
-  +    
-  +    try:
-  +        with open(state_file, "w", encoding="utf-8") as f:
-  +            json.dump(state, f, indent=2)
-  +    except Exception as e:
-  +        _err = e
-  +        
-  +    if task_entry["poll_count"] > max_poll:
-  +        raise TimeoutError(f"UMAGS Budget Governor: Polling limit exceeded for task '{task_name}' (MAX_POLL = {max_poll}). Aborting to prevent token burn.")
-  +        
-  +    return task_entry["poll_count"]
-  +
-  +def get_affected_files(repo_path, changed_files):
-  +    """
-  +    Traces imports in codebase to identify all dependent files.
-  +    """
-  +    core_dir = os.path.join(repo_path, "ultron", "core")
-  +    sys.path.append(core_dir)
-  +    import analyzer
-  +    
-  +    codebase = analyzer.analyze_directory(repo_path)
-  +    
-  +    dependents = {}
-  +    for rel_path, analysis in codebase.items():
-  +        for imp in analysis.get("imports", []):
-  +            for candidate in codebase.keys():
-  +                cand_base = os.path.splitext(os.path.basename(candidate))[0]
-  +                if cand_base == imp:
-  +                    dependents.setdefault(candidate, []).append(rel_path)
-  +                    
-  +    affected = set(changed_files)
-  +    queue = list(changed_files)
-  +    while queue:
-  +        current = queue.pop(0)
-  +        for dep in dependents.get(current, []):
-  +            if dep not in affected:
-  +                affected.add(dep)
-  +                queue.append(dep)
-  +    return affected
-  +
-  +def get_test_targets(repo_path, changed_files):
-  +    """
-  +    Returns specific test targets based on dependency fanout.
-  +    """
-  +    affected = get_affected_files(repo_path, changed_files)
-  +    
-  +    # Central hubs trigger full suite
-  +    hubs = {"ultron/core/models.py", "ultron/core/analyzer.py", "ultron/core/risk.py", "umags/run_verification_loop.py"}
-  +    if any(h in affected for h in hubs):
-  +        return []
-  +        
-  +    basenames = {os.path.splitext(os.path.basename(f))[0] for f in affected}
-  +    
-  +    test_dir = os.path.join(repo_path, "ultron", "tests")
-  +    sys.path.append(test_dir)
-  +    import run_tests
-  +    
-  +    targets = []
-  +    for name, obj in inspect_members(run_tests):
-  +        if is_test_case_class(obj):
-  +            for m_name, _ in inspect_functions(obj):
-  +                if m_name.startswith("test_"):
-  +                    matched = False
-  +                    for b in basenames:
-  +                        if b in m_name:
-  +                            matched = True
-  +                            break
-  +                    if matched:
-  +                        targets.append(f"{name}.{m_name}")
-  +                        
-  +    if not targets and changed_files:
-  +        return []
-  +    return targets
-  +
-  +def inspect_members(module):
-  +    import inspect
-  +    return inspect.getmembers(module)
-  +
-  +def inspect_functions(cls):
-  +    import inspect
-  +    return inspect.getmembers(cls, predicate=inspect.isfunction)
-  +
-  +def is_test_case_class(obj):
-  +    import inspect
-  +    return inspect.isclass(obj) and issubclass(obj, unittest.TestCase)
-  +
-  +def create_sandbox_worktree(repo_path, task_name):
-  +    """
-  +    Spins up an isolated sandbox worktree.
-  +    """
-  +    import tempfile
-  +    temp_dir = tempfile.mkdtemp(prefix=f"umags_wt_{task_name.lower()}_")
-  +    res = subprocess.run(
-  +        ["git", "worktree", "add", "--detach", temp_dir, "HEAD"],
-  +        cwd=repo_path,
-  +        capture_output=True,
-  +        text=True
-  +    )
-  +    if res.returncode != 0:
-  +        raise RuntimeError(f"Failed to create git worktree: {res.stderr}")
-  +    return temp_dir
-  +
-  +def destroy_sandbox_worktree(repo_path, temp_dir):
-  +    """
-  +    Prunes and destroys git worktree.
-  +    """
-  +    subprocess.run(
-  +        ["git", "worktree", "prune"],
-  +        cwd=repo_path,
-  +        capture_output=True
-  +    )
-  +    import shutil
-  +    if os.path.exists(temp_dir):
-  +        shutil.rmtree(temp_dir, ignore_errors=True)
   diff --git a/umags/run_verification_loop.py b/umags/run_verification_loop.py
-  index d6ef6ab..ea82094 100644
+  index ea82094..c428ab2 100644
   --- a/umags/run_verification_loop.py
   +++ b/umags/run_verification_loop.py
-  @@ -10,6 +10,14 @@ import urllib.error
-   import shlex
-   import hashlib
-   
-  +# UMAGS Budget Governor (execution economics: command caching, poll depth guard, scope compression)
-  +_budget_governor = None
-  +try:
-  +    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)))))
-  +    import budget_governor as _budget_governor
-  +except ImportError as _bg_import_err:
-  +    print(f"[*] Budget Governor: module unavailable ({_bg_import_err}) â€” degrading to no-op mode.")
-  +
-   # UMAGS Telemetry call counter
-   telemetry_call_count = 0
-   
-  @@ -87,12 +95,23 @@ def parse_yaml(yaml_path):
-           print(f"Error parsing YAML: {e}")
-       return data
-   
-  -def run_tests(repo_path, cmd):
-  +def run_tests(repo_path, cmd, force_refresh=False):
-       increment_telemetry_calls(1)
-       try:
-           # Cross-platform safe command split
-           parts = shlex.split(cmd, posix=(sys.platform != "win32"))
-           from umags.config import TEST_TIMEOUT_SECONDS
-  +        # Use budget governor cache to skip re-running an identical command against an unchanged repo state
-  +        if _budget_governor is not None and not force_refresh:
-  +            try:
-  +                stdout, stderr, returncode, is_cached = _budget_governor.execute_command_cached(
-  +                    repo_path, parts, force_refresh=False
-  +                )
-  +                if is_cached:
-  +                    print(f"[*] Budget Governor: Returning cached result for '{cmd}'")
-  +                return returncode == 0, stdout, stderr
-  +            except (OSError, ValueError, RuntimeError) as _cache_err:
-  +                print(f"[*] Budget Governor: cache lookup failed ({_cache_err}) â€” falling through to direct execution.")
-           res = subprocess.run(parts, capture_output=True, text=True, cwd=repo_path, timeout=TEST_TIMEOUT_SECONDS)
-           return res.returncode == 0, res.stdout, res.stderr
-       except Exception as e:
-  @@ -539,6 +558,15 @@ def main():
-       changed_files = package.get("CHANGED_FILES", [])
-       test_commands = package.get("TEST_COMMANDS", [])
-   
-  +    # Budget Governor: enforce MAX_POLL=3 guard before doing any work
-  +    if _budget_governor is not None:
-  +        try:
-  +            poll_count = _budget_governor.track_poll(repo_path, task_id, max_poll=3)
-  +            print(f"[*] Budget Governor: Poll #{poll_count} for task '{task_id}'.")
-  +        except TimeoutError as te:
-  +            print(f"[!] Budget Governor: {te}")
-  +            sys.exit(2)
-  +
-       # =========================================================================
-       # 0. PRE-FLIGHT RISK GATE
-       # Runs before Builder/Auditor/Judge/Historian steps.
-EXPECTED_OUTCOMES: 'Budget Governor enforces MAX_POLL=3 guard, caches duplicate command executions by repo-state hash, and exposes dependency fanout for scope-compressed test selection'
+  @@ -754,8 +754,9 @@ def main():
+                           subprocess.run(["git", "checkout", f], cwd=repo_path, capture_output=True)
+                   
+                   # Run the tests - they MUST fail now!
+  +                # force_refresh=True: file state changed during nullification â€” cache must be bypassed.
+                   for cmd in test_commands:
+  -                    passed, _, _ = run_tests(repo_path, cmd)
+  +                    passed, _, _ = run_tests(repo_path, cmd, force_refresh=True)
+                       if passed:
+                           # Tests passed even when logic was nullified! Test laundering!
+                           nullification_passed = False
+EXPECTED_OUTCOMES: 'Design Oracle exposes coupling debt scoring, abstraction leak detection, complexity hotspot ranking, and circular dependency detection via --oracle CLI flag; nullification cache bypass fix; boundary guards on private helpers'
 TEST_COMMANDS:
 - 'python ultron/tests/run_tests.py'
 RAW_STDOUT: |
@@ -411,21 +643,6 @@ RAW_STDOUT: |
   [+] Recalibration complete.
     - New Fusion Weights: w_test=0.341, w_git=0.259, w_runtime=0.141, w_human=0.059, w_test_runtime=0.094, w_git_human=0.106
 RAW_STDERR: |
-  Exception in thread Thread-5 (_readerthread):
-  Traceback (most recent call last):
-    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
-      self._context.run(self.run)
-      ~~~~~~~~~~~~~~~~~^^^^^^^^^^
-    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1024, in run
-      self._target(*self._args, **self._kwargs)
-      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 1614, in _readerthread
-      buffer.append(fh.read())
-                    ~~~~~~~^^
-    File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
-      return codecs.charmap_decode(input,self.errors,decoding_table)[0]
-             ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>
   .Exception in thread Thread-13 (_readerthread):
   Traceback (most recent call last):
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
@@ -440,7 +657,7 @@ RAW_STDERR: |
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
       return codecs.charmap_decode(input,self.errors,decoding_table)[0]
              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 24699: character maps to <undefined>
   Exception in thread Thread-19 (_readerthread):
   Traceback (most recent call last):
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
@@ -455,7 +672,7 @@ RAW_STDERR: |
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
       return codecs.charmap_decode(input,self.errors,decoding_table)[0]
              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 24699: character maps to <undefined>
   .Exception in thread Thread-27 (_readerthread):
   Traceback (most recent call last):
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
@@ -470,7 +687,7 @@ RAW_STDERR: |
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
       return codecs.charmap_decode(input,self.errors,decoding_table)[0]
              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 24699: character maps to <undefined>
   Exception in thread Thread-33 (_readerthread):
   Traceback (most recent call last):
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
@@ -485,7 +702,7 @@ RAW_STDERR: |
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
       return codecs.charmap_decode(input,self.errors,decoding_table)[0]
              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 24699: character maps to <undefined>
   ....Exception in thread Thread-45 (_readerthread):
   Traceback (most recent call last):
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
@@ -500,24 +717,24 @@ RAW_STDERR: |
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
       return codecs.charmap_decode(input,self.errors,decoding_table)[0]
              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>
-  ......[-] Error processing rating: Could not evaluate risks for file
-  .....127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 400 -
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 24699: character maps to <undefined>
+  .....................................[-] Error processing rating: Could not evaluate risks for file
+  .....127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 400 -
   C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\tempfile.py:484: ResourceWarning: Implicitly cleaning up <HTTPError 400: 'Bad Request'>
     _warnings.warn(self.warn_message, ResourceWarning)
-  127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 400 -
-  127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 400 -
-  127.0.0.1 - - [28/Jun/2026 15:24:38] "POST /api/design-oracle HTTP/1.1" 400 -
+  127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 400 -
+  127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 400 -
+  127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 400 -
   ................[+] Ultron: Generating codebase context brief...
   ......
   ----------------------------------------------------------------------
-  Ran 39 tests in 12.259s
+  Ran 70 tests in 54.655s
   
   OK
 SELF_AUDIT: ''
-KNOWN_LIMITATIONS: 'Sandbox worktree isolation requires git worktree support; scope compression falls back to full suite for hub files'
+KNOWN_LIMITATIONS: 'Cyclomatic complexity is approximated via AST branch node count; abstraction leak threshold defaults to 3'
 CATEGORY_B: 'false'

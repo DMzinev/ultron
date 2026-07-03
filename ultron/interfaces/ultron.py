@@ -29,6 +29,7 @@ def main():
     parser.add_argument("--json", action="store_true", help="Output results in JSON format to stdout")
     parser.add_argument("--detail", action="store_true", help="Show detailed risk statistics and formula breakdown")
     parser.add_argument("--brief", action="store_true", help="Generate a compact markdown context brief for AI agent orientation")
+    parser.add_argument("--oracle", action="store_true", help="Run the Design Oracle: coupling debt, abstraction leaks, hotspots, and circular dependencies")
     args = parser.parse_args()
     
     def log(msg):
@@ -105,6 +106,37 @@ def main():
                     except Exception as e:
                         sys.stderr.write(f"Warning: stdout reconfigure failed: {e}\n")
                 print(brief)
+        sys.exit(0)
+
+    # Design Oracle mode
+    if args.oracle:
+        log("[+] Ultron: Running Design Oracle analysis...")
+        import design_oracle
+        codebase = analyzer.analyze_directory(repo_path)
+        risks = risk.evaluate_risks(codebase, [], "", repo_path=repo_path)
+        report = design_oracle.generate_oracle_report(codebase, repo_path, risks)
+        if args.output:
+            out_path = os.path.abspath(args.output)
+            try:
+                with open(out_path, "w", encoding="utf-8") as f:
+                    f.write(report)
+                log(f"[+] Success: Design Oracle report saved to {out_path}")
+            except (OSError, ValueError) as e:
+                if args.json:
+                    print(json.dumps({"status": "error", "error": f"Error writing oracle report: {e}"}))
+                else:
+                    print(f"[-] Error writing oracle report: {e}")
+                sys.exit(1)
+        else:
+            if args.json:
+                print(json.dumps({"status": "success", "oracle_report": report}))
+            else:
+                if hasattr(sys.stdout, "reconfigure"):
+                    try:
+                        sys.stdout.reconfigure(encoding="utf-8")
+                    except (OSError, ValueError) as e:
+                        sys.stderr.write(f"Warning: stdout reconfigure failed: {e}\n")
+                print(report)
         sys.exit(0)
 
     # Standard prompt generation mode

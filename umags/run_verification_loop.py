@@ -754,8 +754,9 @@ def main():
                         subprocess.run(["git", "checkout", f], cwd=repo_path, capture_output=True)
                 
                 # Run the tests - they MUST fail now!
+                # force_refresh=True: file state changed during nullification — cache must be bypassed.
                 for cmd in test_commands:
-                    passed, _, _ = run_tests(repo_path, cmd)
+                    passed, _, _ = run_tests(repo_path, cmd, force_refresh=True)
                     if passed:
                         # Tests passed even when logic was nullified! Test laundering!
                         nullification_passed = False
