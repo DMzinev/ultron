@@ -443,7 +443,7 @@ class TestSample(unittest.TestCase):
         repo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         ratable = select_ratable_files(repo_path)
         self.assertGreater(len(ratable), 0)
-        self.assertIn("ultron/core/risk.py", ratable)
+        self.assertIn("ultron/core/risk/scoring.py", ratable)
         
         with self.assertRaises(FileNotFoundError):
             select_ratable_files("/nonexistent_dir")
@@ -451,36 +451,36 @@ class TestSample(unittest.TestCase):
             select_ratable_files(None)
             
         # Test calculate_agreement
-        accurate, computed_tier, computed_score = calculate_agreement(repo_path, "ultron/core/risk.py", "HIGH")
+        accurate, computed_tier, computed_score = calculate_agreement(repo_path, "ultron/core/risk/scoring.py", "HIGH")
         self.assertEqual(accurate, (computed_tier == "HIGH"))
         
         with self.assertRaises(ValueError):
             calculate_agreement(repo_path, "nonexistent.py", "HIGH")
         with self.assertRaises(ValueError):
-            calculate_agreement(None, "ultron/core/risk.py", "HIGH")
+            calculate_agreement(None, "ultron/core/risk/scoring.py", "HIGH")
         with self.assertRaises(ValueError):
             calculate_agreement(repo_path, None, "HIGH")
         with self.assertRaises(ValueError):
-            calculate_agreement(repo_path, "ultron/core/risk.py", None)
+            calculate_agreement(repo_path, "ultron/core/risk/scoring.py", None)
             
         # Test process_rating
         temp_dir2 = tempfile.mkdtemp()
         try:
             feedback_file2 = os.path.join(temp_dir2, "feedback2.jsonl")
-            res_entry = process_rating(repo_path, "ultron/core/risk.py", "Rater1", "HIGH", "High complexity", feedback_file2)
-            self.assertEqual(res_entry["file"], "ultron/core/risk.py")
+            res_entry = process_rating(repo_path, "ultron/core/risk/scoring.py", "Rater1", "HIGH", "High complexity", feedback_file2)
+            self.assertEqual(res_entry["file"], "ultron/core/risk/scoring.py")
             self.assertEqual(res_entry["rater"], "Rater1")
             self.assertEqual(res_entry["rater_tier"], "HIGH")
             self.assertEqual(res_entry["rationale"], "High complexity")
             
             with self.assertRaises(ValueError):
-                process_rating(None, "ultron/core/risk.py", "Rater1", "HIGH", "High complexity", feedback_file2)
+                process_rating(None, "ultron/core/risk/scoring.py", "Rater1", "HIGH", "High complexity", feedback_file2)
             with self.assertRaises(ValueError):
                 process_rating(repo_path, None, "Rater1", "HIGH", "High complexity", feedback_file2)
             with self.assertRaises(ValueError):
-                process_rating(repo_path, "ultron/core/risk.py", None, "HIGH", "High complexity", feedback_file2)
+                process_rating(repo_path, "ultron/core/risk/scoring.py", None, "HIGH", "High complexity", feedback_file2)
             with self.assertRaises(ValueError):
-                process_rating(repo_path, "ultron/core/risk.py", "Rater1", None, "High complexity", feedback_file2)
+                process_rating(repo_path, "ultron/core/risk/scoring.py", "Rater1", None, "High complexity", feedback_file2)
         finally:
             shutil.rmtree(temp_dir2)
 
@@ -490,7 +490,7 @@ class TestSample(unittest.TestCase):
         import blind_rate
         
         # Test successful CLI execution in non-interactive mode
-        with patch.object(sys, 'argv', ['blind_rate.py', '--rater', 'CLI_Test', '--file', 'ultron/core/risk.py', '--rating', 'HIGH', '--rationale', 'CLI rationale']):
+        with patch.object(sys, 'argv', ['blind_rate.py', '--rater', 'CLI_Test', '--file', 'ultron/core/risk/scoring.py', '--rating', 'HIGH', '--rationale', 'CLI rationale']):
             with self.assertRaises(SystemExit) as cm:
                 blind_rate.main()
             self.assertEqual(cm.exception.code, 0)
@@ -1226,10 +1226,10 @@ class TestBudgetGovernor(unittest.TestCase):
 
     # --------------- get_affected_files ---------------
     def test_get_affected_files_returns_superset(self):
-        changed = ["ultron/core/risk.py"]
+        changed = ["ultron/core/risk/scoring.py"]
         affected = self.bg.get_affected_files(_root, changed)
         # The original file must always be in the affected set
-        self.assertIn("ultron/core/risk.py", affected)
+        self.assertIn("ultron/core/risk/scoring.py", affected)
 
     def test_get_affected_files_empty_changed_returns_empty(self):
         affected = self.bg.get_affected_files(_root, [])
@@ -1420,6 +1420,113 @@ class TestDesignOracleExtended(unittest.TestCase):
     def test_scan_file_for_globals_missing_file_returns_empty(self):
         result = self.oracle.scan_file_for_globals("/nonexistent/path/file.py")
         self.assertEqual(result, [])
+
+
+class TestRiskDecomposition(unittest.TestCase):
+    """
+    Verifies that risk.py has been correctly decomposed into a package
+    and that all callers can import the same public API through the shim.
+    """
+
+    def setUp(self):
+        import risk
+        self.risk = risk
+
+    # --------------- Package structure ---------------
+    def test_submodule_historical_importable(self):
+        from risk import historical
+        self.assertTrue(callable(historical.load_mkr_stats))
+        self.assertTrue(callable(historical.load_human_feedback))
+
+    def test_submodule_metrics_importable(self):
+        from risk import metrics
+        self.assertTrue(callable(metrics.get_file_complexity))
+        self.assertTrue(callable(metrics.get_code_complexity))
+        self.assertTrue(callable(metrics.extract_ast_blocks))
+
+    def test_submodule_scoring_importable(self):
+        from risk import scoring
+        self.assertTrue(callable(scoring.evaluate_risks))
+
+    def test_submodule_diff_importable(self):
+        from risk import diff
+        self.assertTrue(callable(diff.evaluate_diff_risk))
+
+    # --------------- Shim backward-compatibility ---------------
+    def test_shim_evaluate_risks(self):
+        self.assertTrue(callable(self.risk.evaluate_risks))
+
+    def test_shim_evaluate_diff_risk(self):
+        self.assertTrue(callable(self.risk.evaluate_diff_risk))
+
+    def test_shim_load_mkr_stats(self):
+        self.assertTrue(callable(self.risk.load_mkr_stats))
+        result = self.risk.load_mkr_stats()
+        self.assertIsInstance(result, dict)
+
+    def test_shim_load_human_feedback(self):
+        self.assertTrue(callable(self.risk.load_human_feedback))
+        result = self.risk.load_human_feedback()
+        self.assertIsInstance(result, dict)
+
+    # --------------- Functional parity ---------------
+    def test_evaluate_risks_returns_list(self):
+        import analyzer
+        codebase = analyzer.analyze_directory(_root)
+        results = self.risk.evaluate_risks(codebase, ["ultron/core/risk/scoring.py"], repo_path=_root)
+        self.assertIsInstance(results, list)
+
+    def test_evaluate_diff_risk_parity(self):
+        old_code = "def f(x):\n    return x\n"
+        new_code = "def f(x):\n    if x > 0:\n        return x\n    return 0\n"
+        codebase = {"helper.py": {"definitions": [], "imports": []}}
+        res = self.risk.evaluate_diff_risk(codebase, "helper.py", old_code, new_code)
+        self.assertIsNotNone(res)
+        self.assertIsInstance(res.impact_score, float)
+
+    def test_evaluate_diff_risk_raises_on_none_filepath(self):
+        with self.assertRaises(ValueError):
+            self.risk.evaluate_diff_risk({}, None, "old", "new")
+
+    def test_evaluate_diff_risk_raises_on_none_old_code(self):
+        with self.assertRaises(ValueError):
+            self.risk.evaluate_diff_risk({}, "f.py", None, "new")
+
+    def test_evaluate_diff_risk_raises_on_none_new_code(self):
+        with self.assertRaises(ValueError):
+            self.risk.evaluate_diff_risk({}, "f.py", "old", None)
+
+    # --------------- metrics boundary cases ---------------
+    def test_metrics_get_file_complexity_raises_on_none(self):
+        from risk import metrics
+        with self.assertRaises(ValueError):
+            metrics.get_file_complexity(None)
+
+    def test_metrics_get_code_complexity_raises_on_none(self):
+        from risk import metrics
+        with self.assertRaises(ValueError):
+            metrics.get_code_complexity(None)
+
+    def test_metrics_extract_ast_blocks_raises_on_none(self):
+        from risk import metrics
+        with self.assertRaises(ValueError):
+            metrics.extract_ast_blocks(None)
+
+    def test_metrics_extract_ast_blocks_empty_code_returns_empty(self):
+        from risk import metrics
+        result = metrics.extract_ast_blocks("")
+        self.assertEqual(result, {})
+
+    # --------------- historical boundary cases ---------------
+    def test_historical_load_mkr_stats_bad_type_raises(self):
+        from risk import historical
+        with self.assertRaises(TypeError):
+            historical.load_mkr_stats(ledger_path=42)
+
+    def test_historical_load_mkr_stats_nonexistent_path_returns_empty(self):
+        from risk import historical
+        result = historical.load_mkr_stats(ledger_path="/nonexistent/path/ledger.jsonl")
+        self.assertEqual(result, {})
 
 
 if __name__ == "__main__":
