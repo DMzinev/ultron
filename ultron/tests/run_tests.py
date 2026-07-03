@@ -1560,6 +1560,23 @@ class TestExecutionKernel(unittest.TestCase):
         with self.assertRaises(ValueError):
             ExecutionKernel("")
 
+    def test_core_package_shim_export(self):
+        import importlib.util
+        init_path = os.path.join(_root, "ultron", "core", "__init__.py")
+        spec = importlib.util.spec_from_file_location("ultron_core_package", init_path)
+        ultron_core = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ultron_core)
+        self.assertIsNotNone(ultron_core.ExecutionKernel)
+
+    def test_kernel_verify_raises_on_none(self):
+        with self.assertRaises(ValueError):
+            self.kernel.verify(test_cmd=None)
+
+    def test_kernel_rollback_raises_on_none_backups(self):
+        self.kernel.backups = None
+        with self.assertRaises(ValueError):
+            self.kernel.rollback()
+
     def test_kernel_plan_raises_on_empty_task(self):
         with self.assertRaises(ValueError):
             self.kernel.plan("")

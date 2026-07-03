@@ -146,6 +146,8 @@ class ExecutionKernel:
         """
         Reverts the changes made in the last execute() call using the backups.
         """
+        if self.backups is None:
+            raise ValueError("backups map is not initialized")
         for rel_path, original_code in self.backups.items():
             abs_path = os.path.join(self.repo_path, rel_path)
             if original_code is None:
@@ -167,6 +169,8 @@ class ExecutionKernel:
         Returns:
             dict containing success, test_passed, scope_matched, ast_violations
         """
+        if test_cmd is None:
+            raise ValueError("test_cmd cannot be None")
         # 1. Unit Tests
         test_passed = False
         try:
