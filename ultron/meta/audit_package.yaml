@@ -1,637 +1,1115 @@
-TASK_ID: 'Task-DesignOracleLayer'
+TASK_ID: 'Task-RiskDecomposition'
 TASK_TYPE: 'LOGIC_CHANGE'
 BUILDER_VERSION: 'v2.0'
-COMMIT_HASH: '0039acd15e71ca69aec680c8effb81f1a64d20a0'
-PLAN_HASH: '-241228864176800130'
+COMMIT_HASH: 'b917f88978ba500156f97acc7473615916c6df9c'
+PLAN_HASH: '3949575447732075958'
 CHANGED_FILES:
-- 'ultron/experimental/design_oracle.py'
-- 'ultron/interfaces/ultron.py'
+- 'ultron/core/risk.py'
+- 'ultron/core/risk/__init__.py'
+- 'ultron/core/risk/historical.py'
+- 'ultron/core/risk/metrics.py'
+- 'ultron/core/risk/scoring.py'
+- 'ultron/core/risk/diff.py'
 - 'ultron/tests/run_tests.py'
-- 'umags/run_verification_loop.py'
 PATCH_DIFF: |
-  diff --git a/ultron/experimental/design_oracle.py b/ultron/experimental/design_oracle.py
-  index 205bdd7..5957d35 100644
-  --- a/ultron/experimental/design_oracle.py
-  +++ b/ultron/experimental/design_oracle.py
-  @@ -1,6 +1,7 @@
-   import ast
-   import os
-   import sys
-  +import subprocess
-   
-   def get_import_mappings(codebase):
-       """
-  @@ -84,7 +85,7 @@ def scan_file_for_globals(filepath):
-                           "lineno": node.lineno
-                       })
-           return globals_declared
+  diff --git a/ultron/core/risk.py b/ultron/core/risk.py
+  deleted file mode 100644
+  index 65b49d2..0000000
+  --- a/ultron/core/risk.py
+  +++ /dev/null
+  @@ -1,355 +0,0 @@
+  -import os
+  -import math
+  -import ast
+  -import json
+  -from radon.visitors import ComplexityVisitor
+  -from models import AnalysisPacket
+  -import logistic
+  -
+  -_MKR_CACHE = {}
+  -_LAST_CACHE_TIME = 0
+  -
+  -def load_mkr_stats(ledger_path=None):
+  -    global _MKR_CACHE, _LAST_CACHE_TIME
+  -    if not ledger_path:
+  -        script_dir = os.path.dirname(os.path.abspath(__file__))
+  -        ledger_path = os.path.abspath(os.path.join(script_dir, "..", "..", "synapse_project", "synapse_mutator", "ledger.jsonl"))
+  -    
+  -    if os.path.exists(ledger_path):
+  -        try:
+  -            mtime = os.path.getmtime(ledger_path)
+  -            if mtime <= _LAST_CACHE_TIME and _MKR_CACHE:
+  -                return _MKR_CACHE
+  -            _LAST_CACHE_TIME = mtime
+  -        except Exception:
+  -            pass
+  -    else:
+  -        return {}
+  -    
+  -    stats = {}
+  -    try:
+  -        with open(ledger_path, "r", encoding="utf-8") as f:
+  -            for line in f:
+  -                if not line.strip():
+  -                    continue
+  -                record = json.loads(line)
+  -                filename = record.get("file")
+  -                if filename and record.get("was_mutated"):
+  -                    if record.get("equivalent"):
+  -                        continue
+  -                    norm_file = filename.replace("\\", "/").replace("src/", "")
+  -                    stats.setdefault(norm_file, {"killed": 0, "total": 0})
+  -                    stats[norm_file]["total"] += 1
+  -                    if not record.get("accepted"):
+  -                        stats[norm_file]["killed"] += 1
   -    except Exception:
-  +    except (SyntaxError, OSError, ValueError):
-           return []
-   
-   def detect_global_mutations(codebase, repo_path):
-  @@ -192,3 +193,323 @@ def simulate_future_coupling(codebase, src_file, dest_file):
-           },
-           "description": "Simulation completed safely." if is_safe else f"Simulation detected {len(new_cycles)} new circular dependency loop(s)!"
-       }
+  -        pass
+  -        
+  -    mkr_map = {}
+  -    for k, v in stats.items():
+  -        mkr_map[k] = v["killed"] / v["total"] if v["total"] > 0 else 1.0
+  -        
+  -    _MKR_CACHE = mkr_map
+  -    return mkr_map
+  -
+  -def get_file_complexity(filepath):
+  -    """
+  -    Parses a python file and returns the maximum McCabe complexity
+  -    of any block inside it. Defaults to 1 if no blocks exist.
+  -    """
+  -    try:
+  -        with open(filepath, 'r', encoding='utf-8') as f:
+  -            code = f.read()
+  -        visitor = ComplexityVisitor.from_code(code)
+  -        if visitor.blocks:
+  -            return max((block.complexity for block in visitor.blocks))
+  -    except Exception:
+  -        pass
+  -    return 1
+  -
+  -def load_human_feedback():
+  -    feedback_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta", "human_feedback.jsonl")
+  -    feedback = {}
+  -    if not os.path.exists(feedback_path):
+  -        return feedback
+  -    try:
+  -        with open(feedback_path, "r", encoding="utf-8") as f:
+  -            for line in f:
+  -                if not line.strip():
+  -                    continue
+  -                rec = json.loads(line)
+  -                filename = rec.get("file")
+  -                if filename:
+  -                    feedback[filename] = rec.get("accurate", True)
+  -    except Exception:
+  -        pass
+  -    return feedback
+  -
+  -def evaluate_risks(codebase, target_files, intent='', repo_path='', os=os):
+  -    """
+  -    Evaluates integration risks for targeted files based on global coupling and complexity.
+  -    - codebase: output of analyzer.analyze_directory
+  -    - target_files: list of relative file paths
+  -    - intent: natural language user request description
+  -    - repo_path: absolute path of the repository to resolve files for complexity analysis
+  -    """
+  -    target_files = list(target_files)
+  -    if not target_files and intent:
+  -        keywords = [w.lower() for w in intent.split() if len(w) > 3]
+  -        for rel_path, analysis in codebase.items():
+  -            match = False
+  -            for kw in keywords:
+  -                if kw in rel_path.lower():
+  -                    match = True
+  -                    break
+  -                for defn in analysis.get('definitions', []):
+  -                    if kw in defn.get('name', '').lower():
+  -                        match = True
+  -                        break
+  -                    if defn.get('type') == 'class':
+  -                        for m in defn.get('methods', []):
+  -                            if kw in m.get('name', '').lower():
+  -                                match = True
+  -                                break
+  -            if match:
+  -                target_files.append(rel_path)
+  -        target_files = list(set(target_files))
+  -    risks = []
+  -    import analyzer
+  -    bug_fixes = {}
+  -    if repo_path:
+  -        try:
+  -            bug_fixes = analyzer.extract_git_history(repo_path)
+  -        except Exception:
+  -            pass
+  -    feedback = load_human_feedback()
+  -    
+  -    global_callers = {}
+  -    for rel_path, analysis in codebase.items():
+  -        for defn in analysis.get('definitions', []):
+  -            for call in defn.get('calls', []):
+  -                global_callers.setdefault(call, []).append(rel_path)
+  -            if defn.get('type') == 'class':
+  -                for method in defn.get('methods', []):
+  -                    for call in method.get('calls', []):
+  -                        global_callers.setdefault(call, []).append(rel_path)
+  -    for target in target_files:
+  -        if target not in codebase:
+  -            continue
+  -        analysis = codebase[target]
+  -        target_defs = analysis.get('definitions', [])
+  -        downstream_files = []
+  -        for defn in target_defs:
+  -            name = defn.get('name')
+  -            if name in global_callers:
+  -                downstream_files.extend(global_callers[name])
+  -            if defn.get('type') == 'class':
+  -                for method in defn.get('methods', []):
+  -                    m_name = method.get('name')
+  -                    if m_name in global_callers:
+  -                        downstream_files.extend(global_callers[m_name])
+  -        downstream_files = list(set(downstream_files))
+  -        if target in downstream_files:
+  -            downstream_files.remove(target)
+  -        coupling_count = len(downstream_files)
+  -        abs_target = os.path.join(repo_path, target) if repo_path else target
+  -        complexity = get_file_complexity(abs_target)
+  -        impact_score = complexity * math.log(math.e + coupling_count)
+  -        is_public = target.endswith('__init__.py') or any((defn.get('name') == '__init__' for defn in target_defs))
+  -        
+  -        # Get fixes count and human feedback
+  -        n_fixes = bug_fixes.get(target, 0)
+  -        feedback_accurate = feedback.get(target, None)
+  -        
+  -        # Base thresholds
+  -        high_t = 10.0
+  -        med_t = 3.0
+  -        
+  -        # Adjust based on bug fix frequency
+  -        high_t -= 1.5 * n_fixes
+  -        med_t -= 0.5 * n_fixes
+  -        
+  -        # Adjust based on human feedback
+  -        if feedback_accurate is True:
+  -            high_t -= 2.0
+  -            med_t -= 1.0
+  -        elif feedback_accurate is False:
+  -            high_t += 3.0
+  -            med_t += 1.5
+  -            
+  -        # Bound thresholds
+  -        high_t = max(3.0, min(15.0, high_t))
+  -        med_t = max(1.0, min(8.0, med_t))
+  -        
+  -        if impact_score >= high_t or is_public:
+  -            level = 'HIGH'
+  -            mitigation = f'Critical boundary. Impact Score: {impact_score:.2f} (Threshold: {high_t:.2f}, Complexity: {complexity}, Coupling: {coupling_count}). Do NOT modify signatures without simultaneously refactoring callers.'
+  -        elif impact_score >= med_t:
+  -            level = 'MEDIUM'
+  -            mitigation = f"Moderate coupling. Impact Score: {impact_score:.2f} (Threshold: {med_t:.2f}, Complexity: {complexity}, Coupling: {coupling_count}). Review callers: {', '.join(downstream_files)}."
+  -        else:
+  -            level = 'LOW'
+  -            mitigation = f'Low risk leaf module. Impact Score: {impact_score:.2f} (Complexity: {complexity}, Coupling: {coupling_count}). Safe to modify.'
+  -            
+  -        # Look up Mutation Kill Rate (MKR)
+  -        mkr_map = load_mkr_stats()
+  -        mkr = 1.0
+  -        target_base = os.path.basename(target)
+  -        for k, v in mkr_map.items():
+  -            if os.path.basename(k) == target_base:
+  -                mkr = v
+  -                break
+  -        
+  -        # Calculate combined confidence Uc
+  -        try:
+  -            defect_prob = logistic.predict_defect_probability(impact_score, mkr)
+  -            confidence = 1.0 - defect_prob
+  -        except Exception:
+  -            confidence = mkr / (1.0 + 0.1 * impact_score)
+  -        
+  -        risks.append(AnalysisPacket(
+  -            file_path=target,
+  -            impact_score=impact_score,
+  -            coupling_score=float(coupling_count),
+  -            mk_r=mkr,
+  -            delta_cest=0.0,
+  -            confidence=confidence,
+  -            level=level,
+  -            complexity=complexity,
+  -            mitigation=mitigation,
+  -            callers=downstream_files
+  -        ))
+  -    return risks
+  -
+  -def get_code_complexity(code):
+  -    """
+  -    Computes maximum cyclomatic complexity for a given code segment.
+  -    """
+  -    try:
+  -        visitor = ComplexityVisitor.from_code(code)
+  -        if visitor.blocks:
+  -            return max((block.complexity for block in visitor.blocks))
+  -    except Exception:
+  -        pass
+  -    return 1
+  -
+  -def extract_ast_blocks(code):
+  -    """
+  -    Parses code to AST and extracts class/function blocks with source segments and complexity.
+  -    """
+  -    blocks = {}
+  -    try:
+  -        tree = ast.parse(code)
+  -        for node in ast.walk(tree):
+  -            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+  -                name = node.name
+  -                try:
+  -                    segment = ast.get_source_segment(code, node)
+  -                except Exception:
+  -                    segment = ""
+  -                blocks[name] = {
+  -                    'type': 'function',
+  -                    'code': segment,
+  -                    'complexity': get_code_complexity(segment) if segment else 1
+  -                }
+  -            elif isinstance(node, ast.ClassDef):
+  -                name = node.name
+  -                try:
+  -                    segment = ast.get_source_segment(code, node)
+  -                except Exception:
+  -                    segment = ""
+  -                blocks[name] = {
+  -                    'type': 'class',
+  -                    'code': segment,
+  -                    'complexity': get_code_complexity(segment) if segment else 1
+  -                }
+  -    except Exception:
+  -        pass
+  -    return blocks
+  -
+  -def evaluate_diff_risk(codebase, filepath, old_code, new_code):
+  -    """
+  -    Compares old vs new AST structures to compute function-level delta impact scores (Delta I).
+  -    """
+  -    old_blocks = extract_ast_blocks(old_code)
+  -    new_blocks = extract_ast_blocks(new_code)
+  -    
+  -    # Build global callers map for coupling calculation
+  -    global_callers = {}
+  -    for rel_path, analysis in codebase.items():
+  -        for defn in analysis.get('definitions', []):
+  -            for call in defn.get('calls', []):
+  -                global_callers.setdefault(call, []).append(rel_path)
+  -            if defn.get('type') == 'class':
+  -                for method in defn.get('methods', []):
+  -                    for call in method.get('calls', []):
+  -                        global_callers.setdefault(call, []).append(rel_path)
+  -                        
+  -    changes = []
+  -    total_delta = 0.0
+  -    
+  -    all_names = set(old_blocks.keys()).union(new_blocks.keys())
+  -    
+  -    for name in all_names:
+  -        action = None
+  -        block_type = None
+  -        comp_before = 0
+  -        comp_after = 0
+  -        
+  -        if name in new_blocks and name not in old_blocks:
+  -            action = 'added'
+  -            block_type = new_blocks[name]['type']
+  -            comp_after = new_blocks[name]['complexity']
+  -        elif name in old_blocks and name not in new_blocks:
+  -            action = 'deleted'
+  -            block_type = old_blocks[name]['type']
+  -            comp_before = old_blocks[name]['complexity']
+  -        else:
+  -            block_type = new_blocks[name]['type']
+  -            comp_before = old_blocks[name]['complexity']
+  -            comp_after = new_blocks[name]['complexity']
+  -            if old_blocks[name]['code'] != new_blocks[name]['code']:
+  -                action = 'modified'
+  -                
+  -        if action:
+  -            coupling = len(set(global_callers.get(name, [])))
+  -            # I = Complexity * ln(e + Coupling)
+  -            impact_before = comp_before * math.log(math.e + coupling) if comp_before > 0 else 0.0
+  -            impact_after = comp_after * math.log(math.e + coupling) if comp_after > 0 else 0.0
+  -            delta = impact_after - impact_before
+  -            total_delta += delta
+  -            
+  -            changes.append({
+  -                'name': name,
+  -                'type': block_type,
+  -                'action': action,
+  -                'complexity_before': comp_before,
+  -                'complexity_after': comp_after,
+  -                'coupling': coupling,
+  -                'impact_before': impact_before,
+  -                'impact_after': impact_after,
+  -                'delta': delta
+  -            })
+  -            
+  -    # Look up Mutation Kill Rate (MKR)
+  -    mkr_map = load_mkr_stats()
+  -    mkr = 1.0
+  -    target_base = os.path.basename(filepath)
+  -    for k, v in mkr_map.items():
+  -        if os.path.basename(k) == target_base:
+  -            mkr = v
+  -            break
+  -            
+  -    # Calculate confidence based on diff-risk delta
+  -    confidence = mkr / (1.0 + 0.1 * abs(total_delta))
+  -
+  -    return AnalysisPacket(
+  -        file_path=filepath,
+  -        impact_score=total_delta,
+  -        coupling_score=0.0,
+  -        mk_r=mkr,
+  -        delta_cest=0.0,
+  -        confidence=confidence,
+  -        changes=changes,
+  -        delta_score=total_delta
+  -    )
+  \ No newline at end of file
+  diff --git a/ultron/core/risk/__init__.py b/ultron/core/risk/__init__.py
+  new file mode 100644
+  index 0000000..6cc98c5
+  --- /dev/null
+  +++ b/ultron/core/risk/__init__.py
+  @@ -0,0 +1,27 @@
+  +"""
+  +risk/__init__.py â€” Backward-compatibility shim.
   +
-  +# =============================================================================
-  +# Design Oracle Layer (v1)
-  +# =============================================================================
+  +Re-exports the full public API of the former risk.py monolith so that all
+  +existing callers (`import risk; risk.evaluate_risks(...)`) work without
+  +any modification.
   +
-  +def score_coupling_debt(codebase):
+  +Public API surface:
+  +    evaluate_risks      â€” main risk scoring entry point (scoring.py)
+  +    evaluate_diff_risk  â€” diff-level delta analysis (diff.py)
+  +    load_mkr_stats      â€” Synapse mutation ledger reader (historical.py)
+  +    load_human_feedback â€” human feedback reader (historical.py)
+  +
+  +Private helpers (get_file_complexity, get_code_complexity, extract_ast_blocks)
+  +are intentionally not re-exported here. Callers that need them should import
+  +from risk.metrics directly.
+  +"""
+  +from .scoring   import evaluate_risks
+  +from .diff      import evaluate_diff_risk
+  +from .historical import load_mkr_stats, load_human_feedback
+  +
+  +__all__ = [
+  +    "evaluate_risks",
+  +    "evaluate_diff_risk",
+  +    "load_mkr_stats",
+  +    "load_human_feedback",
+  +]
+  diff --git a/ultron/core/risk/diff.py b/ultron/core/risk/diff.py
+  new file mode 100644
+  index 0000000..f9e09d8
+  --- /dev/null
+  +++ b/ultron/core/risk/diff.py
+  @@ -0,0 +1,117 @@
+  +"""
+  +risk/diff.py â€” Diff-level risk analysis engine.
+  +
+  +Responsibility: evaluate_diff_risk()
+  +
+  +Compares old vs new code AST structures to compute function-level delta
+  +impact scores (Delta I). Composed from metrics (AST parsing) and
+  +historical (MKR loading).
+  +"""
+  +import os
+  +import math
+  +
+  +from models import AnalysisPacket
+  +from .metrics import extract_ast_blocks, get_code_complexity
+  +from .historical import load_mkr_stats
+  +
+  +
+  +def evaluate_diff_risk(codebase, filepath, old_code, new_code):
   +    """
-  +    Computes per-file coupling debt from the import graph.
+  +    Compares old vs new AST structures to compute function-level delta impact scores.
   +
-  +    Returns a list of dicts sorted descending by coupling_debt:
-  +      [{"file": str, "fan_in": int, "fan_out": int,
-  +        "coupling_debt": int, "instability": float}]
+  +    Args:
+  +        codebase:  output of analyzer.analyze_directory (used for coupling calculation)
+  +        filepath:  relative path of the changed file (used for MKR lookup)
+  +        old_code:  original source code string
+  +        new_code:  updated source code string
   +
-  +    Raises TypeError if codebase is not a dict.
-  +    Raises ValueError if codebase is empty.
+  +    Returns:
+  +        AnalysisPacket with .changes (list of per-function deltas) and .delta_score
+  +
+  +    Raises:
+  +        ValueError if filepath, old_code, or new_code is None
   +    """
-  +    if not isinstance(codebase, dict):
-  +        raise TypeError("codebase must be a dictionary")
-  +    if not codebase:
-  +        raise ValueError("codebase must not be empty")
+  +    if filepath is None:
+  +        raise ValueError("filepath cannot be None")
+  +    if old_code is None:
+  +        raise ValueError("old_code cannot be None")
+  +    if new_code is None:
+  +        raise ValueError("new_code cannot be None")
   +
-  +    graph = get_import_mappings(codebase)
+  +    old_blocks = extract_ast_blocks(old_code)
+  +    new_blocks = extract_ast_blocks(new_code)
   +
-  +    # fan_out[f] = number of files f imports
-  +    fan_out = {f: len(deps) for f, deps in graph.items()}
+  +    # Build global callers map for coupling calculation
+  +    global_callers = {}
+  +    for rel_path, analysis in codebase.items():
+  +        for defn in analysis.get("definitions", []):
+  +            for call in defn.get("calls", []):
+  +                global_callers.setdefault(call, []).append(rel_path)
+  +            if defn.get("type") == "class":
+  +                for method in defn.get("methods", []):
+  +                    for call in method.get("calls", []):
+  +                        global_callers.setdefault(call, []).append(rel_path)
   +
-  +    # fan_in[f] = number of files that import f
-  +    fan_in = {f: 0 for f in codebase}
-  +    for f, deps in graph.items():
-  +        for dep in deps:
-  +            if dep in fan_in:
-  +                fan_in[dep] += 1
+  +    changes = []
+  +    total_delta = 0.0
+  +    all_names = set(old_blocks.keys()).union(new_blocks.keys())
   +
-  +    results = []
-  +    for f in codebase:
-  +        fi = fan_in[f]
-  +        fo = fan_out[f]
-  +        debt = fi * fo
-  +        total = fi + fo
-  +        instability = fo / total if total > 0 else 0.0
-  +        results.append({
-  +            "file": f,
-  +            "fan_in": fi,
-  +            "fan_out": fo,
-  +            "coupling_debt": debt,
-  +            "instability": round(instability, 3)
-  +        })
+  +    for name in all_names:
+  +        action = None
+  +        block_type = None
+  +        comp_before = 0
+  +        comp_after = 0
   +
-  +    results.sort(key=lambda x: x["coupling_debt"], reverse=True)
-  +    return results
+  +        if name in new_blocks and name not in old_blocks:
+  +            action = "added"
+  +            block_type = new_blocks[name]["type"]
+  +            comp_after = new_blocks[name]["complexity"]
+  +        elif name in old_blocks and name not in new_blocks:
+  +            action = "deleted"
+  +            block_type = old_blocks[name]["type"]
+  +            comp_before = old_blocks[name]["complexity"]
+  +        else:
+  +            block_type = new_blocks[name]["type"]
+  +            comp_before = old_blocks[name]["complexity"]
+  +            comp_after = new_blocks[name]["complexity"]
+  +            if old_blocks[name]["code"] != new_blocks[name]["code"]:
+  +                action = "modified"
   +
+  +        if action:
+  +            coupling = len(set(global_callers.get(name, [])))
+  +            impact_before = comp_before * math.log(math.e + coupling) if comp_before > 0 else 0.0
+  +            impact_after = comp_after * math.log(math.e + coupling) if comp_after > 0 else 0.0
+  +            delta = impact_after - impact_before
+  +            total_delta += delta
+  +            changes.append({
+  +                "name": name,
+  +                "type": block_type,
+  +                "action": action,
+  +                "complexity_before": comp_before,
+  +                "complexity_after": comp_after,
+  +                "coupling": coupling,
+  +                "impact_before": impact_before,
+  +                "impact_after": impact_after,
+  +                "delta": delta,
+  +            })
   +
-  +def _count_cyclomatic_complexity(tree):
-  +    """
-  +    Approximates cyclomatic complexity of an AST by counting branch nodes.
-  +    Branch nodes: If, For, While, ExceptHandler, With, Assert, comprehensions.
-  +    Raises ValueError if tree is None.
-  +    """
-  +    if tree is None:
-  +        raise ValueError("tree cannot be None")
-  +    branch_types = (
-  +        ast.If, ast.For, ast.While, ast.ExceptHandler,
-  +        ast.With, ast.Assert, ast.comprehension
+  +    mkr_map = load_mkr_stats()
+  +    mkr = 1.0
+  +    target_base = os.path.basename(filepath)
+  +    for k, v in mkr_map.items():
+  +        if os.path.basename(k) == target_base:
+  +            mkr = v
+  +            break
+  +
+  +    confidence = mkr / (1.0 + 0.1 * abs(total_delta))
+  +
+  +    return AnalysisPacket(
+  +        file_path=filepath,
+  +        impact_score=total_delta,
+  +        coupling_score=0.0,
+  +        mk_r=mkr,
+  +        delta_cest=0.0,
+  +        confidence=confidence,
+  +        changes=changes,
+  +        delta_score=total_delta,
   +    )
-  +    return sum(1 for node in ast.walk(tree) if isinstance(node, branch_types))
+  diff --git a/ultron/core/risk/historical.py b/ultron/core/risk/historical.py
+  new file mode 100644
+  index 0000000..b284997
+  --- /dev/null
+  +++ b/ultron/core/risk/historical.py
+  @@ -0,0 +1,93 @@
+  +"""
+  +risk/historical.py â€” I/O layer only.
+  +
+  +Responsibilities:
+  +    - load_mkr_stats: reads the Synapse mutation ledger â†’ MKR map per file
+  +    - load_human_feedback: reads meta/human_feedback.jsonl â†’ accuracy map per file
+  +
+  +No computation, no AST, no radon. Pure file reading with mtime-based caching.
+  +"""
+  +import os
+  +import json
+  +
+  +_MKR_CACHE = {}
+  +_LAST_CACHE_TIME = 0
   +
   +
-  +def detect_abstraction_leaks(codebase, repo_path, max_responsibilities=3):
+  +def load_mkr_stats(ledger_path=None):
   +    """
-  +    Detects functions that are doing too many things by counting distinct
-  +    cross-module call target names within each function body.
-  +
-  +    A function is flagged when its count of distinct call-target module names
-  +    exceeds max_responsibilities.
-  +
-  +    Returns a dict:
-  +      {rel_path: [{"function": str, "responsibility_count": int, "lineno": int}]}
-  +
-  +    Raises TypeError if codebase is not a dict.
-  +    Raises ValueError if repo_path is None.
+  +    Reads the Synapse mutation ledger and returns a per-file Mutation Kill Rate map.
+  +    Returns {} if the ledger does not exist or cannot be read.
+  +    Raises TypeError if ledger_path is not a string or None.
   +    """
-  +    if not isinstance(codebase, dict):
-  +        raise TypeError("codebase must be a dictionary")
-  +    if repo_path is None:
-  +        raise ValueError("repo_path cannot be None")
+  +    global _MKR_CACHE, _LAST_CACHE_TIME
+  +    if ledger_path is not None and not isinstance(ledger_path, str):
+  +        raise TypeError("ledger_path must be a string or None")
+  +    if not ledger_path:
+  +        script_dir = os.path.dirname(os.path.abspath(__file__))
+  +        ledger_path = os.path.abspath(
+  +            os.path.join(script_dir, "..", "..", "..", "synapse_project",
+  +                         "synapse_mutator", "ledger.jsonl")
+  +        )
   +
-  +    leaks = {}
+  +    if os.path.exists(ledger_path):
+  +        try:
+  +            mtime = os.path.getmtime(ledger_path)
+  +            if mtime <= _LAST_CACHE_TIME and _MKR_CACHE:
+  +                return _MKR_CACHE
+  +            _LAST_CACHE_TIME = mtime
+  +        except OSError as e:
+  +            print(f"Warning: failed to get mtime for {ledger_path}: {e}")
+  +    else:
+  +        return {}
   +
-  +    for rel_path in codebase:
-  +        abs_path = os.path.join(repo_path, rel_path)
-  +        if not os.path.exists(abs_path) or not rel_path.endswith(".py"):
+  +    stats = {}
+  +    try:
+  +        with open(ledger_path, "r", encoding="utf-8") as f:
+  +            for line in f:
+  +                if not line.strip():
+  +                    continue
+  +                record = json.loads(line)
+  +                filename = record.get("file")
+  +                if filename and record.get("was_mutated"):
+  +                    if record.get("equivalent"):
+  +                        continue
+  +                    norm_file = filename.replace("\\", "/").replace("src/", "")
+  +                    stats.setdefault(norm_file, {"killed": 0, "total": 0})
+  +                    stats[norm_file]["total"] += 1
+  +                    if not record.get("accepted"):
+  +                        stats[norm_file]["killed"] += 1
+  +    except (OSError, json.JSONDecodeError) as e:
+  +        print(f"Warning: failed to parse/read ledger {ledger_path}: {e}")
+  +
+  +    mkr_map = {
+  +        k: (v["killed"] / v["total"] if v["total"] > 0 else 1.0)
+  +        for k, v in stats.items()
+  +    }
+  +    _MKR_CACHE = mkr_map
+  +    return mkr_map
+  +
+  +
+  +def load_human_feedback():
+  +    """
+  +    Reads meta/human_feedback.jsonl and returns a per-file accuracy map.
+  +    Returns {} if the file does not exist or cannot be read.
+  +    """
+  +    feedback_path = os.path.join(
+  +        os.path.dirname(os.path.abspath(__file__)), "..", "meta", "human_feedback.jsonl"
+  +    )
+  +    feedback = {}
+  +    if not os.path.exists(feedback_path):
+  +        return feedback
+  +    try:
+  +        with open(feedback_path, "r", encoding="utf-8") as f:
+  +            for line in f:
+  +                if not line.strip():
+  +                    continue
+  +                rec = json.loads(line)
+  +                filename = rec.get("file")
+  +                if filename:
+  +                    feedback[filename] = rec.get("accurate", True)
+  +    except (OSError, json.JSONDecodeError) as e:
+  +        print(f"Warning: failed to parse/read human feedback {feedback_path}: {e}")
+  +    return feedback
+  diff --git a/ultron/core/risk/metrics.py b/ultron/core/risk/metrics.py
+  new file mode 100644
+  index 0000000..d6b862c
+  --- /dev/null
+  +++ b/ultron/core/risk/metrics.py
+  @@ -0,0 +1,91 @@
+  +"""
+  +risk/metrics.py â€” Pure computational layer, minimal I/O.
+  +
+  +Responsibilities:
+  +    - get_file_complexity: reads a .py file, returns max McCabe complexity via radon
+  +    - get_code_complexity: max McCabe complexity for a code string
+  +    - extract_ast_blocks: parses code to AST, returns {name: {type, code, complexity}}
+  +
+  +No I/O beyond the single file read in get_file_complexity. No network, no json, no ledgers.
+  +"""
+  +import os
+  +import ast
+  +from radon.visitors import ComplexityVisitor
+  +
+  +
+  +def get_file_complexity(filepath):
+  +    """
+  +    Opens filepath and returns the maximum McCabe complexity of any block inside it.
+  +    Defaults to 1 if no blocks exist or the file cannot be read.
+  +    Raises ValueError if filepath is None.
+  +    """
+  +    if filepath is None:
+  +        raise ValueError("filepath cannot be None")
+  +    try:
+  +        with open(filepath, "r", encoding="utf-8") as f:
+  +            code = f.read()
+  +        visitor = ComplexityVisitor.from_code(code)
+  +        if visitor.blocks:
+  +            return max(block.complexity for block in visitor.blocks)
+  +    except Exception as e:
+  +        print(f"Warning: failed to compute complexity of {filepath}: {e}")
+  +    return 1
+  +
+  +
+  +def get_code_complexity(code):
+  +    """
+  +    Computes maximum cyclomatic complexity for a given code segment string.
+  +    Returns 1 if the code is empty, unparseable, or has no blocks.
+  +    Raises ValueError if code is None.
+  +    """
+  +    if code is None:
+  +        raise ValueError("code cannot be None")
+  +    try:
+  +        visitor = ComplexityVisitor.from_code(code)
+  +        if visitor.blocks:
+  +            return max(block.complexity for block in visitor.blocks)
+  +    except Exception as e:
+  +        print(f"Warning: failed to compute code complexity: {e}")
+  +    return 1
+  +
+  +
+  +def extract_ast_blocks(code):
+  +    """
+  +    Parses code to AST and extracts class/function blocks with source segments
+  +    and cyclomatic complexity.
+  +
+  +    Returns: {name: {'type': 'function'|'class', 'code': str, 'complexity': int}}
+  +    Returns {} if code is empty or unparseable.
+  +    Raises ValueError if code is None.
+  +    """
+  +    if code is None:
+  +        raise ValueError("code cannot be None")
+  +    blocks = {}
+  +    try:
+  +        tree = ast.parse(code)
+  +        for node in ast.walk(tree):
+  +            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+  +                name = node.name
+  +                try:
+  +                    segment = ast.get_source_segment(code, node)
+  +                except Exception:
+  +                    segment = ""
+  +                blocks[name] = {
+  +                    "type": "function",
+  +                    "code": segment,
+  +                    "complexity": get_code_complexity(segment) if segment else 1,
+  +                }
+  +            elif isinstance(node, ast.ClassDef):
+  +                name = node.name
+  +                try:
+  +                    segment = ast.get_source_segment(code, node)
+  +                except Exception:
+  +                    segment = ""
+  +                blocks[name] = {
+  +                    "type": "class",
+  +                    "code": segment,
+  +                    "complexity": get_code_complexity(segment) if segment else 1,
+  +                }
+  +    except Exception as e:
+  +        print(f"Warning: failed to extract AST blocks: {e}")
+  +    return blocks
+  diff --git a/ultron/core/risk/scoring.py b/ultron/core/risk/scoring.py
+  new file mode 100644
+  index 0000000..ea57128
+  --- /dev/null
+  +++ b/ultron/core/risk/scoring.py
+  @@ -0,0 +1,178 @@
+  +"""
+  +risk/scoring.py â€” Main risk evaluation engine.
+  +
+  +Responsibility: evaluate_risks()
+  +
+  +Composes historical (I/O) + metrics (computation) + logistic (confidence)
+  +to produce AnalysisPacket results for a list of target files.
+  +
+  +The lazy `import analyzer` inside evaluate_risks is preserved to prevent
+  +a circular import (analyzer imports risk, so risk cannot import analyzer
+  +at module level).
+  +"""
+  +import os
+  +import math
+  +
+  +from models import AnalysisPacket
+  +import logistic
+  +from .historical import load_mkr_stats, load_human_feedback
+  +from .metrics import get_file_complexity
+  +
+  +
+  +def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
+  +    """
+  +    Evaluates integration risks for targeted files based on global coupling and complexity.
+  +
+  +    Args:
+  +        codebase:     output of analyzer.analyze_directory
+  +        target_files: list of relative file paths to evaluate
+  +        intent:       natural language user request description (used for auto-targeting)
+  +        repo_path:    absolute path of the repository to resolve files for complexity analysis
+  +        os:           injected os module (default: os) â€” allows mocking in tests
+  +
+  +    Returns:
+  +        list[AnalysisPacket]
+  +    """
+  +    target_files = list(target_files)
+  +    if not target_files and intent:
+  +        keywords = [w.lower() for w in intent.split() if len(w) > 3]
+  +        for rel_path, analysis in codebase.items():
+  +            match = False
+  +            for kw in keywords:
+  +                if kw in rel_path.lower():
+  +                    match = True
+  +                    break
+  +                for defn in analysis.get("definitions", []):
+  +                    if kw in defn.get("name", "").lower():
+  +                        match = True
+  +                        break
+  +                    if defn.get("type") == "class":
+  +                        for m in defn.get("methods", []):
+  +                            if kw in m.get("name", "").lower():
+  +                                match = True
+  +                                break
+  +            if match:
+  +                target_files.append(rel_path)
+  +        target_files = list(set(target_files))
+  +
+  +    risks = []
+  +
+  +    # Lazy import to prevent circular dependency (analyzer imports risk at module level)
+  +    import analyzer
+  +    bug_fixes = {}
+  +    if repo_path:
+  +        try:
+  +            bug_fixes = analyzer.extract_git_history(repo_path)
+  +        except Exception as e:
+  +            print(f"Warning: failed to extract git history from {repo_path}: {e}")
+  +
+  +    feedback = load_human_feedback()
+  +
+  +    # Build global callers map once for all targets
+  +    global_callers = {}
+  +    for rel_path, analysis in codebase.items():
+  +        for defn in analysis.get("definitions", []):
+  +            for call in defn.get("calls", []):
+  +                global_callers.setdefault(call, []).append(rel_path)
+  +            if defn.get("type") == "class":
+  +                for method in defn.get("methods", []):
+  +                    for call in method.get("calls", []):
+  +                        global_callers.setdefault(call, []).append(rel_path)
+  +
+  +    for target in target_files:
+  +        if target not in codebase:
   +            continue
+  +        analysis = codebase[target]
+  +        target_defs = analysis.get("definitions", [])
+  +
+  +        downstream_files = []
+  +        for defn in target_defs:
+  +            name = defn.get("name")
+  +            if name in global_callers:
+  +                downstream_files.extend(global_callers[name])
+  +            if defn.get("type") == "class":
+  +                for method in defn.get("methods", []):
+  +                    m_name = method.get("name")
+  +                    if m_name in global_callers:
+  +                        downstream_files.extend(global_callers[m_name])
+  +        downstream_files = list(set(downstream_files))
+  +        if target in downstream_files:
+  +            downstream_files.remove(target)
+  +
+  +        coupling_count = len(downstream_files)
+  +        abs_target = os.path.join(repo_path, target) if repo_path else target
+  +        complexity = get_file_complexity(abs_target)
+  +        impact_score = complexity * math.log(math.e + coupling_count)
+  +        is_public = target.endswith("__init__.py") or any(
+  +            defn.get("name") == "__init__" for defn in target_defs
+  +        )
+  +
+  +        n_fixes = bug_fixes.get(target, 0)
+  +        feedback_accurate = feedback.get(target, None)
+  +
+  +        # Dynamic thresholds â€” adjusted by bug-fix history and human feedback
+  +        high_t = 10.0
+  +        med_t = 3.0
+  +        high_t -= 1.5 * n_fixes
+  +        med_t -= 0.5 * n_fixes
+  +        if feedback_accurate is True:
+  +            high_t -= 2.0
+  +            med_t -= 1.0
+  +        elif feedback_accurate is False:
+  +            high_t += 3.0
+  +            med_t += 1.5
+  +        high_t = max(3.0, min(15.0, high_t))
+  +        med_t = max(1.0, min(8.0, med_t))
+  +
+  +        if impact_score >= high_t or is_public:
+  +            level = "HIGH"
+  +            mitigation = (
+  +                f"Critical boundary. Impact Score: {impact_score:.2f} "
+  +                f"(Threshold: {high_t:.2f}, Complexity: {complexity}, "
+  +                f"Coupling: {coupling_count}). "
+  +                f"Do NOT modify signatures without simultaneously refactoring callers."
+  +            )
+  +        elif impact_score >= med_t:
+  +            level = "MEDIUM"
+  +            mitigation = (
+  +                f"Moderate coupling. Impact Score: {impact_score:.2f} "
+  +                f"(Threshold: {med_t:.2f}, Complexity: {complexity}, "
+  +                f"Coupling: {coupling_count}). "
+  +                f"Review callers: {', '.join(downstream_files)}."
+  +            )
+  +        else:
+  +            level = "LOW"
+  +            mitigation = (
+  +                f"Low risk leaf module. Impact Score: {impact_score:.2f} "
+  +                f"(Complexity: {complexity}, Coupling: {coupling_count}). "
+  +                f"Safe to modify."
+  +            )
+  +
+  +        mkr_map = load_mkr_stats()
+  +        mkr = 1.0
+  +        target_base = os.path.basename(target)
+  +        for k, v in mkr_map.items():
+  +            if os.path.basename(k) == target_base:
+  +                mkr = v
+  +                break
   +
   +        try:
-  +            with open(abs_path, "r", encoding="utf-8") as f:
-  +                source = f.read()
-  +            tree = ast.parse(source)
-  +        except (SyntaxError, OSError, ValueError):
-  +            continue
+  +            defect_prob = logistic.predict_defect_probability(impact_score, mkr)
+  +            confidence = 1.0 - defect_prob
+  +        except Exception:
+  +            confidence = mkr / (1.0 + 0.1 * impact_score)
   +
-  +        file_leaks = []
-  +        for node in ast.walk(tree):
-  +            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-  +                continue
+  +        risks.append(AnalysisPacket(
+  +            file_path=target,
+  +            impact_score=impact_score,
+  +            coupling_score=float(coupling_count),
+  +            mk_r=mkr,
+  +            delta_cest=0.0,
+  +            confidence=confidence,
+  +            level=level,
+  +            complexity=complexity,
+  +            mitigation=mitigation,
+  +            callers=downstream_files,
+  +        ))
   +
-  +            # Collect distinct module names called as `module.method()` inside this function
-  +            called_modules = set()
-  +            for child in ast.walk(node):
-  +                if isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Load):
-  +                    if isinstance(child.value, ast.Name):
-  +                        called_modules.add(child.value.id)
-  +
-  +            if len(called_modules) > max_responsibilities:
-  +                file_leaks.append({
-  +                    "function": node.name,
-  +                    "responsibility_count": len(called_modules),
-  +                    "lineno": node.lineno
-  +                })
-  +
-  +        if file_leaks:
-  +            leaks[rel_path] = file_leaks
-  +
-  +    return leaks
-  +
-  +
-  +def _get_bug_fix_count(repo_path, rel_path):
-  +    """
-  +    Returns the number of commits to rel_path whose message contains fix/bug/patch/hotfix keywords.
-  +    Returns 0 if git is unavailable or the file has no history.
-  +    Raises ValueError if repo_path or rel_path is None.
-  +    """
-  +    if repo_path is None:
-  +        raise ValueError("repo_path cannot be None")
-  +    if rel_path is None:
-  +        raise ValueError("rel_path cannot be None")
-  +    try:
-  +        res = subprocess.run(
-  +            ["git", "log", "--oneline", "--", rel_path],
-  +            cwd=repo_path,
-  +            capture_output=True,
-  +            text=True,
-  +            encoding="utf-8",
-  +            timeout=10
-  +        )
-  +        if res.returncode != 0:
-  +            return 0
-  +        keywords = ("fix", "bug", "patch", "hotfix", "revert")
-  +        count = sum(
-  +            1 for line in res.stdout.splitlines()
-  +            if any(kw in line.lower() for kw in keywords)
-  +        )
-  +        return count
-  +    except (OSError, subprocess.TimeoutExpired):
-  +        return 0
-  +
-  +
-  +def _normalise(values):
-  +    """
-  +    Min-max normalises a list of numeric values to [0.0, 1.0].
-  +    Returns all-zeros if the range is zero (constant input).
-  +    """
-  +    lo, hi = min(values), max(values)
-  +    span = hi - lo
-  +    if span == 0:
-  +        return [0.0] * len(values)
-  +    return [(v - lo) / span for v in values]
-  +
-  +
-  +def compute_hotspot_scores(codebase, repo_path, risks):
-  +    """
-  +    Ranks files by a composite Hotspot Score fusing three signals:
-  +      - Cyclomatic complexity (AST branch count)        weight 0.4
-  +      - Coupling debt (fan_in * fan_out)                weight 0.4
-  +      - Bug-fix commit density                          weight 0.2
-  +
-  +    Each signal is min-max normalised across the file set before weighting.
-  +
-  +    Returns a list of dicts sorted descending by hotspot_score:
-  +      [{"file": str, "hotspot_score": float,
-  +        "complexity": int, "coupling_debt": int, "bug_fix_count": int}]
-  +
-  +    Raises TypeError if codebase is not a dict.
-  +    Raises ValueError if repo_path is None or codebase is empty.
-  +    """
-  +    if not isinstance(codebase, dict):
-  +        raise TypeError("codebase must be a dictionary")
-  +    if repo_path is None:
-  +        raise ValueError("repo_path cannot be None")
-  +    if not codebase:
-  +        raise ValueError("codebase must not be empty")
-  +
-  +    coupling = {entry["file"]: entry["coupling_debt"]
-  +                for entry in score_coupling_debt(codebase)}
-  +
-  +    raw = []
-  +    for rel_path in codebase:
-  +        abs_path = os.path.join(repo_path, rel_path)
-  +        complexity = 0
-  +        if os.path.exists(abs_path) and rel_path.endswith(".py"):
-  +            try:
-  +                with open(abs_path, "r", encoding="utf-8") as f:
-  +                    source = f.read()
-  +                tree = ast.parse(source)
-  +                complexity = _count_cyclomatic_complexity(tree)
-  +            except (SyntaxError, OSError, ValueError):
-  +                complexity = 0
-  +
-  +        bug_fix_count = _get_bug_fix_count(repo_path, rel_path)
-  +        debt = coupling.get(rel_path, 0)
-  +
-  +        raw.append({
-  +            "file": rel_path,
-  +            "complexity": complexity,
-  +            "coupling_debt": debt,
-  +            "bug_fix_count": bug_fix_count
-  +        })
-  +
-  +    # Min-max normalise each signal using module-level _normalise
-  +    complexities  = _normalise([r["complexity"]    for r in raw])
-  +    debts         = _normalise([r["coupling_debt"] for r in raw])
-  +    bugfixes      = _normalise([r["bug_fix_count"] for r in raw])
-  +
-  +    results = []
-  +    for i, entry in enumerate(raw):
-  +        score = round(0.4 * complexities[i] + 0.4 * debts[i] + 0.2 * bugfixes[i], 4)
-  +        results.append({
-  +            "file": entry["file"],
-  +            "hotspot_score": score,
-  +            "complexity": entry["complexity"],
-  +            "coupling_debt": entry["coupling_debt"],
-  +            "bug_fix_count": entry["bug_fix_count"]
-  +        })
-  +
-  +    results.sort(key=lambda x: x["hotspot_score"], reverse=True)
-  +    return results
-  +
-  +
-  +def generate_oracle_report(codebase, repo_path, risks=None):
-  +    """
-  +    Orchestrates all Design Oracle analyses and returns a structured markdown report.
-  +
-  +    Sections:
-  +      1. Coupling Debt (top 10 by coupling_debt)
-  +      2. Abstraction Leaks
-  +      3. Complexity Hotspots (top 10 by hotspot_score)
-  +      4. Circular Dependencies
-  +
-  +    Raises TypeError if codebase is not a dict.
-  +    Raises ValueError if repo_path is empty or None.
-  +    """
-  +    if not isinstance(codebase, dict):
-  +        raise TypeError("codebase must be a dictionary")
-  +    if not repo_path:
-  +        raise ValueError("repo_path must not be empty or None")
-  +
-  +    lines = ["# Design Oracle Report\n"]
-  +
-  +    # 1. Coupling Debt
-  +    lines.append("## Coupling Debt\n")
-  +    lines.append("Files ranked by coupling debt (`fan_in Ã— fan_out`). "
-  +                 "High debt = structurally expensive to change.\n")
-  +    lines.append("| File | Fan-in | Fan-out | Debt | Instability |")
-  +    lines.append("|---|---|---|---|---|")
-  +    debt_scores = score_coupling_debt(codebase)
-  +    for entry in debt_scores[:10]:
-  +        lines.append(
-  +            f"| `{entry['file']}` "
-  +            f"| {entry['fan_in']} "
-  +            f"| {entry['fan_out']} "
-  +            f"| {entry['coupling_debt']} "
-  +            f"| {entry['instability']:.3f} |"
-  +        )
-  +    lines.append("")
-  +
-  +    # 2. Abstraction Leaks
-  +    lines.append("## Abstraction Leaks\n")
-  +    lines.append("Functions calling into more than 3 distinct module namespaces "
-  +                 "(potential single-responsibility violations).\n")
-  +    leaks = detect_abstraction_leaks(codebase, repo_path)
-  +    if leaks:
-  +        for rel_path, fn_leaks in sorted(leaks.items()):
-  +            lines.append(f"**`{rel_path}`**")
-  +            for leak in fn_leaks:
-  +                lines.append(
-  +                    f"- `{leak['function']}` (line {leak['lineno']}) â€” "
-  +                    f"{leak['responsibility_count']} distinct module targets"
-  +                )
-  +            lines.append("")
-  +    else:
-  +        lines.append("_No abstraction leaks detected._\n")
-  +
-  +    # 3. Complexity Hotspots
-  +    lines.append("## Complexity Hotspots\n")
-  +    lines.append("Files ranked by composite Hotspot Score "
-  +                 "(40% cyclomatic complexity + 40% coupling debt + 20% bug-fix density).\n")
-  +    lines.append("| File | Score | Complexity | Coupling Debt | Bug-fix Commits |")
-  +    lines.append("|---|---|---|---|---|")
-  +    hotspots = compute_hotspot_scores(codebase, repo_path, risks or [])
-  +    for entry in hotspots[:10]:
-  +        lines.append(
-  +            f"| `{entry['file']}` "
-  +            f"| {entry['hotspot_score']:.4f} "
-  +            f"| {entry['complexity']} "
-  +            f"| {entry['coupling_debt']} "
-  +            f"| {entry['bug_fix_count']} |"
-  +        )
-  +    lines.append("")
-  +
-  +    # 4. Circular Dependencies
-  +    lines.append("## Circular Dependencies\n")
-  +    cycles = detect_circular_dependencies(codebase)
-  +    if cycles:
-  +        lines.append(f"**{len(cycles)} circular dependency loop(s) detected:**\n")
-  +        for i, cycle in enumerate(cycles, 1):
-  +            lines.append(f"{i}. {' â†’ '.join(cycle)}")
-  +        lines.append("")
-  +    else:
-  +        lines.append("_No circular dependencies detected._\n")
-  +
-  +    return "\n".join(lines)
-  diff --git a/ultron/interfaces/ultron.py b/ultron/interfaces/ultron.py
-  index 45157e9..962d556 100644
-  --- a/ultron/interfaces/ultron.py
-  +++ b/ultron/interfaces/ultron.py
-  @@ -29,6 +29,7 @@ def main():
-       parser.add_argument("--json", action="store_true", help="Output results in JSON format to stdout")
-       parser.add_argument("--detail", action="store_true", help="Show detailed risk statistics and formula breakdown")
-       parser.add_argument("--brief", action="store_true", help="Generate a compact markdown context brief for AI agent orientation")
-  +    parser.add_argument("--oracle", action="store_true", help="Run the Design Oracle: coupling debt, abstraction leaks, hotspots, and circular dependencies")
-       args = parser.parse_args()
-       
-       def log(msg):
-  @@ -107,6 +108,37 @@ def main():
-                   print(brief)
-           sys.exit(0)
-   
-  +    # Design Oracle mode
-  +    if args.oracle:
-  +        log("[+] Ultron: Running Design Oracle analysis...")
-  +        import design_oracle
-  +        codebase = analyzer.analyze_directory(repo_path)
-  +        risks = risk.evaluate_risks(codebase, [], "", repo_path=repo_path)
-  +        report = design_oracle.generate_oracle_report(codebase, repo_path, risks)
-  +        if args.output:
-  +            out_path = os.path.abspath(args.output)
-  +            try:
-  +                with open(out_path, "w", encoding="utf-8") as f:
-  +                    f.write(report)
-  +                log(f"[+] Success: Design Oracle report saved to {out_path}")
-  +            except (OSError, ValueError) as e:
-  +                if args.json:
-  +                    print(json.dumps({"status": "error", "error": f"Error writing oracle report: {e}"}))
-  +                else:
-  +                    print(f"[-] Error writing oracle report: {e}")
-  +                sys.exit(1)
-  +        else:
-  +            if args.json:
-  +                print(json.dumps({"status": "success", "oracle_report": report}))
-  +            else:
-  +                if hasattr(sys.stdout, "reconfigure"):
-  +                    try:
-  +                        sys.stdout.reconfigure(encoding="utf-8")
-  +                    except (OSError, ValueError) as e:
-  +                        sys.stderr.write(f"Warning: stdout reconfigure failed: {e}\n")
-  +                print(report)
-  +        sys.exit(0)
-  +
-       # Standard prompt generation mode
-       if not args.intent:
-           parser.error("--intent is required when not in --check-anomaly or --brief mode.")
+  +    return risks
   diff --git a/ultron/tests/run_tests.py b/ultron/tests/run_tests.py
-  index f329333..21e918d 100644
+  index 21e918d..9be1cf3 100644
   --- a/ultron/tests/run_tests.py
   +++ b/ultron/tests/run_tests.py
-  @@ -1188,8 +1188,9 @@ class TestBudgetGovernor(unittest.TestCase):
+  @@ -443,7 +443,7 @@ class TestSample(unittest.TestCase):
+           repo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+           ratable = select_ratable_files(repo_path)
+           self.assertGreater(len(ratable), 0)
+  -        self.assertIn("ultron/core/risk.py", ratable)
+  +        self.assertIn("ultron/core/risk/scoring.py", ratable)
+           
+           with self.assertRaises(FileNotFoundError):
+               select_ratable_files("/nonexistent_dir")
+  @@ -451,36 +451,36 @@ class TestSample(unittest.TestCase):
+               select_ratable_files(None)
+               
+           # Test calculate_agreement
+  -        accurate, computed_tier, computed_score = calculate_agreement(repo_path, "ultron/core/risk.py", "HIGH")
+  +        accurate, computed_tier, computed_score = calculate_agreement(repo_path, "ultron/core/risk/scoring.py", "HIGH")
+           self.assertEqual(accurate, (computed_tier == "HIGH"))
+           
+           with self.assertRaises(ValueError):
+               calculate_agreement(repo_path, "nonexistent.py", "HIGH")
+           with self.assertRaises(ValueError):
+  -            calculate_agreement(None, "ultron/core/risk.py", "HIGH")
+  +            calculate_agreement(None, "ultron/core/risk/scoring.py", "HIGH")
+           with self.assertRaises(ValueError):
+               calculate_agreement(repo_path, None, "HIGH")
+           with self.assertRaises(ValueError):
+  -            calculate_agreement(repo_path, "ultron/core/risk.py", None)
+  +            calculate_agreement(repo_path, "ultron/core/risk/scoring.py", None)
+               
+           # Test process_rating
+           temp_dir2 = tempfile.mkdtemp()
+           try:
+               feedback_file2 = os.path.join(temp_dir2, "feedback2.jsonl")
+  -            res_entry = process_rating(repo_path, "ultron/core/risk.py", "Rater1", "HIGH", "High complexity", feedback_file2)
+  -            self.assertEqual(res_entry["file"], "ultron/core/risk.py")
+  +            res_entry = process_rating(repo_path, "ultron/core/risk/scoring.py", "Rater1", "HIGH", "High complexity", feedback_file2)
+  +            self.assertEqual(res_entry["file"], "ultron/core/risk/scoring.py")
+               self.assertEqual(res_entry["rater"], "Rater1")
+               self.assertEqual(res_entry["rater_tier"], "HIGH")
+               self.assertEqual(res_entry["rationale"], "High complexity")
+               
+               with self.assertRaises(ValueError):
+  -                process_rating(None, "ultron/core/risk.py", "Rater1", "HIGH", "High complexity", feedback_file2)
+  +                process_rating(None, "ultron/core/risk/scoring.py", "Rater1", "HIGH", "High complexity", feedback_file2)
+               with self.assertRaises(ValueError):
+                   process_rating(repo_path, None, "Rater1", "HIGH", "High complexity", feedback_file2)
+               with self.assertRaises(ValueError):
+  -                process_rating(repo_path, "ultron/core/risk.py", None, "HIGH", "High complexity", feedback_file2)
+  +                process_rating(repo_path, "ultron/core/risk/scoring.py", None, "HIGH", "High complexity", feedback_file2)
+               with self.assertRaises(ValueError):
+  -                process_rating(repo_path, "ultron/core/risk.py", "Rater1", None, "High complexity", feedback_file2)
+  +                process_rating(repo_path, "ultron/core/risk/scoring.py", "Rater1", None, "High complexity", feedback_file2)
+           finally:
+               shutil.rmtree(temp_dir2)
    
-       # --------------- execute_command_cached ---------------
-       def test_command_cache_first_run_is_not_cached(self):
-  +        # Use self.temp_dir: guarantees no prior cache entry for this (cmd, repo_hash) pair
-           cmd = ["python", "--version"]
-  -        _, _, rc, is_cached = self.bg.execute_command_cached(_root, cmd)
-  +        _, _, rc, is_cached = self.bg.execute_command_cached(self.temp_dir, cmd)
-           self.assertFalse(is_cached)
-           self.assertEqual(rc, 0)
+  @@ -490,7 +490,7 @@ class TestSample(unittest.TestCase):
+           import blind_rate
+           
+           # Test successful CLI execution in non-interactive mode
+  -        with patch.object(sys, 'argv', ['blind_rate.py', '--rater', 'CLI_Test', '--file', 'ultron/core/risk.py', '--rating', 'HIGH', '--rationale', 'CLI rationale']):
+  +        with patch.object(sys, 'argv', ['blind_rate.py', '--rater', 'CLI_Test', '--file', 'ultron/core/risk/scoring.py', '--rating', 'HIGH', '--rationale', 'CLI rationale']):
+               with self.assertRaises(SystemExit) as cm:
+                   blind_rate.main()
+               self.assertEqual(cm.exception.code, 0)
+  @@ -1226,10 +1226,10 @@ class TestBudgetGovernor(unittest.TestCase):
    
-  @@ -1236,6 +1237,191 @@ class TestBudgetGovernor(unittest.TestCase):
-           self.assertEqual(len(affected), 0)
+       # --------------- get_affected_files ---------------
+       def test_get_affected_files_returns_superset(self):
+  -        changed = ["ultron/core/risk.py"]
+  +        changed = ["ultron/core/risk/scoring.py"]
+           affected = self.bg.get_affected_files(_root, changed)
+           # The original file must always be in the affected set
+  -        self.assertIn("ultron/core/risk.py", affected)
+  +        self.assertIn("ultron/core/risk/scoring.py", affected)
+   
+       def test_get_affected_files_empty_changed_returns_empty(self):
+           affected = self.bg.get_affected_files(_root, [])
+  @@ -1422,6 +1422,113 @@ class TestDesignOracleExtended(unittest.TestCase):
+           self.assertEqual(result, [])
    
    
-  +class TestDesignOracleExtended(unittest.TestCase):
+  +class TestRiskDecomposition(unittest.TestCase):
+  +    """
+  +    Verifies that risk.py has been correctly decomposed into a package
+  +    and that all callers can import the same public API through the shim.
+  +    """
   +
   +    def setUp(self):
-  +        import design_oracle
-  +        self.oracle = design_oracle
-  +        self.repo_path = _root
-  +        # Minimal stub codebase for fast, deterministic tests
-  +        self.stub_codebase = {
-  +            "a.py": {"imports": ["b"], "definitions": ["func_a"]},
-  +            "b.py": {"imports": ["c"], "definitions": ["func_b"]},
-  +            "c.py": {"imports": [],   "definitions": ["func_c"]},
-  +        }
+  +        import risk
+  +        self.risk = risk
   +
-  +    # --------------- score_coupling_debt ---------------
-  +    def test_coupling_debt_returns_sorted_list(self):
-  +        results = self.oracle.score_coupling_debt(self.stub_codebase)
+  +    # --------------- Package structure ---------------
+  +    def test_submodule_historical_importable(self):
+  +        from risk import historical
+  +        self.assertTrue(callable(historical.load_mkr_stats))
+  +        self.assertTrue(callable(historical.load_human_feedback))
+  +
+  +    def test_submodule_metrics_importable(self):
+  +        from risk import metrics
+  +        self.assertTrue(callable(metrics.get_file_complexity))
+  +        self.assertTrue(callable(metrics.get_code_complexity))
+  +        self.assertTrue(callable(metrics.extract_ast_blocks))
+  +
+  +    def test_submodule_scoring_importable(self):
+  +        from risk import scoring
+  +        self.assertTrue(callable(scoring.evaluate_risks))
+  +
+  +    def test_submodule_diff_importable(self):
+  +        from risk import diff
+  +        self.assertTrue(callable(diff.evaluate_diff_risk))
+  +
+  +    # --------------- Shim backward-compatibility ---------------
+  +    def test_shim_evaluate_risks(self):
+  +        self.assertTrue(callable(self.risk.evaluate_risks))
+  +
+  +    def test_shim_evaluate_diff_risk(self):
+  +        self.assertTrue(callable(self.risk.evaluate_diff_risk))
+  +
+  +    def test_shim_load_mkr_stats(self):
+  +        self.assertTrue(callable(self.risk.load_mkr_stats))
+  +        result = self.risk.load_mkr_stats()
+  +        self.assertIsInstance(result, dict)
+  +
+  +    def test_shim_load_human_feedback(self):
+  +        self.assertTrue(callable(self.risk.load_human_feedback))
+  +        result = self.risk.load_human_feedback()
+  +        self.assertIsInstance(result, dict)
+  +
+  +    # --------------- Functional parity ---------------
+  +    def test_evaluate_risks_returns_list(self):
+  +        import analyzer
+  +        codebase = analyzer.analyze_directory(_root)
+  +        results = self.risk.evaluate_risks(codebase, ["ultron/core/risk/scoring.py"], repo_path=_root)
   +        self.assertIsInstance(results, list)
-  +        self.assertEqual(len(results), 3)
-  +        # Sorted descending by coupling_debt
-  +        scores = [r["coupling_debt"] for r in results]
-  +        self.assertEqual(scores, sorted(scores, reverse=True))
   +
-  +    def test_coupling_debt_instability_in_range(self):
-  +        for entry in self.oracle.score_coupling_debt(self.stub_codebase):
-  +            self.assertGreaterEqual(entry["instability"], 0.0)
-  +            self.assertLessEqual(entry["instability"], 1.0)
+  +    def test_evaluate_diff_risk_parity(self):
+  +        old_code = "def f(x):\n    return x\n"
+  +        new_code = "def f(x):\n    if x > 0:\n        return x\n    return 0\n"
+  +        codebase = {"helper.py": {"definitions": [], "imports": []}}
+  +        res = self.risk.evaluate_diff_risk(codebase, "helper.py", old_code, new_code)
+  +        self.assertIsNotNone(res)
+  +        self.assertIsInstance(res.impact_score, float)
   +
-  +    def test_coupling_debt_raises_on_non_dict(self):
+  +    def test_evaluate_diff_risk_raises_on_none_filepath(self):
+  +        with self.assertRaises(ValueError):
+  +            self.risk.evaluate_diff_risk({}, None, "old", "new")
+  +
+  +    def test_evaluate_diff_risk_raises_on_none_old_code(self):
+  +        with self.assertRaises(ValueError):
+  +            self.risk.evaluate_diff_risk({}, "f.py", None, "new")
+  +
+  +    def test_evaluate_diff_risk_raises_on_none_new_code(self):
+  +        with self.assertRaises(ValueError):
+  +            self.risk.evaluate_diff_risk({}, "f.py", "old", None)
+  +
+  +    # --------------- metrics boundary cases ---------------
+  +    def test_metrics_get_file_complexity_raises_on_none(self):
+  +        from risk import metrics
+  +        with self.assertRaises(ValueError):
+  +            metrics.get_file_complexity(None)
+  +
+  +    def test_metrics_get_code_complexity_raises_on_none(self):
+  +        from risk import metrics
+  +        with self.assertRaises(ValueError):
+  +            metrics.get_code_complexity(None)
+  +
+  +    def test_metrics_extract_ast_blocks_raises_on_none(self):
+  +        from risk import metrics
+  +        with self.assertRaises(ValueError):
+  +            metrics.extract_ast_blocks(None)
+  +
+  +    def test_metrics_extract_ast_blocks_empty_code_returns_empty(self):
+  +        from risk import metrics
+  +        result = metrics.extract_ast_blocks("")
+  +        self.assertEqual(result, {})
+  +
+  +    # --------------- historical boundary cases ---------------
+  +    def test_historical_load_mkr_stats_bad_type_raises(self):
+  +        from risk import historical
   +        with self.assertRaises(TypeError):
-  +            self.oracle.score_coupling_debt("not a dict")
+  +            historical.load_mkr_stats(ledger_path=42)
   +
-  +    def test_coupling_debt_raises_on_empty(self):
-  +        with self.assertRaises(ValueError):
-  +            self.oracle.score_coupling_debt({})
-  +
-  +    # --------------- detect_abstraction_leaks ---------------
-  +    def test_abstraction_leaks_returns_dict(self):
-  +        leaks = self.oracle.detect_abstraction_leaks(self.stub_codebase, self.repo_path)
-  +        self.assertIsInstance(leaks, dict)
-  +
-  +    def test_abstraction_leaks_detects_real_repo(self):
-  +        import analyzer
-  +        codebase = analyzer.analyze_directory(self.repo_path)
-  +        leaks = self.oracle.detect_abstraction_leaks(codebase, self.repo_path)
-  +        # We don't assert a specific file, but the result must be a dict
-  +        self.assertIsInstance(leaks, dict)
-  +
-  +    def test_abstraction_leaks_raises_on_non_dict(self):
-  +        with self.assertRaises(TypeError):
-  +            self.oracle.detect_abstraction_leaks([], self.repo_path)
-  +
-  +    def test_abstraction_leaks_raises_on_none_repo(self):
-  +        with self.assertRaises(ValueError):
-  +            self.oracle.detect_abstraction_leaks(self.stub_codebase, None)
-  +
-  +    # --------------- compute_hotspot_scores ---------------
-  +    def test_hotspot_scores_returns_sorted_list(self):
-  +        import analyzer
-  +        codebase = analyzer.analyze_directory(self.repo_path)
-  +        results = self.oracle.compute_hotspot_scores(codebase, self.repo_path, [])
-  +        self.assertIsInstance(results, list)
-  +        self.assertGreater(len(results), 0)
-  +        scores = [r["hotspot_score"] for r in results]
-  +        self.assertEqual(scores, sorted(scores, reverse=True))
-  +
-  +    def test_hotspot_scores_score_in_range(self):
-  +        import analyzer
-  +        codebase = analyzer.analyze_directory(self.repo_path)
-  +        for entry in self.oracle.compute_hotspot_scores(codebase, self.repo_path, []):
-  +            self.assertGreaterEqual(entry["hotspot_score"], 0.0)
-  +            self.assertLessEqual(entry["hotspot_score"], 1.0)
-  +
-  +    def test_hotspot_scores_raises_on_non_dict(self):
-  +        with self.assertRaises(TypeError):
-  +            self.oracle.compute_hotspot_scores("bad", self.repo_path, [])
-  +
-  +    def test_hotspot_scores_raises_on_none_repo(self):
-  +        with self.assertRaises(ValueError):
-  +            self.oracle.compute_hotspot_scores(self.stub_codebase, None, [])
-  +
-  +    def test_hotspot_scores_raises_on_empty_codebase(self):
-  +        with self.assertRaises(ValueError):
-  +            self.oracle.compute_hotspot_scores({}, self.repo_path, [])
-  +
-  +    # --------------- generate_oracle_report ---------------
-  +    def test_oracle_report_contains_all_sections(self):
-  +        import analyzer
-  +        codebase = analyzer.analyze_directory(self.repo_path)
-  +        report = self.oracle.generate_oracle_report(codebase, self.repo_path)
-  +        self.assertIn("# Design Oracle Report", report)
-  +        self.assertIn("## Coupling Debt", report)
-  +        self.assertIn("## Abstraction Leaks", report)
-  +        self.assertIn("## Complexity Hotspots", report)
-  +        self.assertIn("## Circular Dependencies", report)
-  +
-  +    def test_oracle_report_raises_on_non_dict(self):
-  +        with self.assertRaises(TypeError):
-  +            self.oracle.generate_oracle_report("bad", self.repo_path)
-  +
-  +    def test_oracle_report_raises_on_empty_repo_path(self):
-  +        with self.assertRaises(ValueError):
-  +            self.oracle.generate_oracle_report(self.stub_codebase, "")
-  +
-  +    def test_oracle_report_raises_on_none_repo_path(self):
-  +        with self.assertRaises(ValueError):
-  +            self.oracle.generate_oracle_report(self.stub_codebase, None)
-  +
-  +    # --------------- _count_cyclomatic_complexity (private helper) ---------------
-  +    def test_count_cyclomatic_zero_on_empty_function(self):
-  +        import ast
-  +        tree = ast.parse("def f(): pass")
-  +        result = self.oracle._count_cyclomatic_complexity(tree)
-  +        self.assertEqual(result, 0)
-  +
-  +    def test_count_cyclomatic_counts_branches(self):
-  +        import ast
-  +        src = "def f(x):\n    if x > 0:\n        for i in range(x):\n            pass\n"
-  +        tree = ast.parse(src)
-  +        result = self.oracle._count_cyclomatic_complexity(tree)
-  +        # One If + one For = 2
-  +        self.assertEqual(result, 2)
-  +
-  +    def test_count_cyclomatic_boundary_single_branch(self):
-  +        import ast
-  +        tree = ast.parse("if True:\n    pass\n")
-  +        result = self.oracle._count_cyclomatic_complexity(tree)
-  +        self.assertEqual(result, 1)
-  +
-  +    def test_count_cyclomatic_raises_on_none(self):
-  +        with self.assertRaises(ValueError):
-  +            self.oracle._count_cyclomatic_complexity(None)
-  +
-  +    # --------------- _get_bug_fix_count (private helper) ---------------
-  +    def test_get_bug_fix_count_returns_int(self):
-  +        count = self.oracle._get_bug_fix_count(_root, "ultron/core/risk.py")
-  +        self.assertIsInstance(count, int)
-  +        self.assertGreaterEqual(count, 0)
-  +
-  +    def test_get_bug_fix_count_nonexistent_file_returns_zero(self):
-  +        count = self.oracle._get_bug_fix_count(_root, "nonexistent/file.py")
-  +        self.assertEqual(count, 0)
-  +
-  +    def test_get_bug_fix_count_non_git_dir_returns_zero(self):
-  +        import tempfile
-  +        import shutil
-  +        tmpdir = tempfile.mkdtemp()
-  +        try:
-  +            count = self.oracle._get_bug_fix_count(tmpdir, "anything.py")
-  +            self.assertEqual(count, 0)
-  +        finally:
-  +            shutil.rmtree(tmpdir, ignore_errors=True)
-  +
-  +    def test_get_bug_fix_count_raises_on_none_repo(self):
-  +        with self.assertRaises(ValueError):
-  +            self.oracle._get_bug_fix_count(None, "ultron/core/risk.py")
-  +
-  +    def test_get_bug_fix_count_raises_on_none_file(self):
-  +        with self.assertRaises(ValueError):
-  +            self.oracle._get_bug_fix_count(_root, None)
-  +
-  +    # --------------- _normalise (private helper) ---------------
-  +    def test_normalise_all_zeros_stays_zero(self):
-  +        result = self.oracle._normalise([0, 0, 0])
-  +        self.assertEqual(result, [0.0, 0.0, 0.0])
-  +
-  +    def test_normalise_range_produces_zero_to_one(self):
-  +        result = self.oracle._normalise([0, 5, 10])
-  +        self.assertAlmostEqual(result[0], 0.0)
-  +        self.assertAlmostEqual(result[1], 0.5)
-  +        self.assertAlmostEqual(result[2], 1.0)
-  +
-  +    def test_normalise_single_value_returns_zero(self):
-  +        result = self.oracle._normalise([42])
-  +        self.assertEqual(result, [0.0])
-  +
-  +    # --------------- scan_file_for_globals (existing helper, boundary) ---------------
-  +    def test_scan_file_for_globals_none_raises(self):
-  +        with self.assertRaises(ValueError):
-  +            self.oracle.scan_file_for_globals(None)
-  +
-  +    def test_scan_file_for_globals_missing_file_returns_empty(self):
-  +        result = self.oracle.scan_file_for_globals("/nonexistent/path/file.py")
-  +        self.assertEqual(result, [])
+  +    def test_historical_load_mkr_stats_nonexistent_path_returns_empty(self):
+  +        from risk import historical
+  +        result = historical.load_mkr_stats(ledger_path="/nonexistent/path/ledger.jsonl")
+  +        self.assertEqual(result, {})
   +
   +
    if __name__ == "__main__":
        print("[+] Running Ultron Core Tests...")
        unittest.main()
-  diff --git a/umags/run_verification_loop.py b/umags/run_verification_loop.py
-  index ea82094..c428ab2 100644
-  --- a/umags/run_verification_loop.py
-  +++ b/umags/run_verification_loop.py
-  @@ -754,8 +754,9 @@ def main():
-                           subprocess.run(["git", "checkout", f], cwd=repo_path, capture_output=True)
-                   
-                   # Run the tests - they MUST fail now!
-  +                # force_refresh=True: file state changed during nullification â€” cache must be bypassed.
-                   for cmd in test_commands:
-  -                    passed, _, _ = run_tests(repo_path, cmd)
-  +                    passed, _, _ = run_tests(repo_path, cmd, force_refresh=True)
-                       if passed:
-                           # Tests passed even when logic was nullified! Test laundering!
-                           nullification_passed = False
-EXPECTED_OUTCOMES: 'Design Oracle exposes coupling debt scoring, abstraction leak detection, complexity hotspot ranking, and circular dependency detection via --oracle CLI flag; nullification cache bypass fix; boundary guards on private helpers'
+EXPECTED_OUTCOMES: 'Split risk.py god-object into risk/ package: historical.py (I/O), metrics.py (computation), scoring.py (evaluate_risks), diff.py (evaluate_diff_risk), __init__.py shim; all 9 callers unchanged; 89 tests pass'
 TEST_COMMANDS:
 - 'python ultron/tests/run_tests.py'
 RAW_STDOUT: |
   [+] Running Ultron Core Tests...
-  [+] Recorded rating for ultron/core/risk.py by CLI_Test.
+  [+] Recorded rating for ultron/core/risk/scoring.py by CLI_Test.
     - Rater Judgment: HIGH
     - System Computed: HIGH (Score: 93.23)
     - Agreement: MATCH
@@ -657,7 +1135,7 @@ RAW_STDERR: |
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
       return codecs.charmap_decode(input,self.errors,decoding_table)[0]
              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 24699: character maps to <undefined>
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 19896: character maps to <undefined>
   Exception in thread Thread-19 (_readerthread):
   Traceback (most recent call last):
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
@@ -672,7 +1150,7 @@ RAW_STDERR: |
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
       return codecs.charmap_decode(input,self.errors,decoding_table)[0]
              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 24699: character maps to <undefined>
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 19896: character maps to <undefined>
   .Exception in thread Thread-27 (_readerthread):
   Traceback (most recent call last):
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
@@ -687,7 +1165,7 @@ RAW_STDERR: |
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
       return codecs.charmap_decode(input,self.errors,decoding_table)[0]
              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 24699: character maps to <undefined>
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 19896: character maps to <undefined>
   Exception in thread Thread-33 (_readerthread):
   Traceback (most recent call last):
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
@@ -702,7 +1180,7 @@ RAW_STDERR: |
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
       return codecs.charmap_decode(input,self.errors,decoding_table)[0]
              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 24699: character maps to <undefined>
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 19896: character maps to <undefined>
   ....Exception in thread Thread-45 (_readerthread):
   Traceback (most recent call last):
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py", line 1082, in _bootstrap_inner
@@ -717,24 +1195,24 @@ RAW_STDERR: |
     File "C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\encodings\cp1252.py", line 23, in decode
       return codecs.charmap_decode(input,self.errors,decoding_table)[0]
              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 24699: character maps to <undefined>
-  .....................................[-] Error processing rating: Could not evaluate risks for file
-  .....127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 400 -
+  UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 19896: character maps to <undefined>
+  ........................................................[-] Error processing rating: Could not evaluate risks for file
+  .....127.0.0.1 - - [03/Jul/2026 14:45:41] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [03/Jul/2026 14:45:41] "POST /api/design-oracle HTTP/1.1" 400 -
   C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\tempfile.py:484: ResourceWarning: Implicitly cleaning up <HTTPError 400: 'Bad Request'>
     _warnings.warn(self.warn_message, ResourceWarning)
-  127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 400 -
-  127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 400 -
-  127.0.0.1 - - [03/Jul/2026 13:53:04] "POST /api/design-oracle HTTP/1.1" 400 -
+  127.0.0.1 - - [03/Jul/2026 14:45:41] "POST /api/design-oracle HTTP/1.1" 400 -
+  127.0.0.1 - - [03/Jul/2026 14:45:41] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [03/Jul/2026 14:45:41] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [03/Jul/2026 14:45:41] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [03/Jul/2026 14:45:41] "POST /api/design-oracle HTTP/1.1" 400 -
+  127.0.0.1 - - [03/Jul/2026 14:45:41] "POST /api/design-oracle HTTP/1.1" 400 -
   ................[+] Ultron: Generating codebase context brief...
   ......
   ----------------------------------------------------------------------
-  Ran 70 tests in 54.655s
+  Ran 89 tests in 79.108s
   
   OK
 SELF_AUDIT: ''
-KNOWN_LIMITATIONS: 'Cyclomatic complexity is approximated via AST branch node count; abstraction leak threshold defaults to 3'
+KNOWN_LIMITATIONS: 'risk/__init__.py shim fan_in remains ~9 (all callers unchanged); internal modules all land coupling_debt under 10'
 CATEGORY_B: 'false'

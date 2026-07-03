@@ -676,3 +676,83 @@ PENDING — not yet reviewed by an external party.
 **Status change:** UMAGS Budget Governor: ✨ new → ✅ verified and integrated.
 
 **Open questions / follow-up:** None.
+
+
+### Transaction Log: 2026-07-03T13:54:00+02:00
+**Task Name:** Ultron Design Oracle Layer (Task-DesignOracleLayer)
+
+**Walkthrough / Evidence:**
+
+1. **`ultron/experimental/design_oracle.py` [MODIFIED]** — Four new functions added:
+   - `score_coupling_debt(codebase)` — `fan_in × fan_out` per file. `risk.py` ranks highest at debt=36.
+   - `detect_abstraction_leaks(codebase, repo_path, max_responsibilities=3)` — Counts distinct cross-module call targets per function. `risk.evaluate_risks` flags at 20 targets; `run_verification_loop.main` at 32.
+   - `compute_hotspot_scores(codebase, repo_path, risks)` — Fuses complexity (40%), coupling debt (40%), bug-fix density (20%) via min-max normalisation. `run_verification_loop.py` ranks #1 at 0.6000.
+   - `generate_oracle_report(codebase, repo_path)` — Structured markdown report: Coupling Debt, Abstraction Leaks, Complexity Hotspots, Circular Dependencies.
+   - Private helpers `_normalise` and `_count_cyclomatic_complexity` promoted to module level for testability, each with explicit `ValueError` on `None` input.
+   - `_get_bug_fix_count` fixed to use `encoding="utf-8"` in subprocess (was cp1252, causing UnicodeDecodeError).
+
+2. **`ultron/interfaces/ultron.py` [MODIFIED]** — `--oracle` flag added, supporting `--output` and `--json`. Spot-checked: all four sections present with real data.
+
+3. **`umags/run_verification_loop.py` [MODIFIED]** — Nullification test loop now calls `run_tests(force_refresh=True)`. Previously the Budget Governor cache returned stale "PASSED" results after file deletion, causing false test-laundering verdicts.
+
+4. **`ultron/tests/run_tests.py` [MODIFIED]** — `TestDesignOracleExtended`: 34 tests covering all four public functions and all four private helpers with `None`, empty, and boundary-value negative cases.
+
+*Verification loop output (final approved run):*
+```text
+[+] Nullification passed: Tests failed as expected on nullified code for 'ultron/experimental/design_oracle.py'.
+[+] Nullification passed: Tests failed as expected on nullified code for 'ultron/interfaces/ultron.py'.
+  - Untested Paths: None
+  - Missing Boundary Cases: None
+  - Residual Risk Score (R): 0
+Verdict: VERIFIED
+Verdict: APPROVED
+```
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Ultron Design Oracle: ✨ new → ✅ verified and integrated.
+
+**Open questions / follow-up:** None.
+
+
+### Transaction Log: 2026-07-03T14:48:00+02:00
+**Task Name:** Risk Decomposition Layer (Task-RiskDecomposition)
+
+**Walkthrough / Evidence:**
+
+1. **`ultron/core/risk/` [NEW PACKAGE]** — Split the original `risk.py` god-object (coupling debt 36) into decoupled submodules:
+   - `__init__.py` — Backward-compatibility shim that re-exports `evaluate_risks`, `evaluate_diff_risk`, `load_mkr_stats`, and `load_human_feedback`. No logic changes; all callers import cleanly without modifications.
+   - `historical.py` — Handles Synapse mutation ledger caching/reading (`load_mkr_stats`) and `load_human_feedback` I/O.
+   - `metrics.py` — McCable/cyclomatic complexity calculations (`get_file_complexity`, `get_code_complexity`, `extract_ast_blocks`).
+   - `scoring.py` — The core `evaluate_risks` prediction/calibrated threshold engine.
+   - `diff.py` — AST-based function level change delta risk evaluation (`evaluate_diff_risk`).
+   - Resolved all AST check objections regarding silent error handling (empty `except` blocks) by emitting warnings on I/O/McCabe computation failures.
+
+2. **`ultron/tests/run_tests.py` [MODIFIED]** — Added `TestRiskDecomposition` (17 sub-tests) checking compatibility shims, mock parameters (`os=os`), error boundaries, sub-module imports, and edge cases. Total test suite runs 89 tests (all passed).
+
+3. **`PROJECT_LOG.md` [MODIFIED]** — Added this log entry.
+
+*Verification loop output (final approved run):*
+```text
+[*] Auditor: Independently verifying changed files scope...
+[+] Verification passed: Actual modified source files match declared scope.
+[*] Running test suite: python ultron/tests/run_tests.py
+[+] Verification passed: Baseline test suite passed.
+[+] Nullification passed: Tests failed as expected on nullified code for 'ultron/core/risk/__init__.py'.
+[+] Nullification passed: Tests failed as expected on nullified code for 'ultron/core/risk/historical.py'.
+[+] Nullification passed: Tests failed as expected on nullified code for 'ultron/core/risk/metrics.py'.
+[+] Nullification passed: Tests failed as expected on nullified code for 'ultron/core/risk/scoring.py'.
+[+] Nullification passed: Tests failed as expected on nullified code for 'ultron/core/risk/diff.py'.
+[+] Programmatic AST compliance checks passed.
+  - Residual Risk Score (R): 0
+Verdict: VERIFIED
+Verdict: APPROVED
+```
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Risk Decomposition Layer: ✨ new → ✅ verified and integrated.
+
+**Open questions / follow-up:** None.
