@@ -17,41 +17,70 @@ History of all files prior to the split is preserved in the backup at
 
 ---
 
-## 2. Ultron — Python Risk Scorer
+## 2. Ultron — Python Codebase Risk Analyzer
 
-Tells you which files in a Python codebase are risky to change, and why, in plain language.
+Tells you which files in a Python codebase are risky to change, and why, before you touch them.
+Generates structured context for AI agents working on the codebase.
 
-### Use it right now
+### Quick start
 
+**Score specific files before changing them:**
 ```
-python ultron/ultron.py --repo <path-to-any-python-repo> --intent "describe what you want to change"
+python ultron/interfaces/ultron.py --repo . --files path/to/file.py --intent "describe what you want to change" --detail
 ```
 
-Add `--detail` for the underlying numbers (impact score, complexity, coupling count).
+**Generate a full codebase context brief (for AI agent orientation):**
+```
+python ultron/interfaces/ultron.py --repo . --brief
+```
 
-### What it actually does (and only this)
+**Run the Design Oracle (coupling debt, abstraction leaks, architectural hotspots):**
+```
+python ultron/interfaces/ultron.py --repo . --oracle
+```
 
-Reads a Python codebase, computes cyclomatic complexity and call-graph coupling per file,
-combines them into an Impact Score, classifies files as HIGH / MEDIUM / LOW risk,
-and outputs one plain sentence per file.
+**Start the MCP server (for IDE / AI tool-call integration):**
+```
+python start_ultron.py
+```
 
-This part works and is validated. See ROADMAP.md for everything that is not yet validated.
+### What it actually does
 
-### What it does NOT do yet
+Reads a Python codebase and produces:
 
-Several subsystems exist but are not yet validated against real-world defect data:
-multi-signal fusion scoring, logistic calibration, design oracle, differential fuzzing.
-They are documented in ROADMAP.md as UNVALIDATED. Do not rely on their output.
+| Output | How |
+|---|---|
+| Risk tier per file (HIGH / MEDIUM / LOW) | Cyclomatic complexity × ln(e + call-graph coupling), scaled by bug-fix history |
+| Plain-English explanation per file | `translate.py` converts the score into one sentence |
+| Codebase context brief | `context_brief.py` — structured markdown snapshot of directory, top-risk files, architecture notes |
+| Design Oracle report | Coupling debt score, abstraction leaks, hotspot ranking, circular dependency detection |
+| MCP tool calls | `mcp_server.py` exposes risk scoring and briefing as tool-callable endpoints |
 
-Human blind ratings (Tasks 4-5 in EXECUTION_PLAN.md) have not been completed yet.
-Until they are, the risk tier thresholds are unvalidated heuristics.
+All five outputs are real and working. The context brief and MCP server were added and validated during this project.
+
+### What is validated vs. unvalidated
+
+**Validated (safe to rely on):**
+- Risk tier classification (HIGH / MEDIUM / LOW) — thresholds calibrated against this codebase's own bug history
+- Complexity and coupling metrics — deterministic, audited against known values
+- Context brief generation — output is accurate and up to date on each run
+- Design Oracle coupling and hotspot scores — deterministic static analysis
+
+**Unvalidated (exist, do not rely on):**
+- Multi-signal fusion weights (`reality_delta.py`) — calibrated on 109 transactions from a single codebase, not validated against external defect data
+- Logistic calibration (`logistic.py`) — implemented but human blind-rating ground truth not yet collected
+- Mutation kill rate signal (`fuzz.py`, `synapse_project/`) — working on trivial mutations only; boundary-sensitive mutations not exercised
+
+See `ROADMAP.md` for the honest status of every feature, and `PROJECT_LOG.md` for the full audit trail of every change.
 
 ### Where to start reading the code
 
-- `SYSTEM_MAP.md` — what every file is and its current status
-- `NEXT.md` — the one outstanding technical task
-- `ROADMAP.md` — honest status of every feature
-- `EXECUTION_PLAN.md` — task history (Tasks 1, 2, 3, 6 DONE; Tasks 4, 5 PARKED)
+- `SYSTEM_MAP.md` — every file and its current status
+- `ROADMAP.md` — feature-by-feature validation status
+- `PROJECT_LOG.md` — full UMAGS audit trail (what changed, why, who reviewed it)
+- `ultron/interfaces/ultron.py` — CLI entry point
+- `ultron/core/` — risk scoring, complexity, coupling, translate, context brief
+- `umags/` — UMAGS governance loop (governor, verification loop, budget governor)
 
 ---
 
@@ -59,3 +88,4 @@ Until they are, the risk tier thresholds are unvalidated heuristics.
 
 `synapse_project/` — generates mutants, runs tests, logs Mutation Kill Rate.
 Working on trivial mutations only; boundary-sensitive mutations not yet exercised.
+
