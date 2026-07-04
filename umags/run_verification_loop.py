@@ -135,8 +135,8 @@ def get_git_bug_commits_for_file(repo_path, filepath):
                 if any(kw in line_lower for kw in bug_keywords):
                     commits.append(line)
             return commits
-    except Exception:
-        pass
+    except Exception as _git_err:
+        print(f"[-] get_git_bug_commits_for_file: git log failed for '{filepath}': {_git_err}", file=sys.stderr)
     return []
 
 def get_prior_failures_for_task(telemetry_path, task_id):
@@ -152,8 +152,8 @@ def get_prior_failures_for_task(telemetry_path, task_id):
                     if entry.get("task_id") == task_id:
                         if entry.get("judge_action") == "rejected" or entry.get("auditor_verdict") == "failed":
                             failures += 1
-        except Exception:
-            pass
+        except Exception as _tel_err:
+            print(f"[-] get_prior_failures_for_task: failed to read telemetry at '{telemetry_path}': {_tel_err}", file=sys.stderr)
     return failures
 
 def is_nullification_candidate(repo_path, rel_path):
@@ -163,15 +163,22 @@ def is_nullification_candidate(repo_path, rel_path):
     # Exclude test files, runner scripts, and loop harnesses
     path_lower = rel_path.lower()
     if (
-        "test" in path_lower or 
-        "runner" in path_lower or 
-        "run_verification" in path_lower or 
+        "test" in path_lower or
+        "runner" in path_lower or
+        "run_verification" in path_lower or
         "failure_space" in path_lower or
         "governor" in path_lower or
         "checks" in path_lower
     ):
         return False
-    # Check if file is tracked by git
+    # NEW_FILE_NULLIFICATION_MODE: a file that is not yet committed to git
+    # (new file, never tracked) will fail git ls-files --error-unmatch.
+    # Previously this caused the gate to return False and silently skip the
+    # file, requiring a manual `git reset --soft` workaround before each run.
+    # Now: if git ls-files fails but the file exists on disk, we treat it as
+    # a new untracked file and let it through. The nullification loop's
+    # is_new detection will then nullify by deletion (os.remove) rather than
+    # by git checkout, which requires a prior commit.
     increment_telemetry_calls(1)
     try:
         res = subprocess.run(
@@ -179,11 +186,16 @@ def is_nullification_candidate(repo_path, rel_path):
             capture_output=True,
             cwd=repo_path
         )
-        if res.returncode != 0:
-            return False # Untracked file
+        if res.returncode == 0:
+            # File is committed — standard path.
+            return True
+        # git ls-files failed: file is either new (untracked) or absent.
+        # Allow it through only if it actually exists on disk as a source file.
+        f_abs = os.path.join(repo_path, rel_path)
+        return os.path.exists(f_abs)
     except Exception:
-        pass
-    return True
+        # On subprocess errors, fail closed: skip rather than corrupt state.
+        return False
 
 def get_actual_modified_files(repo_path):
     increment_telemetry_calls(3)
@@ -267,8 +279,8 @@ def get_log_bug_occurrences_for_file(repo_path, filepath):
                         line_lower = line.lower()
                         if any(kw in line_lower for kw in bug_keywords):
                             occurrences.append(line.strip())
-        except Exception:
-            pass
+        except Exception as _log_err:
+            print(f"[-] get_log_bug_occurrences_for_file: failed to read PROJECT_LOG.md: {_log_err}", file=sys.stderr)
     return occurrences
 
 def get_original_code(repo_path, rel_path):
@@ -303,8 +315,8 @@ def get_original_code(repo_path, rel_path):
                 )
                 if res.returncode == 0:
                     return res.stdout
-    except Exception:
-        pass
+    except Exception as _git_show_err:
+        print(f"[-] get_original_code: git show failed for '{rel_path}': {_git_show_err}", file=sys.stderr)
 
     # 2. Fallback to .bak file (only if not a 9-byte dummy stub)
     f_abs = os.path.join(repo_path, rel_path)
@@ -315,8 +327,8 @@ def get_original_code(repo_path, rel_path):
                 content = f.read()
                 if len(content.strip()) > 20:
                     return content
-        except Exception:
-            pass
+        except Exception as _bak_err:
+            print(f"[-] get_original_code: failed to read .bak for '{rel_path}': {_bak_err}", file=sys.stderr)
     return None
 
 def analyze_complexity_drift(filepath, original_code, modified_code):
@@ -349,8 +361,8 @@ def analyze_complexity_drift(filepath, original_code, modified_code):
                         "args": args_count,
                         "nodes": nodes_count
                     }
-        except Exception:
-            pass
+        except Exception as _ast_err:
+            print(f"[-] analyze_complexity_drift: AST parse failed: {_ast_err}", file=sys.stderr)
         return stats
 
     orig_stats = get_functions_stats(original_code)
@@ -384,8 +396,8 @@ def load_walkthrough(repo_path):
             try:
                 with open(p, "r", encoding="utf-8") as f:
                     return f.read()
-            except Exception:
-                pass
+            except Exception as _wt_err:
+                print(f"[-] load_walkthrough: failed to read '{p}': {_wt_err}", file=sys.stderr)
     return "No walkthrough found."
 
 def call_anthropic(api_key, system_prompt, user_prompt, model="claude-3-5-sonnet-20241022"):
@@ -1030,8 +1042,8 @@ Builder Walkthrough (Intended Reality):
             with open(log_path, "r", encoding="utf-8") as f:
                 content = f.read()
                 task_occurrences = content.count(task_id)
-        except Exception:
-            pass
+        except Exception as _proj_log_err:
+            print(f"[-] Historian: failed to read PROJECT_LOG.md: {_proj_log_err}", file=sys.stderr)
             
     print(f"[+] Repository records indicate {task_occurrences} log entries matching '{task_id}'.")
     history_comments = []
