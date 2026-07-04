@@ -1,6 +1,8 @@
 # SYSTEM MAP
 ## Read this before any other file. This is the ground truth.
 
+Last updated: 2026-07-04
+
 ---
 
 ## What lives in this folder
@@ -13,7 +15,7 @@ An interactive learning app. Nothing to do with Ultron or UMAGS.
 
 | File / Directory | What it is |
 |---|---|
-| `Study_Portal.html` | The app entry point |
+| `Study_Portal.html` | The app entry point (now in sibling `cost-accounting-study-app/` repo) |
 | `cognitive/` | JS learning engines (belief, mastery, scaffolding, etc.) |
 | `domain/` | Problem sets (ABC, CVP, costing, variance) |
 | `controllers/` | Answer verification, practice session logic |
@@ -29,93 +31,138 @@ The risk-scoring / governance / mutation testing system.
 
 ## ULTRON — the product
 
-**What it does:** Given a codebase, tells you which files are risky to change and why, in plain language.
+**What it does:** Given a codebase, tells you which files are risky to change and why. Generates plain-English explanations, structured context briefs for AI agents, and design architecture reports.
+
+**CLI entry point:** `ultron/interfaces/ultron.py`
+
+### ultron/core/ — risk analysis engine
+
+| File | Status | What it does |
+|---|---|---|
+| `analyzer.py` | DONE | Parses AST, call graph, git bug-fix history per file |
+| `risk/` | DONE | Impact Score + HIGH/MEDIUM/LOW tiers (decomposed from risk.py) |
+| `risk/__init__.py` | DONE | Backward-compatible public shim; re-exports `evaluate_risks`, `evaluate_diff_risk` |
+| `risk/scoring.py` | DONE | Core risk evaluation: complexity × ln(e + coupling), bug-history scaling |
+| `risk/metrics.py` | DONE | Cyclomatic complexity, AST block extraction |
+| `risk/historical.py` | DONE | Mutation kill rate + human feedback ledger readers |
+| `risk/diff.py` | DONE | Differential risk profiling (function-level delta) |
+| `translate.py` | DONE | Converts risk score to one plain-English sentence per file |
+| `context_brief.py` | DONE | Generates structured markdown codebase brief for AI agent orientation |
+| `models.py` | STABLE | `AnalysisPacket` dataclass — shared data contract |
+| `sentinel.py` | DORMANT | Assumption/entropy auditor; gating currently disabled |
+| `classifier.py` | FIX UNCONFIRMED | stdlib false-positive fix landed but not tested on real files |
+| `logistic.py` | UNVALIDATED | Falls back to hardcoded weights (not enough real feedback data) |
+| `fuzz.py` | UNVALIDATED | Random input pool; boundary-sensitive mutations not exercised |
+| `predict.py` | UNVALIDATED | |
+| `guard.py` | UNVALIDATED | |
+| `meta_layer.py` | INERT | Not wired into any active path |
+| `pledge.py` | INERT | Not wired into any active path |
+| `prompt.py` | INERT | Not wired into any active path |
+
+### ultron/experimental/ — unvalidated subsystems
+
+| File | Status | What it does |
+|---|---|---|
+| `design_oracle.py` | WORKING (unvalidated weights) | Coupling debt, abstraction leaks, hotspot ranking, circular deps — wired via `--oracle` CLI flag |
+| `reality_delta.py` | WORKING (unvalidated weights) | Multi-signal fusion weight recalibration — runs automatically in verification loop |
+| `delta.py` | UNVALIDATED | Diff-driven delta analysis |
+
+### ultron/interfaces/ — entry points
+
+| File | Status | What it does |
+|---|---|---|
+| `ultron.py` | DONE | CLI: `--repo`, `--files`, `--intent`, `--detail`, `--brief`, `--oracle`, `--json` |
+| `server.py` | WORKING | HTTP API server (Flask) |
+| `mcp_server.py` | WORKING | MCP tool-call server — exposes risk scoring + brief as callable tools for IDE/agent use |
+
+### ultron/tests/
 
 | File | Status |
 |---|---|
-| `ultron/core/analyzer.py` | DONE — parses AST, call graph, git history |
-| `ultron/core/risk.py` | DONE — Impact Score, HIGH/MEDIUM/LOW tiers |
-| `ultron/core/translate.py` | DONE — plain English output, --detail flag (Task 6) |
-| `ultron/interfaces/ultron.py` | DONE — CLI entry point |
-| `ultron/core/classifier.py` | FIX UNCONFIRMED — stdlib false-positive fix landed but not tested on real files yet |
-| `ultron/validation/blind_rate.py` | DONE — score-hidden human rating tool (Task 3) |
-| `ultron/core/logistic.py` | UNVALIDATED — falls back to hardcoded weights (not enough real data) |
-| `ultron/core/fuzz.py` | UNVALIDATED — random input pool, not boundary-aware |
-| `ultron/core/predict.py` | UNVALIDATED |
-| `ultron/core/guard.py` | UNVALIDATED |
-| `ultron/experimental/design_oracle.py` | UNVALIDATED — reclassified from UMAGS 2026-06-21 |
-| `ultron/experimental/reality_delta.py` | UNVALIDATED — reclassified from UMAGS 2026-06-21 |
-| `ultron/experimental/delta.py` | UNVALIDATED — reclassified from UMAGS 2026-06-21 |
-| `ultron/core/models.py` | STABLE — AnalysisPacket dataclass |
-| `ultron/interfaces/server.py` | WORKING — HTTP API |
-| `ultron/tests/run_tests.py` | 19 tests passing |
+| `run_tests.py` | 89 tests passing (as of 2026-07-04) |
+| `run_academic_tests.py` | Academic validation suite — separate from main suite |
+
+### ultron/validation/
+
+| File | Status |
+|---|---|
+| `blind_rate.py` | DONE — score-hidden human rating tool |
+| `ai_rater.py` | WORKING — AI rating comparison tool |
 
 ### ultron/meta/ — runtime data files
 
 | File | State |
 |---|---|
-| `blind_feedback.jsonl` | EMPTY — no real human ratings yet |
+| `blind_feedback.jsonl` | EMPTY — no real human ratings collected yet |
 | `blind_feedback_INVALID_self_rated.jsonl` | QUARANTINED — do not use |
 | `blind_study_sample.txt` | Ready — waiting on human to do ratings |
 | `blind_study_scores_DO_NOT_LOOK.csv` | Do not open until after rating |
 | `human_feedback.jsonl` | 2 unblinded entries — not usable for validation |
-| `experiment_log.jsonl` | Large (188KB) — all logged experiments |
-| `fusion_weights.json` | No held-out split — not validated |
-| `logistic_weights.json` | Hardcoded fallback — not enough real data |
+| `experiment_log.jsonl` | All logged experiments |
+| `fusion_weights.json` | Calibrated on 109 transactions from this codebase — not validated against external data |
+| `audit_package.yaml` | Generated by governor.py before each verification run |
+| `audit_telemetry.jsonl` | Per-task verification outcomes |
 
 ---
 
-## UMAGS — governance process only (not a product)
+## UMAGS — governance loop (not a product)
 
-Contains NO risk-scoring code. The moment it does, it has become an undeclared second product.
+Contains NO risk-scoring code. All scoring lives in `ultron/`.
 
 | File | What it does |
 |---|---|
+| `umags/governor.py` | Compiles audit evidence (CHANGED_FILES, patch diff, test command) into `audit_package.yaml` |
+| `umags/run_verification_loop.py` | Runs the Builder/Auditor/Judge/Historian loop; now includes NEW_FILE_NULLIFICATION_MODE |
+| `umags/budget_governor.py` | Command caching, poll-depth guard, execution cost control |
+| `umags/checks.py` | AST scope and diff verification — called by verification loop |
+| `umags/failure_space.py` | Counts untested paths + missing boundary cases = Residual Risk R |
+| `umags/config.py` | Shared constants (timeouts, paths) |
+| `umags/tools/analyze_blind_study.py` | Spearman correlation calculation for blind study |
+| `umags/tools/run_stratified_sampling.py` | Generates stratified samples for blind study |
+| `umags/tools/compare_ai_ratings.py` | Compares AI ratings against formula output |
 | `UMAGS.md` | Protocol definition, scope table |
-| `PROTOCOL.md` | Moment-to-moment rules |
-| `umags/checks.py` | AST scope and diff verification |
-| `umags/failure_space.py` | Pure counter: untested paths + missing boundaries = R |
-| `umags/governor.py` | Compiles audit evidence |
-| `umags/run_verification_loop.py` | Runs the B/A/J/H loop |
-| `umags/tools/analyze_blind_study.py` | Spearman correlation calculation for study |
-| `umags/tools/run_stratified_sampling.py` | Generates stratified samples for study |
-| `umags/tools/compare_ai_ratings.py` | Compares AI ratings against formula |
-| `ROADMAP.md` | Feature status (DONE / UNVALIDATED / INERT / SPECULATIVE) |
-| `EXECUTION_PLAN.md` | Atomic task list with done/parked status |
-| `PROJECT_LOG.md` | Claim-and-evidence log |
+| `PROTOCOL.md` | Moment-to-moment governance rules |
+| `ROADMAP.md` | Feature status (DONE / WORKING / UNVALIDATED / INERT / SPECULATIVE) |
+| `PROJECT_LOG.md` | Full UMAGS audit trail — every task, what changed, who reviewed it |
 
 ---
 
-## SYNAPSE — mutation testing engine (largely untouched)
+## SYNAPSE — mutation testing engine
 
 `synapse_project/` — mutation runner, ledger, demo target.
+Working on trivial mutations only; boundary-sensitive mutations not yet exercised.
 
 ---
 
 ## WHAT IS DONE vs WHAT IS NOT
 
 ### DONE — do not redo these
-- Task 1: git-history silent failure fixed
+
+- Task 1: git-history silent failure fixed in `analyzer.py`
 - Task 2: speculative manifest moved with disclaimer
 - Task 3: `ultron/validation/blind_rate.py` built (score-hidden)
-- Task 6: translate.py built, wired into CLI
-- Reclassification: design_oracle, reality_delta, delta moved into Ultron ROADMAP
-
-### ONE TECHNICAL TASK OUTSTANDING (AI can do this)
-See NEXT.md — one command, nothing else.
+- Task 6: `translate.py` built, wired into CLI
+- Context brief: `context_brief.py` built, wired via `--brief`
+- Design Oracle: `design_oracle.py` wired via `--oracle`
+- MCP server: `mcp_server.py` built and running via `start_ultron.py`
+- Risk decomposition: `risk.py` god-object decomposed into `risk/` package
+- Budget Governor: `budget_governor.py` — command caching, poll depth guard
+- NEW_FILE_NULLIFICATION_MODE: verification loop handles new files without `git reset --soft`
 
 ### BLOCKED ON HUMAN INPUT — AI cannot do these
+
 - Tasks 4 & 5: Human must run `ultron/validation/blind_rate.py` and actually rate files
 - Logistic calibration: needs real feedback data (currently 0 valid entries)
 
 ### SPECULATIVE — no code exists, do not build
-adaptive_scorer.py, topological_simulator.py, temporal_engine.py,
-intervention_optimizer.py, controller.py
-See research-notes/speculative-ideas.md
+
+`adaptive_scorer.py`, `topological_simulator.py`, `temporal_engine.py`,
+`intervention_optimizer.py`, `controller.py`
+See `research-notes/speculative-ideas.md`
 
 ---
 
 ## SCRATCH — disposable scripts
 
-scratch/ contains one-off diagnostic scripts. Most are safe to ignore.
-ONE DANGEROUS FILE: DO_NOT_RUN_simulates_human_input.py — quarantined, never run.
+`scratch/` contains one-off diagnostic scripts. Most are safe to ignore.
+ONE DANGEROUS FILE: `DO_NOT_RUN_simulates_human_input.py` — quarantined, never run.
