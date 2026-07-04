@@ -30,8 +30,6 @@ def main():
     parser.add_argument("--detail", action="store_true", help="Show detailed risk statistics and formula breakdown")
     parser.add_argument("--brief", action="store_true", help="Generate a compact markdown context brief for AI agent orientation")
     parser.add_argument("--oracle", action="store_true", help="Run the Design Oracle: coupling debt, abstraction leaks, hotspots, and circular dependencies")
-    parser.add_argument("--kernel-plan", help="Task description to generate an execution plan for")
-    parser.add_argument("--kernel-verify", action="store_true", help="Runs verify step on current edits using verification kernel")
     args = parser.parse_args()
     
     def log(msg):
@@ -140,52 +138,6 @@ def main():
                         sys.stderr.write(f"Warning: stdout reconfigure failed: {e}\n")
                 print(report)
         sys.exit(0)
-
-    # Kernel Plan Mode
-    if args.kernel_plan:
-        log(f"[+] Ultron Execution Kernel: Planning task '{args.kernel_plan}'...")
-        from execution_kernel import ExecutionKernel
-        kernel = ExecutionKernel(repo_path)
-        plan_res = kernel.plan(args.kernel_plan)
-        if args.json:
-            print(json.dumps({"status": "success", "plan": plan_res}))
-        else:
-            print("==========================================================")
-            print(f"📐 ULTRON EXECUTION PLAN: {args.kernel_plan}")
-            print("==========================================================")
-            print(f"Target Files: {', '.join(plan_res['target_files']) if plan_res['target_files'] else 'None'}")
-            print("\nPredicted Risks:")
-            for r in plan_res["risks"]:
-                print(f"  - [{r['level']}] {r['file_path']} (Impact: {r['impact_score']:.2f}): {r['mitigation']}")
-            print("\nComplexity Hotspots:")
-            for h in plan_res["hotspots"][:5]:
-                print(f"  - {h['file']} (Hotspot Score: {h['hotspot_score']:.4f}, Complexity: {h['complexity']}, Coupling Debt: {h['coupling_debt']})")
-        sys.exit(0)
-
-    # Kernel Verify Mode
-    if args.kernel_verify:
-        log("[+] Ultron Execution Kernel: Verifying current edits...")
-        from execution_kernel import ExecutionKernel
-        kernel = ExecutionKernel(repo_path)
-        verify_res = kernel.verify()
-        if args.json:
-            print(json.dumps({"status": "success", "verification": verify_res}))
-        else:
-            print("==========================================================")
-            print("🛡️ ULTRON KERNEL VERIFICATION")
-            print("==========================================================")
-            print(f"Overall Success: {verify_res['success']}")
-            print(f"Tests Passed:    {verify_res['test_passed']}")
-            print(f"Scope Matched:   {verify_res['scope_matched']}")
-            if verify_res["ast_violations"]:
-                print("\nAST Safety Violations:")
-                for f, viols in verify_res["ast_violations"].items():
-                    print(f"  {f}:")
-                    for v in viols:
-                        print(f"    - Line {v['line']}: [{v['rule']}] {v['message']}")
-            else:
-                print("\n[+] AST Safety: Clean (0 violations).")
-        sys.exit(0 if verify_res["success"] else 1)
 
     # Standard prompt generation mode
     if not args.intent:
