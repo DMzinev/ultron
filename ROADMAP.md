@@ -1,150 +1,231 @@
 # Project Status & Roadmap
 
-## Why this document exists
-
-It's easy for an AI-assisted project to accumulate features that *run* without
-being *true* — code that executes cleanly but doesn't yet measure what it
-claims to measure. This document is an honest accounting of where every
-feature actually stands, based on a direct code-and-output audit (not on
-prior summaries or test-pass messages).
-
-Status is split into four categories:
-
-- ✅ **Working & validated** — runs end-to-end, and there's real evidence it
-  measures the right thing.
-- ⚠️ **Working, not yet validated** — runs end-to-end, produces output, but
-  no one has checked whether that output is *correct* against real-world
-  ground truth.
-- 🔇 **Silently inert** — runs without error, but is currently doing nothing
-  useful, with no warning to the user.
-- 🪦 **Documented, not implemented** — described somewhere in the repo's docs,
-  but no code exists for it.
+Last updated: 2026-07-04
 
 ---
 
-## ✅ Working & validated
+## Strategic direction
 
-### Static risk scoring (`analyzer.py`, `risk.py`)
-Computes cyclomatic complexity and call-graph coupling, combines them into an
-Impact Score, and classifies files into HIGH / MEDIUM / LOW risk tiers. This
-runs end-to-end on real files and produces a coherent, inspectable output
-(confirmed against `risk.py` itself: Impact Score 83.79, 5 callers correctly
-identified).
+**Ultron is an AI-assisted software architecture platform.**
 
-**Not yet done / Gaps:**
-*   **Absolute Thresholds vs. Relative Calibrations:** The absolute cutoff values (10.0 for HIGH / 3.0 for MEDIUM) are default heuristics. In codebases with dense verification, AST parsing, or complex logic, nearly all files can exceed 10.0 complexity, yielding a heavily skewed distribution (e.g., 22 HIGH, 2 MEDIUM, 0 LOW in this repository). Calibration may need to transition to relative, percentile-based distributions of the target repository's complexity rather than fixed absolute thresholds.
-*   **Rule-Based Overrides:** Any file matching `__init__.py` or containing an `__init__` constructor definition is automatically overridden to the `HIGH` risk tier (`is_public` override) regardless of its computed Impact Score (e.g., `ultron/__init__.py` has score 1.0 but is classified as HIGH). This means public interfaces are designated high-risk by rule, not score derivation.
-*   **Blinded Calibration Study [PARKED]:** Calibration is parked, waiting on a real human rater to be available to complete the stratified ratings. This is non-blocking.
----
+It is not a code linter. It is not a static analyzer in the narrow sense. The progression
+it is climbing is:
 
-## ⚠️ Working, not yet validated
+```
+Linting → Static Analysis → Code Quality → Architecture Analysis → Architecture Reasoning → Architecture Design
+```
 
-### Multi-Signal Risk Fusion & Change-Risk Prediction (`reality_delta.py`, `delta.py`) — *Ultron feature, built during UMAGS sessions*
-**Reclassified 2026-06-21 from implied governance infrastructure to Ultron risk-scoring feature.** `delta.py` implements `predict_change_risk()` — a learned three-weight model (`w_impact`, `w_mkr`, `w_cest`) updated via online SGD from `learn_from_feedback()`. `reality_delta.py` wraps a six-weight fusion layer (`w_test`, `w_git`, `w_runtime`, `w_human`, `w_test_runtime`, `w_git_human`) that combines all signal sources into a single Residual Risk Score, with backward-compatible schema migration and L2 regularization.
+Most tools stop at step three. Ultron is entering step five.
 
-**Gap:** Fusion weights are calibrated against the full set of logged transactions with no held-out evaluation set — performance on unseen data is not validated. The counterfactual ablation test (`C_i = max(0, R_actual - R_ablated_i)`) has not been run on real defect data; it has only been exercised on synthetic examples.
-
-### Git-history bug-fix extraction (`extract_git_history`)
-**Confirmed:** the feature runs and correctly parses commit history. If the repo is missing or contains zero matches, it outputs clear warnings rather than failing silently.
-
-**Gap:** the efficacy of using bug-fix commit frequency to scale static risk warnings is not yet validated against real-world defect density.
-
-### Mutation testing / Mutation Kill Rate (`synapse_mutator/run.py`)
-Generates mutants, runs the real test suite against them, logs results to
-`ledger.jsonl`. This genuinely works on real code (`demo_target/math_ops.py`
-confirmed).
-
-**Gap:** only tested so far on a trivial, literal-substitution mutation
-(`1.15` → a renamed constant of the same value). This is closer to a
-no-op than a real behavior change. The mutation types that actually matter
-for catching weak tests — flipped comparisons, off-by-one boundaries, swapped
-operands — haven't been exercised yet.
-
-### CEST / differential fuzzing (`fuzz.py`)
-Computes behavioral divergence between original and mutated code by running
-both against a pool of randomly sampled inputs.
-
-**Gap:** input generation is random sampling from a fixed pool of generic
-values (`0, 1, -1, "", [], {}`, etc.), not type-aware or boundary-aware. This
-means a mutant can be mislabeled "semantically equivalent" simply because the
-random inputs never landed near the value where the behavior actually
-diverges — false equivalence, not true equivalence. All three logged examples
-so far are trivial refactors; none test a boundary-sensitive case like
-`>` vs `>=`.
-
-### Static Design Intelligence Layer (`design_oracle.py`) — *Ultron feature, built during UMAGS sessions*
-**Reclassified 2026-06-21 from implied governance infrastructure to Ultron risk-scoring feature.** Performs static codebase analysis: circular dependency detection (DFS-based cycle enumeration), global mutation scanning (AST traversal for `global` declarations), future coupling simulation (path-impact modelling when moving a function between files), and design pattern recommendations keyed on intent keywords.
-
-**Gap:** Built entirely inside UMAGS-scoped sessions and never evaluated against real-world outcomes. No ground-truth data confirming that circular dependency or coupling warnings correspond to actual defects. No negative test cases confirming the DFS cycle detector handles pathological graphs (self-loops, highly-connected subgraphs). Integration tests exist but only cover happy paths.
+Every new feature must answer one question: **Does this help a developer make a better architectural decision?** If not, it belongs in UMAGS or nowhere.
 
 ---
 
-### Markov / typo audit (`classifier.py`)
-Flags identifiers that look like likely misspellings of names used elsewhere
-in the codebase.
+## UMAGS is frozen at Kernel v1.0
 
-**Real-file audit result (2026-06-21):** Running `--check-anomaly ultron/core/risk.py` on the
-repository produced 36 warnings. The original two false positives (`abspath`, `keys`) are
-no longer present — that fix worked. But the Markov Causal Flow layer now generates ~35
-new anomalies, all at 0.00% probability. Root cause: the model is trained on the same
-codebase it audits (corpus of ~15 files), so any call-sequence unique to the target file
-is automatically flagged as impossible. This is an architectural flaw, not a threshold issue.
+UMAGS is infrastructure, not a product. It is complete. It provides:
 
-**Requires a design decision before any further fix:**
-- Option A: Remove the Markov transition layer from production output entirely (keep only spelling-similarity typo detection)
-- Option B: Train on an external Python corpus, not this repo
-- Option C: Raise the transition-probability threshold to a non-zero value
+- Scope verification (jurisdiction fraud prevention)
+- Programmatic nullification (including new-file deletion mode)
+- AST compliance checking
+- Residual Risk scoring (R)
+- Budget Governor (command caching, poll-depth guard)
+- Builder / Auditor / Judge / Historian roles
+- Full audit trail in `PROJECT_LOG.md`
 
-Do not implement any option autonomously. Bring this choice to the user.
-
-### Logistic confidence calibration (`logistic.py`)
-**Status, confirmed by audit:** in production, this has never actually
-trained on real data. `experiment_log.jsonl` has 3 rows; the training code
-requires at least 5 before running. Every "calibrated" score currently in
-use is the hardcoded fallback (`beta_0=-1.0, beta_1=0.1, beta_2=0.5`), not a
-learned value.
-
-A synthetic 100-record train/test split *does* confirm the gradient descent
-math itself is implemented correctly (93.75% F1 on a genuinely held-out
-split) — so the code is sound. What's missing is real data to train it on.
-This is blocked on the same human-feedback pipeline as risk scoring.
+**No new UMAGS features will be built unless they remove a confirmed existing weakness.**
+Not because they are interesting. Only because they are necessary.
+New ideas that would have previously become UMAGS modules should instead become Ultron capabilities.
 
 ---
 
-## 🔇 Silently inert
+## Ultron development roadmap — five steps
 
+This is the active development frontier. Steps are ordered by dependency: each builds on the previous.
 
-### Human feedback collection (`human_feedback.jsonl`)
-**Confirmed:** 2 entries, covering 1 file, no rater identity tracked, no
-blinding — the risk score is visible before the rating is given. This isn't
-broken, but it's not yet data; it's a UI control waiting for an actual
-study to use it properly (see Phase 1 plan).
+### Step 1 — Architectural Reasoning Layer *(next)*
+
+Extend the Design Oracle output from metric numbers to structured explanations. For every finding, answer four questions:
+
+```
+Observation   → What the metric shows
+Reason        → Why it is happening structurally
+Principle     → Which software engineering principle is affected
+Consequences  → What breaks or becomes harder as a result
+```
+
+Example — current output:
+```
+Coupling Debt: 36
+```
+
+Example — target output:
+```
+Observation: High coupling between RiskEngine and VerificationLoop.
+Reason: RiskEngine depends on 14 external modules while acting as a central service.
+Principle: Stable Dependencies Principle — stable modules should not depend on volatile ones.
+Consequences: Difficult unit testing, higher regression probability, reduced replaceability.
+```
+
+**Implementation:** A mapping layer (`reasoning.py`) that takes Oracle metrics and traverses a static Knowledge Graph to produce structured explanations. No LLM inference in the reasoning path — the graph decides, the AI communicates.
 
 ---
 
-## 🔇 DORMANT — Working code, not in active use
+### Step 2 — Knowledge Graph
 
-### AI Rater + Compare AI Ratings (`ultron/validation/ai_rater.py`, `umags/tools/compare_ai_ratings.py`)
-Both files are syntactically valid and were written for an AI-vs-human rating comparison
-study. Neither is currently called by any active pipeline. The comparison study they support
-is BLOCKED on the human feedback collection step (see `ultron/validation/blind_rate.py` above — the
-`blind_feedback.jsonl` file is still empty).
+Formalize the relationships between metrics, architectural smells, violated principles, refactoring candidates, and expected metric effects. The full set of relevant smells is small (~15-20) and the mappings are established in software engineering literature.
 
-**Decision (2026-06-24):** Kept in place, not deleted. If human ratings are collected and
-the pipeline resumes, these are the correct next step. Removing them would require
-re-implementation. Marked dormant, not dead. Do not touch without a specific plan.
+```
+Metric → Architectural Smell → Violated Principle → Candidate Refactorings → Expected Metric Changes → Implementation Pattern
+```
 
-### Constitutional Sentinel (`ultron/core/sentinel.py`)
-Computes codebase structural entropy, scans comments/docstrings for behavioral assumptions, and flags potential abstraction bloat or architecture drift.
+Example edge:
+```
+High fan-out → High Coupling → Stable Dependencies → Introduce Interface → Coupling −12 → Generate Interface Contract
+```
 
-**Decision (2026-06-26):** Marked dormant in `umags/run_verification_loop.py` to keep the UMAGS governance process lightweight and token-efficient. The code is preserved but skipped during verification loops. Do not reactivate without explicit instruction.
+**Every node is deterministic. Every edge is explainable.** This is engineering knowledge, not AI inference. The graph is a curated data structure (JSON or Python), not a learned model.
 
 ---
 
-## 🪦 Documented, not implemented
+### Step 3 — Recommendation Engine
 
-The following are described in `research-notes/speculative-ideas.md` but have
-**no corresponding code anywhere in the repository**:
+Use the Knowledge Graph to generate concrete, rule-based architectural improvement proposals. For each violated principle, produce:
+
+```
+Violation → Candidate Refactorings → Expected Benefits → Trade-offs
+```
+
+Example:
+```
+Violation: God Object (complexity 212, coupling 31)
+
+Candidate refactorings:
+  • Extract Class
+  • Facade
+  • Split Service
+  • Pipeline
+
+Benefits: Complexity ↓, Coupling ↓, Maintainability ↑
+Trade-offs: Additional interfaces, more files, possible migration cost
+```
+
+Recommendations are ranked by expected metric impact, not by confidence scores. Confidence scores are not produced until real validation data exists.
+
+---
+
+### Step 4 — Impact Simulator
+
+Before issuing an implementation contract, compute what the metrics *would* be after the proposed refactoring. This is deterministic: given a specific proposed decomposition boundary, the analyzer can compute the resulting complexity and coupling on the hypothetical post-refactoring structure.
+
+```
+Current: Complexity 212, Coupling 31, Circular Deps 2, Fan-out 28
+       ↓ (proposed: extract MetricsEngine + separate IO layer)
+Predicted: Complexity 124, Coupling 12, Circular Deps 0, Fan-out 18
+```
+
+Two or more candidate decompositions may be simulated in parallel to show trade-offs between boundary choices. The simulator never reports a single answer as the only option when multiple valid boundaries exist.
+
+---
+
+### Step 5 — Implementation Contract Generator
+
+Translate an approved recommendation + simulation into an actionable UMAGS-compatible implementation contract: declared target files, expected outcomes, known limitations, test command. This closes the loop from architectural decision → coding agent → UMAGS verification → re-analysis.
+
+The full pipeline:
+```
+Repository → Static Analyzer → Metrics Engine → Design Oracle
+→ Architectural Reasoning Layer → Knowledge Graph → Recommendation Engine
+→ Impact Simulator → Implementation Contract Generator
+→ AI Coding Agent → UMAGS Verification Kernel → Re-analysis
+```
+
+At this point UMAGS is invisible infrastructure, exactly where it belongs.
+
+---
+
+## Current feature status
+
+### ✅ Working & validated
+
+**Static risk scoring** (`analyzer.py`, `risk/`)
+Cyclomatic complexity × ln(e + coupling), scaled by bug-fix history. Impact Score drives HIGH / MEDIUM / LOW tiers. Runs end-to-end on real files; output confirmed correct against known values.
+
+*Gap:* Absolute tier thresholds (10.0 HIGH / 3.0 MEDIUM) are calibrated heuristics, not validated against external defect ground truth. In dense codebases nearly all files exceed 10.0, producing skewed distributions. Percentile-based relative thresholds are the correct long-term fix; blocked on human feedback data.
+
+**Plain-English translation** (`translate.py`)
+Converts Impact Score + coupling count into one sentence per file. Working and wired into CLI.
+
+**Context Brief** (`context_brief.py`)
+Generates a structured markdown snapshot of the codebase for AI agent orientation. Working and wired into `--brief`.
+
+**UMAGS governance loop** (`umags/`)
+Full Builder/Auditor/Judge/Historian loop with budget control, nullification, AST checking. Frozen at Kernel v1.0.
+
+---
+
+### ⚠️ Working, not yet validated
+
+**Design Oracle** (`design_oracle.py`) — wired via `--oracle`
+Coupling debt, abstraction leaks, hotspot ranking, circular dependency detection. Produces real output. Not validated against ground-truth defect data. No negative test cases on pathological graphs (self-loops, highly-connected subgraphs).
+
+*Next:* Step 1 (Architectural Reasoning Layer) is the planned extension of this output.
+
+**Multi-Signal Risk Fusion** (`reality_delta.py`, `delta.py`)
+Six-weight fusion layer combining test, git, runtime, human, and interaction signals. Runs automatically in the verification loop. Calibrated on 109 transactions from this single codebase — not validated against external data, no held-out evaluation set.
+
+**Git-history bug-fix scaling** (`analyzer.py` — `extract_git_history`)
+Correctly parses commit history and scales risk scores. Runs without silent failures. Efficacy not validated against real-world defect density.
+
+**MCP server** (`interfaces/mcp_server.py`)
+Exposes risk scoring and context brief as tool-callable endpoints. Running. Not battle-tested against diverse client integrations.
+
+**Mutation testing / MKR** (`synapse_project/`)
+Generates mutants and logs kill rates. Only tested on trivial literal-substitution mutations. Boundary-sensitive cases (`>` vs `>=`, off-by-one) not exercised.
+
+**CEST / differential fuzzing** (`fuzz.py`)
+Behavioral divergence between original and mutant code. Input pool is generic random values, not type-aware or boundary-aware — false equivalence risk on boundary-sensitive mutations.
+
+---
+
+### ⚠️ Requires a design decision before any fix
+
+**Markov / typo audit** (`classifier.py`)
+Flags likely misspellings. The false-positive fix for `abspath` / `keys` worked, but the Markov Causal Flow layer now generates ~35 new anomalies at 0.00% probability. Root cause: trained on the same codebase it audits.
+
+Three options — do not implement any without user decision:
+- **Option A:** Remove Markov transition layer from production output (keep spelling-similarity only)
+- **Option B:** Train on an external Python corpus
+- **Option C:** Raise transition-probability threshold to a non-zero value
+
+---
+
+### 🔇 Dormant — working code, not in active use
+
+**Logistic confidence calibration** (`logistic.py`)
+Gradient descent math confirmed correct (93.75% F1 on synthetic held-out split). Never trained on real data — `experiment_log.jsonl` has 3 rows; minimum required is 5. All live scores use hardcoded fallback weights. Blocked on human feedback pipeline.
+
+**Human feedback collection** (`human_feedback.jsonl`, `blind_rate.py`)
+`blind_rate.py` is built and correct. `blind_feedback.jsonl` is empty. The blinded rating study (Tasks 4-5) is parked awaiting a human rater.
+
+**AI Rater + Compare AI Ratings** (`ai_rater.py`, `compare_ai_ratings.py`)
+Syntactically valid, not in any active pipeline. Blocked on human feedback collection.
+
+**Constitutional Sentinel** (`sentinel.py`)
+Structural entropy scanner, assumption auditor. Dormant by deliberate decision — gating disabled in verification loop to keep UMAGS lightweight. Do not reactivate without explicit instruction.
+
+---
+
+### 🔇 Silently inert
+
+**`meta_layer.py`, `pledge.py`, `prompt.py`**
+Not wired into any active path. No current plan.
+
+---
+
+### 🪦 Documented, not implemented
+
+The following are described in `research-notes/speculative-ideas.md` but have no code anywhere in the repository:
 
 - Vector Scoring Engine (`adaptive_scorer.py`)
 - Topological Simulator (`topological_simulator.py`)
@@ -152,24 +233,12 @@ The following are described in `research-notes/speculative-ideas.md` but have
 - Minimax Solver / Control Layer (`intervention_optimizer.py`)
 - Structural Decision-Theoretic Controller (`controller.py`)
 
-**Decision:** these are interesting future directions, not current
-features. The manifest describing them has been moved to
-`research-notes/speculative-ideas.md` with an explicit disclaimer, so it's
-clear to anyone reading the repo that nothing in that document is live code.
+These are not planned. The manifest is preserved in `research-notes/` with an explicit disclaimer.
 
 ---
 
-## What v1 actually ships
+## What the current release is
 
-Given the above, the first public release is scoped deliberately small:
+Static risk scoring with plain-English output, context brief for AI agent orientation, Design Oracle for coupling and hotspot analysis, and MCP server for tool integration. The governance loop (UMAGS) is the development-time infrastructure that verified every change made to get here.
 
-1. Static risk scoring, translated into plain language (no jargon required
-   to read the output; technical detail available on click-through).
-2. An honest "what this doesn't do yet" section in the main README, linking
-   here.
-3. Everything in the ⚠️ and 🔇 sections above stays out of the default
-   pipeline until it has real validation behind it.
-
-The goal isn't to hide unfinished work — it's to be precise about which
-claims are earned and which are still open questions. That precision is the
-actual point of the project.
+The next release adds the Architectural Reasoning Layer: structured explanations of why each finding matters, which principles are affected, and what the consequences are. No ML. No confidence scores without validation data. Deterministic and explainable throughout.
