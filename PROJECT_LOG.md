@@ -787,7 +787,7 @@ Verdict: APPROVED
 *(Note: nullification of the loop file itself is correctly skipped — the loop cannot nullify its own harness. The new-file nullification path is exercised at runtime when a new file appears in a future task's CHANGED_FILES.)*
 
 **External verification (Claude or other reviewer):**
-PENDING — not yet reviewed by an external party.
+Task-NewFileNullification — `is_nullification_candidate` fix and 8 silent-except cleanup — VERIFIED by external review. Change A is mechanically sound: `git cat-file -e HEAD:<file>` correctly distinguishes new-vs-existing files, `os.remove` + `temp_backup` restore is the right nullification pattern for untracked files, and the `finally` block correctly handles the restore path in both branches. Change B is a genuine improvement, not padding — bare `except: pass` in a verification tool is a real reliability hazard, and replacing them with named exceptions and stderr warnings makes future debugging meaningful rather than silent. No concerns.
 
 **Status change:** NEW_FILE_NULLIFICATION_MODE: ✨ new → ✅ verified and integrated.
 

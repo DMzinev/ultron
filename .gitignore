@@ -10,3 +10,8 @@ __pycache__/
 .synapse/
 ultron/meta/audit_package.yaml
 ultron/meta/audit_telemetry.jsonl
+
+# Verification loop backup files
+*.bak
+*.tmp_verification
+.umags/.cache/

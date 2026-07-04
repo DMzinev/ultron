@@ -1,0 +1,107 @@
+{
+  "26039ffe2a53e9511fc039e13f3a665e829c1de3002eb92730c940224bae04ed": {
+    "cmd": "python --version",
+    "stdout": "Python 3.14.4\n",
+    "stderr": "",
+    "returncode": 0,
+    "repo_hash": "616309a5acfbb0358a9a1479d22086524629850ee15e9a58bea40050cca70c20"
+  },
+  "8cd39a7027665f1f3c4f8894cb1d369f57029b39648f3b83c27346f7661b100f": {
+    "cmd": "python --version",
+    "stdout": "Python 3.14.4\n",
+    "stderr": "",
+    "returncode": 0,
+    "repo_hash": "15aa7ad71cffe632c5430807c50c5dcb293fe44e5830948e71f006d666fb20c4"
+  },
+  "34288f8e885ef0143625ab592096dade3a912442917569f5ff98ae7df6acd5cd": {
+    "cmd": "python --version",
+    "stdout": "Python 3.14.4\n",
+    "stderr": "",
+    "returncode": 0,
+    "repo_hash": "54363d740a8b8560d18a8450621a424e29b3ce17d1d6558c1a2bc22f8365a9e6"
+  },
+  "34dd3116edb2936ba8b103acff975eb7d0820ca9c33681692a952d6757da352e": {
+    "cmd": "python ultron/tests/run_tests.py",
+    "stdout": "[+] Running Ultron Core Tests...\n[+] Recorded rating for ultron/core/risk.py by CLI_Test.\n  - Rater Judgment: HIGH\n  - System Computed: HIGH (Score: 93.23)\n  - Agreement: MATCH\n[Ultron] No git history found \u2014 bug-prone-file scaling is inactive.\n[Ultron] No git history found \u2014 bug-prone-file scaling is inactive.\nUsage: python checks.py <file_or_dir_path>\nUsage: python failure_space.py <repo_path> <comma_separated_changed_files>\n[*] Starting calibration over 1 transactions...\n[+] Recalibration complete.\n  - New Fusion Weights: w_test=0.341, w_git=0.259, w_runtime=0.141, w_human=0.059, w_test_runtime=0.094, w_git_human=0.106\n",
+    "stderr": "Exception in thread Thread-5 (_readerthread):\nTraceback (most recent call last):\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\threading.py\", line 1082, in _bootstrap_inner\n    self._context.run(self.run)\n    ~~~~~~~~~~~~~~~~~^^^^^^^^^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\threading.py\", line 1024, in run\n    self._target(*self._args, **self._kwargs)\n    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\subprocess.py\", line 1614, in _readerthread\n    buffer.append(fh.read())\n                  ~~~~~~~^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\encodings\\cp1252.py\", line 23, in decode\n    return codecs.charmap_decode(input,self.errors,decoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>\n.Exception in thread Thread-13 (_readerthread):\nTraceback (most recent call last):\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\threading.py\", line 1082, in _bootstrap_inner\n    self._context.run(self.run)\n    ~~~~~~~~~~~~~~~~~^^^^^^^^^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\threading.py\", line 1024, in run\n    self._target(*self._args, **self._kwargs)\n    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\subprocess.py\", line 1614, in _readerthread\n    buffer.append(fh.read())\n                  ~~~~~~~^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\encodings\\cp1252.py\", line 23, in decode\n    return codecs.charmap_decode(input,self.errors,decoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>\nException in thread Thread-19 (_readerthread):\nTraceback (most recent call last):\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\threading.py\", line 1082, in _bootstrap_inner\n    self._context.run(self.run)\n    ~~~~~~~~~~~~~~~~~^^^^^^^^^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\threading.py\", line 1024, in run\n    self._target(*self._args, **self._kwargs)\n    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\subprocess.py\", line 1614, in _readerthread\n    buffer.append(fh.read())\n                  ~~~~~~~^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\encodings\\cp1252.py\", line 23, in decode\n    return codecs.charmap_decode(input,self.errors,decoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>\n.Exception in thread Thread-27 (_readerthread):\nTraceback (most recent call last):\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\threading.py\", line 1082, in _bootstrap_inner\n    self._context.run(self.run)\n    ~~~~~~~~~~~~~~~~~^^^^^^^^^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\threading.py\", line 1024, in run\n    self._target(*self._args, **self._kwargs)\n    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\subprocess.py\", line 1614, in _readerthread\n    buffer.append(fh.read())\n                  ~~~~~~~^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\encodings\\cp1252.py\", line 23, in decode\n    return codecs.charmap_decode(input,self.errors,decoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>\nException in thread Thread-33 (_readerthread):\nTraceback (most recent call last):\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\threading.py\", line 1082, in _bootstrap_inner\n    self._context.run(self.run)\n    ~~~~~~~~~~~~~~~~~^^^^^^^^^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\threading.py\", line 1024, in run\n    self._target(*self._args, **self._kwargs)\n    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\subprocess.py\", line 1614, in _readerthread\n    buffer.append(fh.read())\n                  ~~~~~~~^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\encodings\\cp1252.py\", line 23, in decode\n    return codecs.charmap_decode(input,self.errors,decoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>\n....Exception in thread Thread-45 (_readerthread):\nTraceback (most recent call last):\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\threading.py\", line 1082, in _bootstrap_inner\n    self._context.run(self.run)\n    ~~~~~~~~~~~~~~~~~^^^^^^^^^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\threading.py\", line 1024, in run\n    self._target(*self._args, **self._kwargs)\n    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\subprocess.py\", line 1614, in _readerthread\n    buffer.append(fh.read())\n                  ~~~~~~~^^\n  File \"C:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\encodings\\cp1252.py\", line 23, in decode\n    return codecs.charmap_decode(input,self.errors,decoding_table)[0]\n           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 15572: character maps to <undefined>\n......[-] Error processing rating: Could not evaluate risks for file\n.....127.0.0.1 - - [28/Jun/2026 15:23:45] \"POST /api/design-oracle HTTP/1.1\" 200 -\n127.0.0.1 - - [28/Jun/2026 15:23:45] \"POST /api/design-oracle HTTP/1.1\" 400 -\nC:\\Users\\This PC\\AppData\\Local\\Python\\pythoncore-3.14-64\\Lib\\tempfile.py:484: ResourceWarning: Implicitly cleaning up <HTTPError 400: 'Bad Request'>\n  _warnings.warn(self.warn_message, ResourceWarning)\n127.0.0.1 - - [28/Jun/2026 15:23:45] \"POST /api/design-oracle HTTP/1.1\" 400 -\n127.0.0.1 - - [28/Jun/2026 15:23:45] \"POST /api/design-oracle HTTP/1.1\" 200 -\n127.0.0.1 - - [28/Jun/2026 15:23:45] \"POST /api/design-oracle HTTP/1.1\" 200 -\n127.0.0.1 - - [28/Jun/2026 15:23:45] \"POST /api/design-oracle HTTP/1.1\" 200 -\n127.0.0.1 - - [28/Jun/2026 15:23:45] \"POST /api/design-oracle HTTP/1.1\" 400 -\n127.0.0.1 - - [28/Jun/2026 15:23:45] \"POST /api/design-oracle HTTP/1.1\" 400 -\n................[+] Ultron: Generating codebase context brief...\n......\n----------------------------------------------------------------------\nRan 39 tests in 11.175s\n\nOK\n",
+    "returncode": 0,
+    "repo_hash": ""
+  },
+  "6074bafca093622bef8432519248ed434c56a0c25a530b4aa1251deb134abd62": {
+    "cmd": "python --version",
+    "stdout": "Python 3.14.4\n",
+    "stderr": "",
+    "returncode": 0,
+    "repo_hash": ""
+  },
+  "d2b8686d4cfbeccad579366df067e27872fb10ede33644fe57be0322e259ecbb": {
+    "cmd": "python --version",
+    "stdout": "Python 3.14.4\n",
+    "stderr": "",
+    "returncode": 0,
+    "repo_hash": "eee2fbd81d0cc316befc8a8a7c8e9bba7232b62050afa3c8229227217cddb036"
+  },
+  "ac0a5bbd63e1447d25b23af7b3c98098a13f20a18fcad8091a11ad9a880212cf": {
+    "cmd": "python --version",
+    "stdout": "Python 3.14.4\n",
+    "stderr": "",
+    "returncode": 0,
+    "repo_hash": "390eff62fe631caa447107a82c80c9044fcd7b79e093b5059336b58e6dc7e846"
+  },
+  "80a7c7802615535d9b21cb6653958ab36c834e83d910db5692c5acd43c924971": {
+    "cmd": "python --version",
+    "stdout": "Python 3.14.4\n",
+    "stderr": "",
+    "returncode": 0,
+    "repo_hash": "a4eabc2eca02b01f4128db7a0b4b62f71c1071efb737ba9f4f057d9af52dc28e"
+  },
+  "4cadca74b83795ac53a9d0d57d5a1c4276ad3524ff187ee68a7962e558848dda": {
+    "cmd": "python --version",
+    "stdout": "Python 3.14.4\n",
+    "stderr": "",
+    "returncode": 0,
+    "repo_hash": "a800080c52da6289072cf4f53bb4695aceeaadf500bb54b92107e00bb97ad5a2"
+  },
+  "42103ff7084d88be87b7b67b931ae683c51ac2156281741df5d079d6cf6a5998": {
+    "cmd": "python --version",
+    "stdout": "Python 3.14.4\n",
+    "stderr": "",
+    "returncode": 0,
+    "repo_hash": "c0762142801af399bf5d016f9075e9abb2f0645673a99075cdfecb5bac1cdf5f"
+  },
+  "abe4a00ddfaa171016a368c83f859e14942c8a8aa87b7e66c39eac04910d0e58": {
+    "cmd": "python --version",
+    "stdout": "Python 3.14.4\n",
+    "stderr": "",
+    "returncode": 0,
+    "repo_hash": "7c1f0d8c7a553a7b4ea8981b91795853d9011d98269a26592593481ba17a1740"
+  },
+  "50bab745424320f27bfecd23604671df7241932d352d656a99c790bc604218f2": {
+    "cmd": "python --version",
+    "stdout": "Python 3.14.4\n",
+    "stderr": "",
+    "returncode": 0,
+    "repo_hash": "9077b89e85d364078aa7050ab4b5e07812c112ca06d0b19d033b03b2451409b5"
+  },
+  "d6b1cb943336e7354d608de5c234abb679245f810785df24500841e364145ba4": {
+    "cmd": "python --version",
+    "stdout": "Python 3.14.4\n",
+    "stderr": "",
+    "returncode": 0,
+    "repo_hash": "c70e9af2fbbd5625f29f06337892e461d05c79e330645837080f3f479291d757"
+  },
+  "f6304dfc4f5dbc9612cd58a727a55a1e23c4a7168126d64e909b96745d7fcfe8": {
+    "cmd": "python --version",
+    "stdout": "Python 3.14.4\n",
+    "stderr": "",
+    "returncode": 0,
+    "repo_hash": "ea8e7f0e1937c4c737cfe1626dd41aab3ba8446b1b371263ac8b8f271de0f3e5"
+  },
+  "1236d46588eabf3b4bf9cd30d75dd9d7d2a8c6f3504ab5e4a4be5d1de94b7901": {
+    "cmd": "python --version",
+    "stdout": "Python 3.14.4\n",
+    "stderr": "",
+    "returncode": 0,
+    "repo_hash": "e3c92635d7c09fa5cb626ebd2159279a8236addc6683ecde3f7bb23a3fa5ec8a"
+  }
+}
