@@ -3,6 +3,9 @@ import os
 import sys
 import subprocess
 
+# Centralized list of directory patterns to exclude from Design Oracle abstraction leak scanning
+EXCLUDED_PATTERNS = ["tests/", "scratch/", "synapse_project/"]
+
 def get_import_mappings(codebase):
     """
     Builds a directed dependency graph of file paths mapping to list of imported file paths.
@@ -260,13 +263,15 @@ def _count_cyclomatic_complexity(tree):
     return sum(1 for node in ast.walk(tree) if isinstance(node, branch_types))
 
 
-def detect_abstraction_leaks(codebase, repo_path, max_responsibilities=3):
+def detect_abstraction_leaks(codebase, repo_path, max_responsibilities=8, min_complexity=8):
     """
     Detects functions that are doing too many things by counting distinct
     cross-module call target names within each function body.
 
     A function is flagged when its count of distinct call-target module names
-    exceeds max_responsibilities.
+    exceeds max_responsibilities AND its cyclomatic complexity exceeds min_complexity.
+
+    Excludes files matching patterns in EXCLUDED_PATTERNS.
 
     Returns a dict:
       {rel_path: [{"function": str, "responsibility_count": int, "lineno": int}]}
@@ -282,6 +287,11 @@ def detect_abstraction_leaks(codebase, repo_path, max_responsibilities=3):
     leaks = {}
 
     for rel_path in codebase:
+        # Standardize separators for consistent matching
+        norm_path = rel_path.replace("\\", "/")
+        if any(pat in norm_path for pat in EXCLUDED_PATTERNS):
+            continue
+
         abs_path = os.path.join(repo_path, rel_path)
         if not os.path.exists(abs_path) or not rel_path.endswith(".py"):
             continue
@@ -296,6 +306,11 @@ def detect_abstraction_leaks(codebase, repo_path, max_responsibilities=3):
         file_leaks = []
         for node in ast.walk(tree):
             if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+
+            # Check cyclomatic complexity gate first
+            comp = _count_cyclomatic_complexity(node)
+            if comp <= min_complexity:
                 continue
 
             # Collect distinct module names called as `module.method()` inside this function
@@ -515,7 +530,7 @@ def generate_oracle_report(codebase, repo_path, risks=None):
     # 5. Architectural Reasoning Report
     lines.append("## Architectural Reasoning Report\n")
     try:
-        from .reasoning import ReasoningEngine
+        from reasoning import ReasoningEngine
         engine = ReasoningEngine(codebase, repo_path)
         cards = engine.analyze()
         if cards:

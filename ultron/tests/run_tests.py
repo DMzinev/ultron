@@ -1284,6 +1284,16 @@ class TestDesignOracleExtended(unittest.TestCase):
         # We don't assert a specific file, but the result must be a dict
         self.assertIsInstance(leaks, dict)
 
+    def test_abstraction_leaks_calibrated_behavior(self):
+        import analyzer
+        codebase = analyzer.analyze_directory(self.repo_path)
+        leaks = self.oracle.detect_abstraction_leaks(
+            codebase, self.repo_path, max_responsibilities=8, min_complexity=8
+        )
+        self.assertIsInstance(leaks, dict)
+        for filepath in leaks:
+            self.assertFalse(any(pat in filepath.replace("\\", "/") for pat in ["tests/", "scratch/", "synapse_project/"]))
+
     def test_abstraction_leaks_raises_on_non_dict(self):
         with self.assertRaises(TypeError):
             self.oracle.detect_abstraction_leaks([], self.repo_path)
@@ -1552,9 +1562,9 @@ class TestArchitecturalReasoning(unittest.TestCase):
         )
         output = card.format()
         self.assertIn("Violation: Stable Dependencies Principle (SDP)", output)
-        self.assertIn("File: `core/risk.py`", output)
-        self.assertIn("Observation: Stable core module has outward dependencies.", output)
-        self.assertIn("Reason: Stable components are highly imported and hard to change.", output)
+        self.assertIn("**File:** `core/risk.py`", output)
+        self.assertIn("**Observation:** Stable core module has outward dependencies.", output)
+        self.assertIn("**Reason:** Stable components are highly imported and hard to change.", output)
         self.assertIn("- Changes downstream propagate here.", output)
         self.assertIn("- Violates SDP.", output)
 

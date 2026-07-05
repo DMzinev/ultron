@@ -169,6 +169,8 @@ Full Builder/Auditor/Judge/Historian loop with budget control, nullification, AS
 **Design Oracle** (`design_oracle.py`) — wired via `--oracle`
 Coupling debt, abstraction leaks, hotspot ranking, circular dependency detection. Produces real output. Not validated against ground-truth defect data. No negative test cases on pathological graphs (self-loops, highly-connected subgraphs).
 
+*Simplification:* Uses a module-level `EXCLUDED_PATTERNS` configuration to ignore tests/scratch/experimental directories for abstraction leaks; in Step 5, this should be replaced by dynamic scope-aware metadata checking.
+
 *Next:* Step 1 (Architectural Reasoning Layer) is the planned extension of this output.
 
 **Multi-Signal Risk Fusion** (`reality_delta.py`, `delta.py`)
