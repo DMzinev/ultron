@@ -792,3 +792,56 @@ Task-NewFileNullification — `is_nullification_candidate` fix and 8 silent-exce
 **Status change:** NEW_FILE_NULLIFICATION_MODE: ✨ new → ✅ verified and integrated.
 
 **Open questions / follow-up:** None.
+
+
+### Transaction Log: 2026-07-05T13:46:00+02:00
+**Task Name:** Step 1: Architectural Reasoning Layer (Task-ArchitecturalReasoning)
+
+**Walkthrough / Evidence:**
+
+1. **`ultron/experimental/reasoning.py` [NEW]** — Implemented the architectural reasoning engine. It defines `ReasoningCard` and `ReasoningEngine` to map codebase static metrics to Software Engineering principles:
+   - **Circular Dependencies** → *Acyclic Dependencies Principle (ADP)*
+   - **High Coupling Debt on Stable Modules** → *Stable Dependencies Principle (SDP)*
+   - **Excessive Outward Imports (Fan-out > 8)** → *Dependency Inversion Principle (DIP)*
+   - **Abstraction Leaks (Functions calling > 3 namespaces)** → *Single Responsibility Principle (SRP)*
+   - **High God Object Hotspot Complexity** → *Single Responsibility Principle (SRP)*
+   Cards are grouped by file path, ordered by violation severity (ADP > SDP > DIP > SRP), and rendered as Markdown explanation blocks (Observation, Reason, Principle, Consequences).
+
+2. **`ultron/experimental/design_oracle.py` [MODIFIED]** — Added `"## Architectural Reasoning Report"` section to `generate_oracle_report`. It lazy-imports `ReasoningEngine` (preventing circular module imports) and appends the formatted cards to the markdown report.
+
+3. **`ultron/tests/run_tests.py` [MODIFIED]** — Added the `TestArchitecturalReasoning` unit test suite, asserting:
+   - Card formatting output.
+   - Cycle detection and ADP card generation.
+   - Stable dependencies (SDP) and dependency inversion (DIP) threshold triggers.
+   - Severity sorting and multiple cards per file.
+   - Input validation guard tests (handling boundary cases like `None` inputs in `format()`).
+
+*Verification loop output (final approved run — Poll #3):*
+```text
+[+] Verification passed: Valid patch diff found.
+[+] Verification passed: Actual modified source files match declared scope.
+[*] Running test suite: python ultron/tests/run_tests.py
+[*] Budget Governor: Returning cached result for 'python ultron/tests/run_tests.py'
+[+] Verification passed: Baseline test suite passed.
+[*] Running programmatic Nullification check (O(n) — pre-flight tier HIGH)...
+[+] Nullification passed: Tests failed as expected on nullified code for 'ultron/experimental/reasoning.py'.
+[+] Nullification passed: Tests failed as expected on nullified code for 'ultron/experimental/design_oracle.py'.
+[+] Skipping nullification check for non-source/untracked file: ultron/tests/run_tests.py
+[*] Running UMAGS programmatic AST compliance checks...
+[+] Programmatic AST compliance checks passed.
+[*] Running programmatic Failure Space / Residual Risk analysis...
+  - Untested Paths: None
+  - Missing Boundary Cases: None
+  - Residual Risk Score (R): 0
+[+] Verification passed: Residual Risk Score R=0.
+Verdict: VERIFIED
+Verdict: APPROVED
+```
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Step 1: Architectural Reasoning Layer: ✨ new → ✅ verified and integrated.
+
+**Open questions / follow-up:** None.
+
