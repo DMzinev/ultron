@@ -218,8 +218,12 @@ paths may use backslashes while codebase keys use forward slashes. The
 pre-flight gate must normalize both to forward-slash relative paths before
 comparison. This is implemented in `run_preflight_risk_gate()`.
 
+### Efficiency & Task Execution Rules
+
+1. **One Bounded Timer for Async Tasks:** When waiting on an async task (such as the verification loop or test suite execution), set ONE timer matching the realistic expected duration of the task (e.g., test suite ~60s, verification loop ~90–120s), then go idle. Never chain multiple short (15–30s) polling timers or call status repeatedly within a turn.
+2. **Large-Chunk File Reads:** Default to reading files in full or in 1–2 large chunks (using `view_file` up to the 800-line limit) rather than narrow slices. Chasing code definitions or syntax across multiple small range reads results in sequential tool waste and context fragmentation.
+
 ## Walkthrough Integrity Rules
 
 ### Labeled Process Answers
 Every walkthrough must directly answer any open process question from the prior review turn, in its own labeled section, before reporting new work. A walkthrough that skips a direct question is incomplete by definition. All metrics and performance numbers reported in the walkthrough must explicitly state whether they are measured or estimated/extrapolated.
-
