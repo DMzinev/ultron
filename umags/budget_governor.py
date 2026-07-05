@@ -20,18 +20,18 @@ def get_repo_state_hash(repo_path):
         )
         head_hash = res_head.stdout.strip() if res_head.returncode == 0 else ""
         
-        # 2. Get porcelain status
+        # 2. Get porcelain status, excluding umags/.cache
         res_status = subprocess.run(
-            ["git", "status", "--porcelain"],
+            ["git", "status", "--porcelain", "--", ".", ":(exclude)umags/.cache"],
             cwd=repo_path,
             capture_output=True,
             text=True
         )
         status_out = res_status.stdout if res_status.returncode == 0 else ""
         
-        # 3. Get diff
+        # 3. Get diff, excluding umags/.cache
         res_diff = subprocess.run(
-            ["git", "diff"],
+            ["git", "diff", "--", ".", ":(exclude)umags/.cache"],
             cwd=repo_path,
             capture_output=True,
             text=True

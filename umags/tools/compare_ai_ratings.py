@@ -53,7 +53,7 @@ def get_formula_tiers(repo_path: str) -> dict:
     """
     try:
         from analyzer import analyze_directory
-        from risk import score_file, classify_tier
+        import risk
     except ImportError as e:
         print(f"Cannot import Ultron modules: {e}", file=sys.stderr)
         raise ImportError(f"Cannot import Ultron modules: {e}")
@@ -63,13 +63,13 @@ def get_formula_tiers(repo_path: str) -> dict:
         return {}
 
     tiers = {}
-    for rel_path, analysis in codebase.items():
-        try:
-            score = score_file(analysis)
-            tier = classify_tier(score)
-            tiers[rel_path] = tier
-        except Exception as e:
-            tiers[rel_path] = f"ERROR: {e}"
+    try:
+        all_files = list(codebase.keys())
+        risks = risk.evaluate_risks(codebase, all_files, repo_path=repo_path)
+        for r in risks:
+            tiers[r.file] = r.level
+    except Exception as e:
+        print(f"Error evaluating risks: {e}", file=sys.stderr)
     return tiers
 
 
