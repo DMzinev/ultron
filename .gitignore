@@ -14,4 +14,4 @@ ultron/meta/audit_telemetry.jsonl
 # Verification loop backup files
 *.bak
 *.tmp_verification
-.umags/.cache/
+umags/.cache/
