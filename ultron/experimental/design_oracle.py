@@ -512,4 +512,19 @@ def generate_oracle_report(codebase, repo_path, risks=None):
     else:
         lines.append("_No circular dependencies detected._\n")
 
+    # 5. Architectural Reasoning Report
+    lines.append("## Architectural Reasoning Report\n")
+    try:
+        from .reasoning import ReasoningEngine
+        engine = ReasoningEngine(codebase, repo_path)
+        cards = engine.analyze()
+        if cards:
+            lines.append(f"**{len(cards)} architectural violation(s) detected:**\n")
+            for card in cards:
+                lines.append(card.format())
+        else:
+            lines.append("_No architectural violations detected._\n")
+    except Exception as e:
+        lines.append(f"_Error generating reasoning report: {e}_\n")
+
     return "\n".join(lines)

@@ -1529,6 +1529,115 @@ class TestRiskDecomposition(unittest.TestCase):
         self.assertEqual(result, {})
 
 
+class TestArchitecturalReasoning(unittest.TestCase):
+
+    def setUp(self):
+        import tempfile
+        import shutil
+        self.temp_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_reasoning_card_formatting(self):
+        from reasoning import ReasoningCard
+        card = ReasoningCard(
+            filepath="core/risk.py",
+            principle="Stable Dependencies Principle (SDP)",
+            observation="Stable core module has outward dependencies.",
+            reason="Stable components are highly imported and hard to change.",
+            consequences=["Changes downstream propagate here.", "Violates SDP."],
+            severity=2
+        )
+        output = card.format()
+        self.assertIn("Violation: Stable Dependencies Principle (SDP)", output)
+        self.assertIn("File: `core/risk.py`", output)
+        self.assertIn("Observation: Stable core module has outward dependencies.", output)
+        self.assertIn("Reason: Stable components are highly imported and hard to change.", output)
+        self.assertIn("- Changes downstream propagate here.", output)
+        self.assertIn("- Violates SDP.", output)
+
+    def test_reasoning_card_formatting_raises_on_none(self):
+        from reasoning import ReasoningCard
+        card = ReasoningCard(None, None, None, None, [], 2)
+        with self.assertRaises(ValueError):
+            card.format()
+
+    def test_reasoning_engine_circular_dependency(self):
+        from reasoning import ReasoningEngine
+        # Mock codebase with circular cycle: a.py -> b.py -> a.py
+        codebase = {
+            "a.py": {"imports": ["b"], "definitions": []},
+            "b.py": {"imports": ["a"], "definitions": []}
+        }
+        engine = ReasoningEngine(codebase, self.temp_dir)
+        cards = engine.analyze()
+        
+        # Should detect ADP circular dependency cards for both files
+        adp_cards = [c for c in cards if c.principle == "Acyclic Dependencies Principle (ADP)"]
+        self.assertEqual(len(adp_cards), 2)
+        self.assertEqual(adp_cards[0].severity, 1)
+
+    def test_reasoning_engine_stable_dependencies(self):
+        from reasoning import ReasoningEngine
+        # Mock codebase: a.py has high fan-in (imported by 11 files), and imports b.py (fan_out = 1).
+        # Instability = 1 / (11 + 1) = 0.083 (stable). Coupling debt = 11 * 1 = 11.
+        # Wait, trigger condition is coupling_debt > 20 and instability < 0.3 and fo > 0.
+        # Let's make fan_in = 25, fan_out = 1. Instability = 1 / (25 + 1) = 0.038. Debt = 25 * 1 = 25.
+        codebase = {
+            "a.py": {"imports": ["b"], "definitions": []},
+            "b.py": {"imports": [], "definitions": []}
+        }
+        for i in range(25):
+            codebase[f"importer_{i}.py"] = {"imports": ["a"], "definitions": []}
+
+        engine = ReasoningEngine(codebase, self.temp_dir)
+        cards = engine.analyze()
+        
+        sdp_cards = [c for c in cards if c.principle == "Stable Dependencies Principle (SDP)"]
+        self.assertEqual(len(sdp_cards), 1)
+        self.assertEqual(sdp_cards[0].filepath, "a.py")
+
+    def test_reasoning_engine_dependency_inversion(self):
+        from reasoning import ReasoningEngine
+        # Mock codebase: a.py imports 9 other files (fan_out = 9 > 8)
+        codebase = {
+            "a.py": {"imports": [f"dep_{i}" for i in range(9)], "definitions": []}
+        }
+        for i in range(9):
+            codebase[f"dep_{i}.py"] = {"imports": [], "definitions": []}
+
+        engine = ReasoningEngine(codebase, self.temp_dir)
+        cards = engine.analyze()
+        
+        dip_cards = [c for c in cards if c.principle == "Dependency Inversion Principle (DIP)"]
+        self.assertEqual(len(dip_cards), 1)
+        self.assertEqual(dip_cards[0].filepath, "a.py")
+
+    def test_reasoning_engine_multiple_violations_sorting(self):
+        from reasoning import ReasoningEngine
+        # Mock codebase:
+        # a.py: part of cycle (ADP, severity 1) and has fan_out = 9 (DIP, severity 3)
+        codebase = {
+            "a.py": {"imports": ["b"] + [f"dep_{i}" for i in range(8)], "definitions": []},
+            "b.py": {"imports": ["a"], "definitions": []}
+        }
+        for i in range(8):
+            codebase[f"dep_{i}.py"] = {"imports": [], "definitions": []}
+
+        engine = ReasoningEngine(codebase, self.temp_dir)
+        cards = engine.analyze()
+
+        # Should generate multiple cards for a.py
+        a_cards = [c for c in cards if c.filepath == "a.py"]
+        self.assertEqual(len(a_cards), 2)
+        
+        # Verify severity sorting (ADP=1 should come before DIP=3)
+        self.assertEqual(a_cards[0].principle, "Acyclic Dependencies Principle (ADP)")
+        self.assertEqual(a_cards[1].principle, "Dependency Inversion Principle (DIP)")
+
+
 if __name__ == "__main__":
     print("[+] Running Ultron Core Tests...")
     unittest.main()
