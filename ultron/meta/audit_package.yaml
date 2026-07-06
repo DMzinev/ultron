@@ -1,224 +1,247 @@
-TASK_ID: 'Task-RecommendationEngine'
+TASK_ID: 'Task-ImpactSimulator'
 TASK_TYPE: 'LOGIC_CHANGE'
 BUILDER_VERSION: 'v2.0'
-COMMIT_HASH: 'e709ec9b0e8eda0db11cedce1985271b60c2df46'
-PLAN_HASH: '-3578485004972791329'
+COMMIT_HASH: '3c3a975c5bdee9ddf8b1b1e0fd3aef6674f3f4e1'
+PLAN_HASH: '2280396054635135715'
 CHANGED_FILES:
-- 'ultron/experimental/recommendation_engine.py'
+- 'ultron/experimental/impact_simulator.py'
 - 'ultron/tests/run_tests.py'
 PATCH_DIFF: |
-  diff --git a/ultron/experimental/recommendation_engine.py b/ultron/experimental/recommendation_engine.py
+  diff --git a/ultron/experimental/impact_simulator.py b/ultron/experimental/impact_simulator.py
   new file mode 100644
-  index 0000000..c86d3f1
+  index 0000000..8c65660
   --- /dev/null
-  +++ b/ultron/experimental/recommendation_engine.py
-  @@ -0,0 +1,121 @@
-  +import sys
+  +++ b/ultron/experimental/impact_simulator.py
+  @@ -0,0 +1,103 @@
   +from dataclasses import dataclass
-  +from typing import Dict, List, Any
+  +from typing import List
   +
   +
   +@dataclass
-  +class Recommendation:
+  +class MetricSnapshot:
   +    """
-  +    A prioritized refactoring recommendation mapping a codebase violation card
-  +    to its proposed refactoring and expected metric delta.
+  +    Represents a snapshot of key codebase quality metrics.
   +    """
-  +    filepath: str
-  +    principle: str
-  +    smell: str
-  +    refactoring: str
-  +    expected_delta: Dict[str, Any]
-  +    severity: int
-  +    priority_rank: int
+  +    total_coupling_debt: float
+  +    total_cycle_count: int
+  +    total_violations: int
+  +    avg_instability: float
+  +    avg_hotspot_score: float
   +
   +    def __post_init__(self):
   +        # Type validations
-  +        if not isinstance(self.filepath, str) or not self.filepath.strip():
-  +            raise TypeError("filepath must be a non-empty string")
-  +        if not isinstance(self.principle, str) or not self.principle.strip():
-  +            raise TypeError("principle must be a non-empty string")
-  +        if not isinstance(self.smell, str) or not self.smell.strip():
-  +            raise TypeError("smell must be a non-empty string")
-  +        if not isinstance(self.refactoring, str) or not self.refactoring.strip():
-  +            raise TypeError("refactoring must be a non-empty string")
-  +        if not isinstance(self.expected_delta, dict):
-  +            raise TypeError("expected_delta must be a dictionary")
-  +        if not isinstance(self.severity, int):
-  +            raise TypeError("severity must be an integer")
-  +        if not isinstance(self.priority_rank, int):
-  +            raise TypeError("priority_rank must be an integer")
+  +        if not isinstance(self.total_coupling_debt, (int, float)):
+  +            raise TypeError("total_coupling_debt must be a float or integer")
+  +        if not isinstance(self.total_cycle_count, int):
+  +            raise TypeError("total_cycle_count must be an integer")
+  +        if not isinstance(self.total_violations, int):
+  +            raise TypeError("total_violations must be an integer")
+  +        if not isinstance(self.avg_instability, (int, float)):
+  +            raise TypeError("avg_instability must be a float or integer")
+  +        if not isinstance(self.avg_hotspot_score, (int, float)):
+  +            raise TypeError("avg_hotspot_score must be a float or integer")
   +
-  +        # Value bounds validation
-  +        if not (1 <= self.severity <= 5):
-  +            raise ValueError("severity must be between 1 and 5 inclusive")
-  +        if self.priority_rank < 1:
-  +            raise ValueError("priority_rank must be >= 1")
+  +        # Bounds validation
+  +        if self.total_coupling_debt < 0.0:
+  +            raise ValueError("total_coupling_debt must be non-negative")
+  +        if self.total_cycle_count < 0:
+  +            raise ValueError("total_cycle_count must be non-negative")
+  +        if self.total_violations < 0:
+  +            raise ValueError("total_violations must be non-negative")
+  +        if not (0.0 <= self.avg_instability <= 1.0):
+  +            raise ValueError("avg_instability must be in range [0.0, 1.0]")
+  +        if not (0.0 <= self.avg_hotspot_score <= 1.0):
+  +            raise ValueError("avg_hotspot_score must be in range [0.0, 1.0]")
   +
-  +
-  +# Static mapping from ReasoningCard principle strings to KnowledgeGraph smell keys.
-  +_PRINCIPLE_TO_SMELL: Dict[str, str] = {
-  +    "Acyclic Dependencies Principle (ADP)": "circular_dependency",
-  +    "Stable Dependencies Principle (SDP)": "unstable_dependency",
-  +    "Dependency Inversion Principle (DIP)": "high_fan_out",
-  +    "Single Responsibility Principle (SRP - Abstraction Leak)": "abstraction_leak",
-  +    "Single Responsibility Principle (SRP - God Object Hotspot)": "god_object_hotspot",
-  +}
+  +        # Ensure types are cast correctly
+  +        self.total_coupling_debt = float(self.total_coupling_debt)
+  +        self.avg_instability = float(self.avg_instability)
+  +        self.avg_hotspot_score = float(self.avg_hotspot_score)
   +
   +
-  +class RecommendationEngine:
+  +@dataclass
+  +class SimulationResult:
   +    """
-  +    Processes structural violation cards and maps them using the Knowledge Graph
-  +    to produce prioritized refactoring recommendations.
+  +    Wrapper for before and after metrics snapshots.
+  +    """
+  +    before: MetricSnapshot
+  +    after: MetricSnapshot
+  +
+  +
+  +class ImpactSimulator:
+  +    """
+  +    Projects how codebase quality metrics change based on refactoring deltas.
   +    """
   +
-  +    def __init__(self, cards: list):
-  +        if not isinstance(cards, list):
-  +            raise TypeError("cards must be a list")
-  +        self.cards = cards
+  +    def __init__(self, baseline: MetricSnapshot, recommendations: list):
+  +        if not isinstance(baseline, MetricSnapshot):
+  +            raise TypeError("baseline must be a MetricSnapshot instance")
+  +        if not isinstance(recommendations, list):
+  +            raise TypeError("recommendations must be a list")
+  +        self.baseline = baseline
+  +        self.recommendations = recommendations
   +
-  +    def generate(self) -> List[Recommendation]:
+  +    def simulate(self) -> SimulationResult:
   +        """
-  +        Processes cards, resolves smells, sorts, and ranks recommendations.
+  +        Projects new metrics by subtracting expected deltas with defensive clamping.
   +        """
-  +        from knowledge_graph import lookup
+  +        assert self is not None, "Simulator instance cannot be None"
+  +        projected_debt = self.baseline.total_coupling_debt
+  +        projected_cycles = self.baseline.total_cycle_count
+  +        projected_violations = self.baseline.total_violations
   +
-  +        assert self.cards is not None, "Violation cards list cannot be None"
-  +        recs: List[Recommendation] = []
+  +        for rec in self.recommendations:
+  +            delta = getattr(rec, "expected_delta", {})
+  +            #expected_delta keys validation
+  +            d_debt = delta.get("coupling_debt", 0.0)
+  +            d_cycles = delta.get("cycle_count", 0)
+  +            d_violations = delta.get("violations_resolved", 1)
   +
-  +        for card in self.cards:
-  +            principle = getattr(card, "principle", None)
-  +            filepath = getattr(card, "filepath", None)
+  +            # subtract the expected deltas (deltas are negative, so subtracting reduces the metric)
+  +            projected_debt += d_debt
+  +            projected_cycles += d_cycles
+  +            projected_violations -= d_violations
   +
-  +            if not principle or not filepath:
-  +                print(
-  +                    "[-] RecommendationEngine: skipping card with missing principle or filepath.",
-  +                    file=sys.stderr
-  +                )
-  +                continue
+  +        # Defensive bounds clamping to physical limits to prevent out-of-range ValueErrors
+  +        projected_debt = max(0.0, float(projected_debt))
+  +        projected_cycles = max(0, int(projected_cycles))
+  +        projected_violations = max(0, int(projected_violations))
   +
-  +            smell = _PRINCIPLE_TO_SMELL.get(principle)
-  +            if smell is None:
-  +                print(
-  +                    f"[-] RecommendationEngine: unrecognized principle '{principle}' â€“ skipping.",
-  +                    file=sys.stderr
-  +                )
-  +                continue
+  +        after_snapshot = MetricSnapshot(
+  +            total_coupling_debt=projected_debt,
+  +            total_cycle_count=projected_cycles,
+  +            total_violations=projected_violations,
+  +            avg_instability=self.baseline.avg_instability,
+  +            avg_hotspot_score=self.baseline.avg_hotspot_score,
+  +        )
   +
-  +            try:
-  +                edge = lookup(smell)
-  +            except (KeyError, TypeError) as e:
-  +                print(
-  +                    f"[-] RecommendationEngine: failed to lookup smell '{smell}': {e} â€“ skipping.",
-  +                    file=sys.stderr
-  +                )
-  +                continue
-  +
-  +            rec = Recommendation(
-  +                filepath=filepath,
-  +                principle=principle,
-  +                smell=smell,
-  +                refactoring=edge.refactoring,
-  +                expected_delta=edge.expected_delta,
-  +                severity=edge.severity,
-  +                priority_rank=1  # placeholder
-  +            )
-  +            recs.append(rec)
-  +
-  +        # Sort recommendations: lowest severity value first (severity ASC),
-  +        # using alphabetical filepath as tie-breaker (filepath ASC).
-  +        recs.sort(key=lambda x: (x.severity, x.filepath))
-  +
-  +        # Assign stable 1-based priority_rank after sorting
-  +        for idx, r in enumerate(recs, 1):
-  +            r.priority_rank = idx
-  +
-  +        return recs
+  +        return SimulationResult(before=self.baseline, after=after_snapshot)
   diff --git a/ultron/tests/run_tests.py b/ultron/tests/run_tests.py
-  index 5414505..812db02 100644
+  index 812db02..14c8430 100644
   --- a/ultron/tests/run_tests.py
   +++ b/ultron/tests/run_tests.py
-  @@ -1716,6 +1716,79 @@ class TestKnowledgeGraph(unittest.TestCase):
-               lookup("   ")
+  @@ -1789,6 +1789,120 @@ class TestRecommendationEngine(unittest.TestCase):
+               Recommendation("f.py", "ADP", "smell", "refact", {}, 1, 0)
    
    
   +
-  +class MockCard:
-  +    def __init__(self, filepath, principle):
-  +        self.filepath = filepath
-  +        self.principle = principle
+  +class TestImpactSimulator(unittest.TestCase):
   +
-  +
-  +class TestRecommendationEngine(unittest.TestCase):
-  +
-  +    def test_recommendation_engine_invalid_init(self):
-  +        from recommendation_engine import RecommendationEngine
-  +        # init with non-list
+  +    def test_metric_snapshot_invalid_types_raises_type_error(self):
+  +        from impact_simulator import MetricSnapshot
   +        with self.assertRaises(TypeError):
-  +            RecommendationEngine("not_a_list")
+  +            MetricSnapshot("not_a_float", 0, 0, 0.5, 0.5)
+  +        with self.assertRaises(TypeError):
+  +            MetricSnapshot(10.5, "not_an_int", 0, 0.5, 0.5)
+  +        with self.assertRaises(TypeError):
+  +            MetricSnapshot(10.5, 0, "not_an_int", 0.5, 0.5)
   +
-  +    def test_recommendation_engine_skips_invalid_cards(self):
-  +        from recommendation_engine import RecommendationEngine
-  +        # missing filepath / principle or unrecognized principle
-  +        cards = [
-  +            MockCard(None, "Acyclic Dependencies Principle (ADP)"),
-  +            MockCard("a.py", None),
-  +            MockCard("a.py", "Unrecognized Principle")
-  +        ]
-  +        recs = RecommendationEngine(cards).generate()
-  +        self.assertEqual(len(recs), 0)
+  +    def test_metric_snapshot_invalid_bounds_raises_value_error(self):
+  +        from impact_simulator import MetricSnapshot
+  +        # negative coupling debt
+  +        with self.assertRaises(ValueError):
+  +            MetricSnapshot(-1.0, 0, 0, 0.5, 0.5)
+  +        # negative cycles
+  +        with self.assertRaises(ValueError):
+  +            MetricSnapshot(10.0, -1, 0, 0.5, 0.5)
+  +        # negative violations
+  +        with self.assertRaises(ValueError):
+  +            MetricSnapshot(10.0, 0, -1, 0.5, 0.5)
+  +        # instability out of [0, 1]
+  +        with self.assertRaises(ValueError):
+  +            MetricSnapshot(10.0, 0, 0, 1.1, 0.5)
+  +        # hotspot out of [0, 1]
+  +        with self.assertRaises(ValueError):
+  +            MetricSnapshot(10.0, 0, 0, 0.5, -0.1)
   +
-  +    def test_recommendation_engine_sorting_and_ranking(self):
-  +        from recommendation_engine import RecommendationEngine
-  +        # ADP = severity 1, DIP = severity 3, SDP = severity 2
-  +        cards = [
-  +            MockCard("b.py", "Dependency Inversion Principle (DIP)"),
-  +            MockCard("a.py", "Dependency Inversion Principle (DIP)"),
-  +            MockCard("c.py", "Acyclic Dependencies Principle (ADP)"),
-  +            MockCard("d.py", "Stable Dependencies Principle (SDP)")
-  +        ]
-  +        recs = RecommendationEngine(cards).generate()
-  +        self.assertEqual(len(recs), 4)
+  +    def test_metric_snapshot_valid_casting(self):
+  +        from impact_simulator import MetricSnapshot
+  +        snap = MetricSnapshot(10, 2, 3, 0.4, 0.6)
+  +        self.assertIsInstance(snap.total_coupling_debt, float)
+  +        self.assertEqual(snap.total_coupling_debt, 10.0)
   +
-  +        # Expected sort order:
-  +        # 1. c.py (ADP, severity 1) -> priority_rank = 1
-  +        # 2. d.py (SDP, severity 2) -> priority_rank = 2
-  +        # 3. a.py (DIP, severity 3) -> priority_rank = 3 (due to tie-breaker a.py < b.py)
-  +        # 4. b.py (DIP, severity 3) -> priority_rank = 4
+  +    def test_impact_simulator_invalid_init_raises_type_error(self):
+  +        from impact_simulator import ImpactSimulator
+  +        with self.assertRaises(TypeError):
+  +            ImpactSimulator("not_a_snapshot", [])
   +
-  +        self.assertEqual(recs[0].principle, "Acyclic Dependencies Principle (ADP)")
-  +        self.assertEqual(recs[0].filepath, "c.py")
-  +        self.assertEqual(recs[0].priority_rank, 1)
+  +    def test_impact_simulator_empty_recommendations_boundary(self):
+  +        from impact_simulator import MetricSnapshot, ImpactSimulator
+  +        snap = MetricSnapshot(10.0, 2, 3, 0.4, 0.6)
+  +        sim = ImpactSimulator(snap, [])
+  +        res = sim.simulate()
+  +        self.assertEqual(res.after.total_coupling_debt, 10.0)
+  +        self.assertEqual(res.after.total_cycle_count, 2)
+  +        self.assertEqual(res.after.total_violations, 3)
   +
-  +        self.assertEqual(recs[1].principle, "Stable Dependencies Principle (SDP)")
-  +        self.assertEqual(recs[1].filepath, "d.py")
-  +        self.assertEqual(recs[1].priority_rank, 2)
-  +
-  +        self.assertEqual(recs[2].principle, "Dependency Inversion Principle (DIP)")
-  +        self.assertEqual(recs[2].filepath, "a.py")
-  +        self.assertEqual(recs[2].priority_rank, 3)
-  +
-  +        self.assertEqual(recs[3].principle, "Dependency Inversion Principle (DIP)")
-  +        self.assertEqual(recs[3].filepath, "b.py")
-  +        self.assertEqual(recs[3].priority_rank, 4)
-  +
-  +    def test_recommendation_dataclass_validation(self):
+  +    def test_impact_simulator_correct_simulation_math(self):
+  +        from impact_simulator import MetricSnapshot, ImpactSimulator
   +        from recommendation_engine import Recommendation
-  +        # invalid filepath
-  +        with self.assertRaises(TypeError):
-  +            Recommendation(None, "ADP", "smell", "refact", {}, 1, 1)
-  +        # invalid severity
-  +        with self.assertRaises(ValueError):
-  +            Recommendation("f.py", "ADP", "smell", "refact", {}, 0, 1)
-  +        # invalid priority_rank
-  +        with self.assertRaises(ValueError):
-  +            Recommendation("f.py", "ADP", "smell", "refact", {}, 1, 0)
+  +        snap = MetricSnapshot(25.0, 5, 4, 0.4, 0.6)
+  +        recs = [
+  +            Recommendation("a.py", "ADP", "circular_dependency", "fix", {"coupling_debt": -15.0, "cycle_count": -1, "violations_resolved": 1}, 1, 1),
+  +            Recommendation("b.py", "DIP", "high_fan_out", "fix", {"coupling_debt": -5.0, "cycle_count": 0, "violations_resolved": 1}, 3, 2)
+  +        ]
+  +        sim = ImpactSimulator(snap, recs)
+  +        res = sim.simulate()
+  +        # coupling debt: 25.0 + (-15.0) + (-5.0) = 5.0
+  +        self.assertEqual(res.after.total_coupling_debt, 5.0)
+  +        # cycles: 5 + (-1) = 4
+  +        self.assertEqual(res.after.total_cycle_count, 4)
+  +        # violations: 4 - 2 = 2
+  +        self.assertEqual(res.after.total_violations, 2)
+  +
+  +    def test_impact_simulator_clamping_prevents_negative_values(self):
+  +        from impact_simulator import MetricSnapshot, ImpactSimulator
+  +        from recommendation_engine import Recommendation
+  +        snap = MetricSnapshot(10.0, 1, 1, 0.4, 0.6)
+  +        recs = [
+  +            Recommendation("a.py", "ADP", "circular_dependency", "fix", {"coupling_debt": -15.0, "cycle_count": -2, "violations_resolved": 1}, 1, 1),
+  +            Recommendation("b.py", "DIP", "high_fan_out", "fix", {"coupling_debt": -5.0, "cycle_count": 0, "violations_resolved": 1}, 3, 2)
+  +        ]
+  +        sim = ImpactSimulator(snap, recs)
+  +        res = sim.simulate()
+  +        self.assertEqual(res.after.total_coupling_debt, 0.0)
+  +        self.assertEqual(res.after.total_cycle_count, 0)
+  +        self.assertEqual(res.after.total_violations, 0)
+  +
+  +    def test_simulation_result_dataclass(self):
+  +        from impact_simulator import MetricSnapshot, SimulationResult
+  +        snap1 = MetricSnapshot(10.0, 1, 1, 0.4, 0.6)
+  +        snap2 = MetricSnapshot(5.0, 0, 0, 0.4, 0.6)
+  +        res = SimulationResult(before=snap1, after=snap2)
+  +        self.assertEqual(res.before, snap1)
+  +        self.assertEqual(res.after, snap2)
+  +
+  +    def test_impact_simulator_clamping_floats_and_integers(self):
+  +        from impact_simulator import MetricSnapshot, ImpactSimulator
+  +        from recommendation_engine import Recommendation
+  +        # If expected_delta yields non-integral float values for cycles, they must be clamped/cast to integer
+  +        snap = MetricSnapshot(10.0, 5, 2, 0.4, 0.6)
+  +        recs = [
+  +            Recommendation("a.py", "ADP", "circular_dependency", "fix", {"coupling_debt": -5.5, "cycle_count": -2, "violations_resolved": 1}, 1, 1)
+  +        ]
+  +        sim = ImpactSimulator(snap, recs)
+  +        res = sim.simulate()
+  +        self.assertIsInstance(res.after.total_coupling_debt, float)
+  +        self.assertEqual(res.after.total_coupling_debt, 4.5)
+  +        self.assertIsInstance(res.after.total_cycle_count, int)
+  +        self.assertEqual(res.after.total_cycle_count, 3)
+  +
+  +    def test_impact_simulator_avg_metrics_carried_forward(self):
+  +        from impact_simulator import MetricSnapshot, ImpactSimulator
+  +        # Instability and hotspot scores must remain unchanged
+  +        snap = MetricSnapshot(10.0, 5, 2, 0.35, 0.75)
+  +        sim = ImpactSimulator(snap, [])
+  +        res = sim.simulate()
+  +        self.assertEqual(res.after.avg_instability, 0.35)
+  +        self.assertEqual(res.after.avg_hotspot_score, 0.75)
   +
   +
    if __name__ == "__main__":
        print("[+] Running Ultron Core Tests...")
        unittest.main()
-EXPECTED_OUTCOMES: 'Recommendation dataclass; RecommendationEngine mapping 5 ReasoningCard principles to canonical smells, deterministic sorting by severity ASC and filepath ASC, and 1-based priority ranking; skips invalid principles or fields with stderr warnings; 4 new tests (107 total OK)'
+EXPECTED_OUTCOMES: 'MetricSnapshot with type and bounds validation; SimulationResult; ImpactSimulator projecting delta coupling_debt, cycle_count, and violations_resolved with max(0) clamping; instability and hotspot scores carried forward; 10 unit tests (117 total OK)'
 TEST_COMMANDS:
 - 'python ultron/tests/run_tests.py'
 RAW_STDOUT: |
@@ -235,26 +258,26 @@ RAW_STDOUT: |
   [+] Recalibration complete.
     - New Fusion Weights: w_test=0.341, w_git=0.259, w_runtime=0.141, w_human=0.059, w_test_runtime=0.094, w_git_human=0.106
 RAW_STDERR: |
-  .........................................................[-] RecommendationEngine: skipping card with missing principle or filepath.
+  ...................................................................[-] RecommendationEngine: skipping card with missing principle or filepath.
   [-] RecommendationEngine: skipping card with missing principle or filepath.
   [-] RecommendationEngine: unrecognized principle 'Unrecognized Principle' – skipping.
   .......................[-] Error processing rating: Could not evaluate risks for file
-  .....127.0.0.1 - - [06/Jul/2026 12:55:35] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [06/Jul/2026 12:55:35] "POST /api/design-oracle HTTP/1.1" 400 -
+  .....127.0.0.1 - - [06/Jul/2026 13:20:33] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [06/Jul/2026 13:20:33] "POST /api/design-oracle HTTP/1.1" 400 -
   C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\tempfile.py:484: ResourceWarning: Implicitly cleaning up <HTTPError 400: 'Bad Request'>
     _warnings.warn(self.warn_message, ResourceWarning)
-  127.0.0.1 - - [06/Jul/2026 12:55:35] "POST /api/design-oracle HTTP/1.1" 400 -
-  127.0.0.1 - - [06/Jul/2026 12:55:35] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [06/Jul/2026 12:55:35] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [06/Jul/2026 12:55:35] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [06/Jul/2026 12:55:35] "POST /api/design-oracle HTTP/1.1" 400 -
-  127.0.0.1 - - [06/Jul/2026 12:55:35] "POST /api/design-oracle HTTP/1.1" 400 -
+  127.0.0.1 - - [06/Jul/2026 13:20:33] "POST /api/design-oracle HTTP/1.1" 400 -
+  127.0.0.1 - - [06/Jul/2026 13:20:33] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [06/Jul/2026 13:20:33] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [06/Jul/2026 13:20:33] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [06/Jul/2026 13:20:33] "POST /api/design-oracle HTTP/1.1" 400 -
+  127.0.0.1 - - [06/Jul/2026 13:20:33] "POST /api/design-oracle HTTP/1.1" 400 -
   ................[+] Ultron: Generating codebase context brief...
   ......
   ----------------------------------------------------------------------
-  Ran 107 tests in 62.513s
+  Ran 117 tests in 72.443s
   
   OK
 SELF_AUDIT: ''
-KNOWN_LIMITATIONS: 'Ties on both severity and filepath fall back to Python stable sort order'
+KNOWN_LIMITATIONS: 'Deltas are theoretical, best-case projections assuming perfect, isolated application — not actual post-refactoring forecasts; average instability/hotspots static'
 CATEGORY_B: 'false'
