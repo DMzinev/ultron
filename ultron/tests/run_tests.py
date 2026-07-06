@@ -1789,6 +1789,120 @@ class TestRecommendationEngine(unittest.TestCase):
             Recommendation("f.py", "ADP", "smell", "refact", {}, 1, 0)
 
 
+
+class TestImpactSimulator(unittest.TestCase):
+
+    def test_metric_snapshot_invalid_types_raises_type_error(self):
+        from impact_simulator import MetricSnapshot
+        with self.assertRaises(TypeError):
+            MetricSnapshot("not_a_float", 0, 0, 0.5, 0.5)
+        with self.assertRaises(TypeError):
+            MetricSnapshot(10.5, "not_an_int", 0, 0.5, 0.5)
+        with self.assertRaises(TypeError):
+            MetricSnapshot(10.5, 0, "not_an_int", 0.5, 0.5)
+
+    def test_metric_snapshot_invalid_bounds_raises_value_error(self):
+        from impact_simulator import MetricSnapshot
+        # negative coupling debt
+        with self.assertRaises(ValueError):
+            MetricSnapshot(-1.0, 0, 0, 0.5, 0.5)
+        # negative cycles
+        with self.assertRaises(ValueError):
+            MetricSnapshot(10.0, -1, 0, 0.5, 0.5)
+        # negative violations
+        with self.assertRaises(ValueError):
+            MetricSnapshot(10.0, 0, -1, 0.5, 0.5)
+        # instability out of [0, 1]
+        with self.assertRaises(ValueError):
+            MetricSnapshot(10.0, 0, 0, 1.1, 0.5)
+        # hotspot out of [0, 1]
+        with self.assertRaises(ValueError):
+            MetricSnapshot(10.0, 0, 0, 0.5, -0.1)
+
+    def test_metric_snapshot_valid_casting(self):
+        from impact_simulator import MetricSnapshot
+        snap = MetricSnapshot(10, 2, 3, 0.4, 0.6)
+        self.assertIsInstance(snap.total_coupling_debt, float)
+        self.assertEqual(snap.total_coupling_debt, 10.0)
+
+    def test_impact_simulator_invalid_init_raises_type_error(self):
+        from impact_simulator import ImpactSimulator
+        with self.assertRaises(TypeError):
+            ImpactSimulator("not_a_snapshot", [])
+
+    def test_impact_simulator_empty_recommendations_boundary(self):
+        from impact_simulator import MetricSnapshot, ImpactSimulator
+        snap = MetricSnapshot(10.0, 2, 3, 0.4, 0.6)
+        sim = ImpactSimulator(snap, [])
+        res = sim.simulate()
+        self.assertEqual(res.after.total_coupling_debt, 10.0)
+        self.assertEqual(res.after.total_cycle_count, 2)
+        self.assertEqual(res.after.total_violations, 3)
+
+    def test_impact_simulator_correct_simulation_math(self):
+        from impact_simulator import MetricSnapshot, ImpactSimulator
+        from recommendation_engine import Recommendation
+        snap = MetricSnapshot(25.0, 5, 4, 0.4, 0.6)
+        recs = [
+            Recommendation("a.py", "ADP", "circular_dependency", "fix", {"coupling_debt": -15.0, "cycle_count": -1, "violations_resolved": 1}, 1, 1),
+            Recommendation("b.py", "DIP", "high_fan_out", "fix", {"coupling_debt": -5.0, "cycle_count": 0, "violations_resolved": 1}, 3, 2)
+        ]
+        sim = ImpactSimulator(snap, recs)
+        res = sim.simulate()
+        # coupling debt: 25.0 + (-15.0) + (-5.0) = 5.0
+        self.assertEqual(res.after.total_coupling_debt, 5.0)
+        # cycles: 5 + (-1) = 4
+        self.assertEqual(res.after.total_cycle_count, 4)
+        # violations: 4 - 2 = 2
+        self.assertEqual(res.after.total_violations, 2)
+
+    def test_impact_simulator_clamping_prevents_negative_values(self):
+        from impact_simulator import MetricSnapshot, ImpactSimulator
+        from recommendation_engine import Recommendation
+        snap = MetricSnapshot(10.0, 1, 1, 0.4, 0.6)
+        recs = [
+            Recommendation("a.py", "ADP", "circular_dependency", "fix", {"coupling_debt": -15.0, "cycle_count": -2, "violations_resolved": 1}, 1, 1),
+            Recommendation("b.py", "DIP", "high_fan_out", "fix", {"coupling_debt": -5.0, "cycle_count": 0, "violations_resolved": 1}, 3, 2)
+        ]
+        sim = ImpactSimulator(snap, recs)
+        res = sim.simulate()
+        self.assertEqual(res.after.total_coupling_debt, 0.0)
+        self.assertEqual(res.after.total_cycle_count, 0)
+        self.assertEqual(res.after.total_violations, 0)
+
+    def test_simulation_result_dataclass(self):
+        from impact_simulator import MetricSnapshot, SimulationResult
+        snap1 = MetricSnapshot(10.0, 1, 1, 0.4, 0.6)
+        snap2 = MetricSnapshot(5.0, 0, 0, 0.4, 0.6)
+        res = SimulationResult(before=snap1, after=snap2)
+        self.assertEqual(res.before, snap1)
+        self.assertEqual(res.after, snap2)
+
+    def test_impact_simulator_clamping_floats_and_integers(self):
+        from impact_simulator import MetricSnapshot, ImpactSimulator
+        from recommendation_engine import Recommendation
+        # If expected_delta yields non-integral float values for cycles, they must be clamped/cast to integer
+        snap = MetricSnapshot(10.0, 5, 2, 0.4, 0.6)
+        recs = [
+            Recommendation("a.py", "ADP", "circular_dependency", "fix", {"coupling_debt": -5.5, "cycle_count": -2, "violations_resolved": 1}, 1, 1)
+        ]
+        sim = ImpactSimulator(snap, recs)
+        res = sim.simulate()
+        self.assertIsInstance(res.after.total_coupling_debt, float)
+        self.assertEqual(res.after.total_coupling_debt, 4.5)
+        self.assertIsInstance(res.after.total_cycle_count, int)
+        self.assertEqual(res.after.total_cycle_count, 3)
+
+    def test_impact_simulator_avg_metrics_carried_forward(self):
+        from impact_simulator import MetricSnapshot, ImpactSimulator
+        # Instability and hotspot scores must remain unchanged
+        snap = MetricSnapshot(10.0, 5, 2, 0.35, 0.75)
+        sim = ImpactSimulator(snap, [])
+        res = sim.simulate()
+        self.assertEqual(res.after.avg_instability, 0.35)
+        self.assertEqual(res.after.avg_hotspot_score, 0.75)
+
+
 if __name__ == "__main__":
     print("[+] Running Ultron Core Tests...")
     unittest.main()
