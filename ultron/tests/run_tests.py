@@ -1716,6 +1716,79 @@ class TestKnowledgeGraph(unittest.TestCase):
             lookup("   ")
 
 
+
+class MockCard:
+    def __init__(self, filepath, principle):
+        self.filepath = filepath
+        self.principle = principle
+
+
+class TestRecommendationEngine(unittest.TestCase):
+
+    def test_recommendation_engine_invalid_init(self):
+        from recommendation_engine import RecommendationEngine
+        # init with non-list
+        with self.assertRaises(TypeError):
+            RecommendationEngine("not_a_list")
+
+    def test_recommendation_engine_skips_invalid_cards(self):
+        from recommendation_engine import RecommendationEngine
+        # missing filepath / principle or unrecognized principle
+        cards = [
+            MockCard(None, "Acyclic Dependencies Principle (ADP)"),
+            MockCard("a.py", None),
+            MockCard("a.py", "Unrecognized Principle")
+        ]
+        recs = RecommendationEngine(cards).generate()
+        self.assertEqual(len(recs), 0)
+
+    def test_recommendation_engine_sorting_and_ranking(self):
+        from recommendation_engine import RecommendationEngine
+        # ADP = severity 1, DIP = severity 3, SDP = severity 2
+        cards = [
+            MockCard("b.py", "Dependency Inversion Principle (DIP)"),
+            MockCard("a.py", "Dependency Inversion Principle (DIP)"),
+            MockCard("c.py", "Acyclic Dependencies Principle (ADP)"),
+            MockCard("d.py", "Stable Dependencies Principle (SDP)")
+        ]
+        recs = RecommendationEngine(cards).generate()
+        self.assertEqual(len(recs), 4)
+
+        # Expected sort order:
+        # 1. c.py (ADP, severity 1) -> priority_rank = 1
+        # 2. d.py (SDP, severity 2) -> priority_rank = 2
+        # 3. a.py (DIP, severity 3) -> priority_rank = 3 (due to tie-breaker a.py < b.py)
+        # 4. b.py (DIP, severity 3) -> priority_rank = 4
+
+        self.assertEqual(recs[0].principle, "Acyclic Dependencies Principle (ADP)")
+        self.assertEqual(recs[0].filepath, "c.py")
+        self.assertEqual(recs[0].priority_rank, 1)
+
+        self.assertEqual(recs[1].principle, "Stable Dependencies Principle (SDP)")
+        self.assertEqual(recs[1].filepath, "d.py")
+        self.assertEqual(recs[1].priority_rank, 2)
+
+        self.assertEqual(recs[2].principle, "Dependency Inversion Principle (DIP)")
+        self.assertEqual(recs[2].filepath, "a.py")
+        self.assertEqual(recs[2].priority_rank, 3)
+
+        self.assertEqual(recs[3].principle, "Dependency Inversion Principle (DIP)")
+        self.assertEqual(recs[3].filepath, "b.py")
+        self.assertEqual(recs[3].priority_rank, 4)
+
+    def test_recommendation_dataclass_validation(self):
+        from recommendation_engine import Recommendation
+        # invalid filepath
+        with self.assertRaises(TypeError):
+            Recommendation(None, "ADP", "smell", "refact", {}, 1, 1)
+        # invalid severity
+        with self.assertRaises(ValueError):
+            Recommendation("f.py", "ADP", "smell", "refact", {}, 0, 1)
+        # invalid priority_rank
+        with self.assertRaises(ValueError):
+            Recommendation("f.py", "ADP", "smell", "refact", {}, 1, 0)
+
+
 if __name__ == "__main__":
     print("[+] Running Ultron Core Tests...")
     unittest.main()
