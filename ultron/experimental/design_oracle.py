@@ -542,4 +542,49 @@ def generate_oracle_report(codebase, repo_path, risks=None):
     except Exception as e:
         lines.append(f"_Error generating reasoning report: {e}_\n")
 
+    # 6. Implementation Contracts
+    # NOTE: heading is inside the try block so that nullifying this logic
+    # removes the header, failing the test-laundering guard.
+    try:
+        from reasoning import ReasoningEngine as _RE
+        from knowledge_graph import KNOWLEDGE_GRAPH
+        from impact_simulator import MetricSnapshot
+        from contract_generator import ContractGenerator
+
+        _engine = _RE(codebase, repo_path)
+        _violations = _engine.analyze()
+
+        # Build a MetricSnapshot from aggregate scan metrics, clamping to valid bounds
+        _total_debt = sum(e["coupling_debt"] for e in debt_scores)
+        _cycle_count = len(cycles)
+        _total_violations = len(_violations)
+        _avg_hs = (sum(e["hotspot_score"] for e in hotspots) / len(hotspots)) if hotspots else 0.0
+        _avg_inst = (sum(e["instability"] for e in debt_scores) / len(debt_scores)) if debt_scores else 0.0
+
+        # Clamp all values defensively
+        _avg_hs = max(0.0, min(1.0, _avg_hs))
+        _avg_inst = max(0.0, min(1.0, _avg_inst))
+        _total_debt = max(0.0, float(_total_debt))
+        _cycle_count = max(0, _cycle_count)
+        _total_violations = max(0, _total_violations)
+
+        _snapshot = MetricSnapshot(
+            total_coupling_debt=_total_debt,
+            total_cycle_count=_cycle_count,
+            total_violations=_total_violations,
+            avg_instability=_avg_inst,
+            avg_hotspot_score=_avg_hs
+        )
+
+        _generator = ContractGenerator(_violations, KNOWLEDGE_GRAPH, _snapshot)
+        _cards = _generator.generate()
+
+        lines.append("## Implementation Contracts\n")
+        if _cards:
+            lines.append(_generator.render_markdown(_cards))
+        else:
+            lines.append("_No implementation contracts generated (no violations detected)._\n")
+    except Exception as e:
+        lines.append(f"_Error generating implementation contracts: {e}_\n")
+
     return "\n".join(lines)

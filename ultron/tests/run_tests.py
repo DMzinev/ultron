@@ -1903,6 +1903,113 @@ class TestImpactSimulator(unittest.TestCase):
         self.assertEqual(res.after.avg_hotspot_score, 0.75)
 
 
+
+class TestContractGenerator(unittest.TestCase):
+
+    def _make_snapshot(self):
+        from impact_simulator import MetricSnapshot
+        return MetricSnapshot(10.0, 1, 1, 0.5, 0.5)
+
+    def _make_violation(self, filepath, principle, smell):
+        return MockCard(filepath, principle)
+
+    def test_contract_card_rejects_empty_filepath(self):
+        from contract_generator import ContractCard
+        snap = self._make_snapshot()
+        with self.assertRaises(TypeError):
+            ContractCard("", [], snap, snap)
+
+    def test_contract_card_rejects_non_string_filepath(self):
+        from contract_generator import ContractCard
+        snap = self._make_snapshot()
+        with self.assertRaises(TypeError):
+            ContractCard(123, [], snap, snap)
+
+    def test_contract_card_rejects_non_list_recommendations(self):
+        from contract_generator import ContractCard
+        snap = self._make_snapshot()
+        with self.assertRaises(TypeError):
+            ContractCard("a.py", "not_a_list", snap, snap)
+
+    def test_contract_generator_rejects_non_list_violations(self):
+        from contract_generator import ContractGenerator
+        snap = self._make_snapshot()
+        with self.assertRaises(TypeError):
+            ContractGenerator("not_a_list", [], snap)
+
+    def test_contract_generator_rejects_invalid_knowledge_graph(self):
+        from contract_generator import ContractGenerator
+        snap = self._make_snapshot()
+        with self.assertRaises(TypeError):
+            ContractGenerator([], None, snap)
+        with self.assertRaises(TypeError):
+            ContractGenerator([], "string_is_invalid", snap)
+
+    def test_contract_generator_rejects_invalid_baseline(self):
+        from contract_generator import ContractGenerator
+        with self.assertRaises(TypeError):
+            ContractGenerator([], [], "not_a_snapshot")
+
+    def test_generate_returns_sorted_cards_by_filepath(self):
+        from contract_generator import ContractGenerator
+        from knowledge_graph import KNOWLEDGE_GRAPH
+        snap = self._make_snapshot()
+        violations = [
+            self._make_violation("b.py", "Dependency Inversion Principle (DIP)", "high_fan_out"),
+            self._make_violation("a.py", "Dependency Inversion Principle (DIP)", "high_fan_out")
+        ]
+        generator = ContractGenerator(violations, KNOWLEDGE_GRAPH, snap)
+        cards = generator.generate()
+        self.assertEqual(len(cards), 2)
+        self.assertEqual(cards[0].filepath, "a.py")
+        self.assertEqual(cards[1].filepath, "b.py")
+
+    def test_render_markdown_raises_on_empty_list(self):
+        from contract_generator import ContractGenerator
+        snap = self._make_snapshot()
+        generator = ContractGenerator([], [], snap)
+        with self.assertRaises(ValueError):
+            generator.render_markdown([])
+
+    def test_render_markdown_contains_filepath_and_principle(self):
+        from contract_generator import ContractGenerator
+        from knowledge_graph import KNOWLEDGE_GRAPH
+        snap = self._make_snapshot()
+        violations = [
+            self._make_violation("a.py", "Dependency Inversion Principle (DIP)", "high_fan_out")
+        ]
+        generator = ContractGenerator(violations, KNOWLEDGE_GRAPH, snap)
+        cards = generator.generate()
+        md = generator.render_markdown(cards)
+        self.assertIn("a.py", md)
+        self.assertIn("Dependency Inversion Principle (DIP)", md)
+        # Verify the theoretical best-case projection caveat is in the output text
+        self.assertIn("All projected metrics are theoretical, best-case projections", md)
+
+    def test_generate_returns_empty_list_for_no_violations(self):
+        from contract_generator import ContractGenerator
+        from knowledge_graph import KNOWLEDGE_GRAPH
+        snap = self._make_snapshot()
+        generator = ContractGenerator([], KNOWLEDGE_GRAPH, snap)
+        cards = generator.generate()
+        self.assertEqual(cards, [])
+
+    def test_oracle_report_contains_implementation_contracts_section(self):
+        """
+        Test laundering guard: generate_oracle_report must produce a section
+        header '## Implementation Contracts' so that nullifying the Section 6
+        block in design_oracle.py causes this test to fail.
+        """
+        import os
+        repo_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..")
+        )
+        from design_oracle import generate_oracle_report
+        codebase = {"ultron/experimental/reasoning.py": {"imports": [], "definitions": []}}
+        report = generate_oracle_report(codebase, repo_path)
+        self.assertIn("## Implementation Contracts", report)
+
+
 if __name__ == "__main__":
     print("[+] Running Ultron Core Tests...")
     unittest.main()
