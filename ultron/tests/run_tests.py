@@ -1648,6 +1648,74 @@ class TestArchitecturalReasoning(unittest.TestCase):
         self.assertEqual(a_cards[1].principle, "Dependency Inversion Principle (DIP)")
 
 
+
+class TestKnowledgeGraph(unittest.TestCase):
+
+    def test_knowledge_edge_invalid_type_raises_type_error(self):
+        from knowledge_graph import KnowledgeEdge
+        # smell_key not str
+        with self.assertRaises(TypeError):
+            KnowledgeEdge(123, "recommend", {}, 2)
+        # refactoring not str
+        with self.assertRaises(TypeError):
+            KnowledgeEdge("key", None, {}, 2)
+        # expected_delta not dict
+        with self.assertRaises(TypeError):
+            KnowledgeEdge("key", "recommend", "not_a_dict", 2)
+        # severity not int
+        with self.assertRaises(TypeError):
+            KnowledgeEdge("key", "recommend", {}, "not_an_int")
+
+    def test_knowledge_edge_invalid_severity_raises_value_error(self):
+        from knowledge_graph import KnowledgeEdge
+        # severity < 1
+        with self.assertRaises(ValueError):
+            KnowledgeEdge("key", "recommend", {"coupling_debt": 0.0, "cycle_count": 0, "violations_resolved": 1}, 0)
+        # severity > 5
+        with self.assertRaises(ValueError):
+            KnowledgeEdge("key", "recommend", {"coupling_debt": 0.0, "cycle_count": 0, "violations_resolved": 1}, 6)
+
+    def test_knowledge_edge_invalid_delta_keys_raises_value_error(self):
+        from knowledge_graph import KnowledgeEdge
+        # missing expected keys
+        with self.assertRaises(ValueError):
+            KnowledgeEdge("key", "recommend", {"coupling_debt": 0.0}, 2)
+
+    def test_canonical_graph_edges(self):
+        from knowledge_graph import KNOWLEDGE_GRAPH
+        self.assertEqual(len(KNOWLEDGE_GRAPH), 6)
+        keys = [edge.smell_key for edge in KNOWLEDGE_GRAPH]
+        expected_keys = {
+            "circular_dependency",
+            "unstable_dependency",
+            "stable_depends_on_volatile",
+            "high_fan_out",
+            "abstraction_leak",
+            "god_object_hotspot"
+        }
+        self.assertEqual(set(keys), expected_keys)
+
+    def test_lookup_success(self):
+        from knowledge_graph import lookup
+        edge = lookup("circular_dependency")
+        self.assertEqual(edge.severity, 1)
+        self.assertEqual(edge.expected_delta["cycle_count"], -1)
+
+    def test_lookup_key_error(self):
+        from knowledge_graph import lookup
+        with self.assertRaises(KeyError):
+            lookup("non_existent_key")
+
+    def test_lookup_type_error(self):
+        from knowledge_graph import lookup
+        # None parameter
+        with self.assertRaises(TypeError):
+            lookup(None)
+        # empty string parameter
+        with self.assertRaises(TypeError):
+            lookup("   ")
+
+
 if __name__ == "__main__":
     print("[+] Running Ultron Core Tests...")
     unittest.main()
