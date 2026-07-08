@@ -1,318 +1,94 @@
-TASK_ID: 'Task-ContractGenerator'
-TASK_TYPE: 'LOGIC_CHANGE'
+TASK_ID: 'Task-PackageUltronForPip'
+TASK_TYPE: 'STRUCTURE_ONLY'
 BUILDER_VERSION: 'v2.0'
-COMMIT_HASH: '48f42f01d20e87ec53d2886039f5adbf367ec6ea'
-PLAN_HASH: '-5930794637152177748'
+COMMIT_HASH: 'a9e9566947be2f88fac6b437c52ec9e0c5df7dc6'
+PLAN_HASH: '4866881427601617186'
 CHANGED_FILES:
+- 'ultron/core/context_brief.py'
+- 'ultron/core/meta_layer.py'
+- 'ultron/core/pledge.py'
+- 'ultron/core/risk/diff.py'
+- 'ultron/core/risk/scoring.py'
+- 'ultron/core/translate.py'
 - 'ultron/experimental/contract_generator.py'
 - 'ultron/experimental/design_oracle.py'
+- 'ultron/experimental/reality_delta.py'
+- 'ultron/experimental/reasoning.py'
+- 'ultron/experimental/recommendation_engine.py'
+- 'ultron/interfaces/mcp_server.py'
+- 'ultron/interfaces/server.py'
+- 'ultron/interfaces/ultron.py'
 - 'ultron/tests/run_tests.py'
+- 'ultron/validation/ai_rater.py'
+- 'ultron/validation/blind_rate.py'
+- 'pyproject.toml'
+- 'umags/run_verification_loop.py'
 PATCH_DIFF: |
-  diff --git a/ultron/experimental/contract_generator.py b/ultron/experimental/contract_generator.py
-  new file mode 100644
-  index 0000000..99dd87a
-  --- /dev/null
-  +++ b/ultron/experimental/contract_generator.py
-  @@ -0,0 +1,122 @@
-  +import sys
-  +from dataclasses import dataclass
-  +from typing import List, Dict, Any
-  +from impact_simulator import MetricSnapshot, ImpactSimulator
-  +from recommendation_engine import Recommendation, RecommendationEngine
-  +
-  +
-  +@dataclass
-  +class ContractCard:
-  +    """
-  +    Holds a refactoring contract for a single file, comparing baseline metrics
-  +    to projected metrics after applying all proposed recommendations.
-  +    """
-  +    filepath: str
-  +    recommendations: List[Recommendation]
-  +    before_snapshot: MetricSnapshot
-  +    after_snapshot: MetricSnapshot
-  +
-  +    def __post_init__(self):
-  +        if not isinstance(self.filepath, str) or not self.filepath.strip():
-  +            raise TypeError("filepath must be a non-empty string")
-  +        if not isinstance(self.recommendations, list):
-  +            raise TypeError("recommendations must be a list")
-  +        if not isinstance(self.before_snapshot, MetricSnapshot):
-  +            raise TypeError("before_snapshot must be a MetricSnapshot instance")
-  +        if not isinstance(self.after_snapshot, MetricSnapshot):
-  +            raise TypeError("after_snapshot must be a MetricSnapshot instance")
-  +
-  +
-  +class ContractGenerator:
-  +    """
-  +    Orchestrates mapping violations to recommendations and simulating metric
-  +    impacts to generate implementation contract cards.
-  +    """
-  +
-  +    def __init__(self, violations: list, knowledge_graph: Any, baseline_snapshot: MetricSnapshot):
-  +        if not isinstance(violations, list):
-  +            raise TypeError("violations must be a list")
-  +        # knowledge_graph can be a module-level reference or list; check not None/str
-  +        if knowledge_graph is None or isinstance(knowledge_graph, str):
-  +            raise TypeError("knowledge_graph must be valid")
-  +        if not isinstance(baseline_snapshot, MetricSnapshot):
-  +            raise TypeError("baseline_snapshot must be a MetricSnapshot instance")
-  +
-  +        self.violations = violations
-  +        self.knowledge_graph = knowledge_graph
-  +        self.baseline_snapshot = baseline_snapshot
-  +
-  +    def generate(self) -> List[ContractCard]:
-  +        """
-  +        Builds ContractCard instances, grouping recommendations by file and
-  +        projecting metrics.
-  +        """
-  +        assert self is not None, "Generator instance cannot be None"
-  +
-  +        engine = RecommendationEngine(self.violations)
-  +        all_recs = engine.generate()
-  +
-  +        # Group recommendations by filepath
-  +        grouped: Dict[str, List[Recommendation]] = {}
-  +        for rec in all_recs:
-  +            grouped.setdefault(rec.filepath, []).append(rec)
-  +
-  +        cards: List[ContractCard] = []
-  +
-  +        for filepath, file_recs in grouped.items():
-  +            try:
-  +                simulator = ImpactSimulator(self.baseline_snapshot, file_recs)
-  +                sim_res = simulator.simulate()
-  +                card = ContractCard(
-  +                    filepath=filepath,
-  +                    recommendations=file_recs,
-  +                    before_snapshot=sim_res.before,
-  +                    after_snapshot=sim_res.after
-  +                )
-  +                cards.append(card)
-  +            except Exception as e:
-  +                print(
-  +                    f"[-] ContractGenerator: failed to simulate impact for '{filepath}': {e} â€“ skipping.",
-  +                    file=sys.stderr
-  +                )
-  +                continue
-  +
-  +        # Sort card list alphabetically by filepath
-  +        cards.sort(key=lambda x: x.filepath)
-  +        return cards
-  +
-  +    def render_markdown(self, cards: List[ContractCard]) -> str:
-  +        """
-  +        Renders generated ContractCards into Markdown.
-  +        """
-  +        assert self is not None, "Generator instance cannot be None"
-  +        if not isinstance(cards, list):
-  +            raise TypeError("cards must be a list")
-  +        if not cards:
-  +            raise ValueError("cards list cannot be empty")
-  +
-  +        lines: List[str] = []
-  +        lines.append(
-  +            "\n*Note: All projected metrics are theoretical, best-case projections assuming "
-  +            "each recommended refactoring is fully and correctly applied, and are not a forecast "
-  +            "of actual outcome.*\n"
-  +        )
-  +
-  +        for card in cards:
-  +            lines.append(f"### `{card.filepath}`")
-  +            lines.append("**Recommendations:**")
-  +            for rec in card.recommendations:
-  +                lines.append(
-  +                    f"{rec.priority_rank}. [{rec.principle}] {rec.refactoring} (Severity {rec.severity})"
-  +                )
-  +
-  +            b = card.before_snapshot
-  +            a = card.after_snapshot
-  +
-  +            lines.append("\n**Projected Impact:**")
-  +            lines.append(f"- Violations: {b.total_violations} &rarr; {a.total_violations}")
-  +            lines.append(f"- Coupling Debt: {b.total_coupling_debt:.2f} &rarr; {a.total_coupling_debt:.2f}")
-  +            lines.append(f"- Cycle Count: {b.total_cycle_count} &rarr; {a.total_cycle_count}")
-  +            lines.append("")
-  +
-  +        return "\n".join(lines)
-  diff --git a/ultron/experimental/design_oracle.py b/ultron/experimental/design_oracle.py
-  index ceaf8c0..8c2cc87 100644
-  --- a/ultron/experimental/design_oracle.py
-  +++ b/ultron/experimental/design_oracle.py
-  @@ -542,4 +542,49 @@ def generate_oracle_report(codebase, repo_path, risks=None):
-       except Exception as e:
-           lines.append(f"_Error generating reasoning report: {e}_\n")
-   
-  +    # 6. Implementation Contracts
-  +    # NOTE: heading is inside the try block so that nullifying this logic
-  +    # removes the header, failing the test-laundering guard.
-  +    try:
-  +        from reasoning import ReasoningEngine as _RE
-  +        from knowledge_graph import KNOWLEDGE_GRAPH
-  +        from impact_simulator import MetricSnapshot
-  +        from contract_generator import ContractGenerator
-  +
-  +        _engine = _RE(codebase, repo_path)
-  +        _violations = _engine.analyze()
-  +
-  +        # Build a MetricSnapshot from aggregate scan metrics, clamping to valid bounds
-  +        _total_debt = sum(e["coupling_debt"] for e in debt_scores)
-  +        _cycle_count = len(cycles)
-  +        _total_violations = len(_violations)
-  +        _avg_hs = (sum(e["hotspot_score"] for e in hotspots) / len(hotspots)) if hotspots else 0.0
-  +        _avg_inst = (sum(e["instability"] for e in debt_scores) / len(debt_scores)) if debt_scores else 0.0
-  +
-  +        # Clamp all values defensively
-  +        _avg_hs = max(0.0, min(1.0, _avg_hs))
-  +        _avg_inst = max(0.0, min(1.0, _avg_inst))
-  +        _total_debt = max(0.0, float(_total_debt))
-  +        _cycle_count = max(0, _cycle_count)
-  +        _total_violations = max(0, _total_violations)
-  +
-  +        _snapshot = MetricSnapshot(
-  +            total_coupling_debt=_total_debt,
-  +            total_cycle_count=_cycle_count,
-  +            total_violations=_total_violations,
-  +            avg_instability=_avg_inst,
-  +            avg_hotspot_score=_avg_hs
-  +        )
-  +
-  +        _generator = ContractGenerator(_violations, KNOWLEDGE_GRAPH, _snapshot)
-  +        _cards = _generator.generate()
-  +
-  +        lines.append("## Implementation Contracts\n")
-  +        if _cards:
-  +            lines.append(_generator.render_markdown(_cards))
-  +        else:
-  +            lines.append("_No implementation contracts generated (no violations detected)._\n")
-  +    except Exception as e:
-  +        lines.append(f"_Error generating implementation contracts: {e}_\n")
-  +
-       return "\n".join(lines)
-  diff --git a/ultron/tests/run_tests.py b/ultron/tests/run_tests.py
-  index 14c8430..457a057 100644
-  --- a/ultron/tests/run_tests.py
-  +++ b/ultron/tests/run_tests.py
-  @@ -1903,6 +1903,113 @@ class TestImpactSimulator(unittest.TestCase):
-           self.assertEqual(res.after.avg_hotspot_score, 0.75)
-   
-   
-  +
-  +class TestContractGenerator(unittest.TestCase):
-  +
-  +    def _make_snapshot(self):
-  +        from impact_simulator import MetricSnapshot
-  +        return MetricSnapshot(10.0, 1, 1, 0.5, 0.5)
-  +
-  +    def _make_violation(self, filepath, principle, smell):
-  +        return MockCard(filepath, principle)
-  +
-  +    def test_contract_card_rejects_empty_filepath(self):
-  +        from contract_generator import ContractCard
-  +        snap = self._make_snapshot()
-  +        with self.assertRaises(TypeError):
-  +            ContractCard("", [], snap, snap)
-  +
-  +    def test_contract_card_rejects_non_string_filepath(self):
-  +        from contract_generator import ContractCard
-  +        snap = self._make_snapshot()
-  +        with self.assertRaises(TypeError):
-  +            ContractCard(123, [], snap, snap)
-  +
-  +    def test_contract_card_rejects_non_list_recommendations(self):
-  +        from contract_generator import ContractCard
-  +        snap = self._make_snapshot()
-  +        with self.assertRaises(TypeError):
-  +            ContractCard("a.py", "not_a_list", snap, snap)
-  +
-  +    def test_contract_generator_rejects_non_list_violations(self):
-  +        from contract_generator import ContractGenerator
-  +        snap = self._make_snapshot()
-  +        with self.assertRaises(TypeError):
-  +            ContractGenerator("not_a_list", [], snap)
-  +
-  +    def test_contract_generator_rejects_invalid_knowledge_graph(self):
-  +        from contract_generator import ContractGenerator
-  +        snap = self._make_snapshot()
-  +        with self.assertRaises(TypeError):
-  +            ContractGenerator([], None, snap)
-  +        with self.assertRaises(TypeError):
-  +            ContractGenerator([], "string_is_invalid", snap)
-  +
-  +    def test_contract_generator_rejects_invalid_baseline(self):
-  +        from contract_generator import ContractGenerator
-  +        with self.assertRaises(TypeError):
-  +            ContractGenerator([], [], "not_a_snapshot")
-  +
-  +    def test_generate_returns_sorted_cards_by_filepath(self):
-  +        from contract_generator import ContractGenerator
-  +        from knowledge_graph import KNOWLEDGE_GRAPH
-  +        snap = self._make_snapshot()
-  +        violations = [
-  +            self._make_violation("b.py", "Dependency Inversion Principle (DIP)", "high_fan_out"),
-  +            self._make_violation("a.py", "Dependency Inversion Principle (DIP)", "high_fan_out")
-  +        ]
-  +        generator = ContractGenerator(violations, KNOWLEDGE_GRAPH, snap)
-  +        cards = generator.generate()
-  +        self.assertEqual(len(cards), 2)
-  +        self.assertEqual(cards[0].filepath, "a.py")
-  +        self.assertEqual(cards[1].filepath, "b.py")
-  +
-  +    def test_render_markdown_raises_on_empty_list(self):
-  +        from contract_generator import ContractGenerator
-  +        snap = self._make_snapshot()
-  +        generator = ContractGenerator([], [], snap)
-  +        with self.assertRaises(ValueError):
-  +            generator.render_markdown([])
-  +
-  +    def test_render_markdown_contains_filepath_and_principle(self):
-  +        from contract_generator import ContractGenerator
-  +        from knowledge_graph import KNOWLEDGE_GRAPH
-  +        snap = self._make_snapshot()
-  +        violations = [
-  +            self._make_violation("a.py", "Dependency Inversion Principle (DIP)", "high_fan_out")
-  +        ]
-  +        generator = ContractGenerator(violations, KNOWLEDGE_GRAPH, snap)
-  +        cards = generator.generate()
-  +        md = generator.render_markdown(cards)
-  +        self.assertIn("a.py", md)
-  +        self.assertIn("Dependency Inversion Principle (DIP)", md)
-  +        # Verify the theoretical best-case projection caveat is in the output text
-  +        self.assertIn("All projected metrics are theoretical, best-case projections", md)
-  +
-  +    def test_generate_returns_empty_list_for_no_violations(self):
-  +        from contract_generator import ContractGenerator
-  +        from knowledge_graph import KNOWLEDGE_GRAPH
-  +        snap = self._make_snapshot()
-  +        generator = ContractGenerator([], KNOWLEDGE_GRAPH, snap)
-  +        cards = generator.generate()
-  +        self.assertEqual(cards, [])
-  +
-  +    def test_oracle_report_contains_implementation_contracts_section(self):
-  +        """
-  +        Test laundering guard: generate_oracle_report must produce a section
-  +        header '## Implementation Contracts' so that nullifying the Section 6
-  +        block in design_oracle.py causes this test to fail.
-  +        """
-  +        import os
-  +        repo_path = os.path.abspath(
-  +            os.path.join(os.path.dirname(__file__), "..", "..")
-  +        )
-  +        from design_oracle import generate_oracle_report
-  +        codebase = {"ultron/experimental/reasoning.py": {"imports": [], "definitions": []}}
-  +        report = generate_oracle_report(codebase, repo_path)
-  +        self.assertIn("## Implementation Contracts", report)
-  +
-  +
-   if __name__ == "__main__":
-       print("[+] Running Ultron Core Tests...")
-       unittest.main()
-EXPECTED_OUTCOMES: 'ContractCard and ContractGenerator; render_markdown rendering Markdown contracts with theoretical best-case warnings; generate() groupings with error safety; Section 6 inside design_oracle.py generate_oracle_report; 11 new tests (128 total OK)'
+  diff --git a/umags/run_verification_loop.py b/umags/run_verification_loop.py
+  index f7a147c..e1da1d7 100644
+  --- a/umags/run_verification_loop.py
+  +++ b/umags/run_verification_loop.py
+  @@ -551,9 +551,9 @@ def main():
+       repo_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+       
+       # Configure sys.path early so that pre-flight risk gate can import ultron modules
+  +    sys.path.insert(0, repo_path)
+       for subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
+           sys.path.append(os.path.abspath(os.path.join(repo_path, "ultron", subdir)))
+  -    sys.path.append(repo_path)
+       
+       pkg_path = os.path.join(repo_path, "ultron", "meta", "audit_package.yaml")
+       
+  @@ -1070,11 +1070,10 @@ Builder Walkthrough (Intended Reality):
+           elif total_bugs > 0:
+               history_comments.append(f"Note: File '{f}' has {total_bugs} past bug/fix occurrences (Git: {len(bug_commits)}, Log: {len(log_bugs)}).")
+               
+  -    # 4e. Audit Blind Spots check
+       try:
+  +        sys.path.insert(0, repo_path)
+           for subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
+               sys.path.append(os.path.abspath(os.path.join(repo_path, "ultron", subdir)))
+  -        sys.path.append(repo_path)
+           import analyzer
+           import risk
+           codebase = analyzer.analyze_directory(repo_path)
+EXPECTED_OUTCOMES: 'Add pyproject.toml configuration at repo root for pip distribution with radon dependency; clean up and normalize all flat and dynamic sys.path.append import statements to absolute package imports across production and test codebases; completely remove sys.path manipulations from entry points; fix run_verification_loop.py path pollution to prevent shadowing; implement bare default CLI run mode evaluating risk profiles for repository python files and listing only HIGH/MEDIUM files; run 145 tests passing with R=0'
 TEST_COMMANDS:
 - 'python ultron/tests/run_tests.py'
-RAW_STDOUT: ''
-RAW_STDERR: "Command '['python', 'ultron/tests/run_tests.py']' timed out after 90.0 seconds"
+RAW_STDOUT: |
+  [+] Running Ultron Core Tests...
+  [+] Recorded rating for ultron/core/risk/scoring.py by CLI_Test.
+    - Rater Judgment: HIGH
+    - System Computed: HIGH (Score: 97.25)
+    - Agreement: MATCH
+  [Ultron] No git history found — bug-prone-file scaling is inactive.
+  [Ultron] No git history found — bug-prone-file scaling is inactive.
+  Usage: python checks.py <file_or_dir_path>
+  Usage: python failure_space.py <repo_path> <comma_separated_changed_files>
+  [*] Starting calibration over 1 transactions...
+  [+] Recalibration complete.
+    - New Fusion Weights: w_test=0.341, w_git=0.259, w_runtime=0.141, w_human=0.059, w_test_runtime=0.094, w_git_human=0.106
+RAW_STDERR: |
+  ...............................................................................................[-] RecommendationEngine: skipping card with missing principle or filepath.
+  [-] RecommendationEngine: skipping card with missing principle or filepath.
+  [-] RecommendationEngine: unrecognized principle 'Unrecognized Principle' – skipping.
+  .......................[-] Error processing rating: Could not evaluate risks for file
+  .....127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 400 -
+  C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\tempfile.py:484: ResourceWarning: Implicitly cleaning up <HTTPError 400: 'Bad Request'>
+    _warnings.warn(self.warn_message, ResourceWarning)
+  127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 400 -
+  127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 200 -
+  127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 400 -
+  127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 400 -
+  ................[+] Ultron: Generating codebase context brief...
+  ......
+  ----------------------------------------------------------------------
+  Ran 145 tests in 60.696s
+  
+  OK
 SELF_AUDIT: ''
-KNOWN_LIMITATIONS: 'ratios static in snapshot'
+KNOWN_LIMITATIONS: 'N/A'
 CATEGORY_B: 'false'

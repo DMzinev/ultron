@@ -551,9 +551,9 @@ def main():
     repo_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
     
     # Configure sys.path early so that pre-flight risk gate can import ultron modules
+    sys.path.insert(0, repo_path)
     for subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
         sys.path.append(os.path.abspath(os.path.join(repo_path, "ultron", subdir)))
-    sys.path.append(repo_path)
     
     pkg_path = os.path.join(repo_path, "ultron", "meta", "audit_package.yaml")
     
@@ -1070,11 +1070,10 @@ Builder Walkthrough (Intended Reality):
         elif total_bugs > 0:
             history_comments.append(f"Note: File '{f}' has {total_bugs} past bug/fix occurrences (Git: {len(bug_commits)}, Log: {len(log_bugs)}).")
             
-    # 4e. Audit Blind Spots check
     try:
+        sys.path.insert(0, repo_path)
         for subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
             sys.path.append(os.path.abspath(os.path.join(repo_path, "ultron", subdir)))
-        sys.path.append(repo_path)
         import analyzer
         import risk
         codebase = analyzer.analyze_directory(repo_path)
