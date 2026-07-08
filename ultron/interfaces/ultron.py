@@ -3,10 +3,6 @@ import sys
 import os
 import json
 
-# Add parent directory of 'ultron' to sys.path to enable package imports in-place
-_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.abspath(os.path.join(_dir, "..", "..")))
-
 from ultron.core import analyzer
 from ultron.core import risk
 from ultron.core import prompt
