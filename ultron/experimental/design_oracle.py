@@ -6,23 +6,54 @@ import subprocess
 # Centralized list of directory patterns to exclude from Design Oracle abstraction leak scanning
 EXCLUDED_PATTERNS = ["tests/", "scratch/", "synapse_project/"]
 
+def _filter_codebase(codebase):
+    if not isinstance(codebase, dict):
+        raise TypeError("codebase must be a dictionary")
+    filtered = {}
+    for k, v in codebase.items():
+        norm_k = k.replace("\\", "/")
+        if not any(p in norm_k for p in EXCLUDED_PATTERNS):
+            filtered[norm_k] = v
+    return filtered
+
+
 def get_import_mappings(codebase):
     """
     Builds a directed dependency graph of file paths mapping to list of imported file paths.
     """
-    graph = {rel_path: set() for rel_path in codebase}
-    
-    for rel_path, analysis in codebase.items():
+    filtered_codebase = _filter_codebase(codebase)
+    graph = {rel_path: set() for rel_path in filtered_codebase}
+
+    for rel_path, analysis in filtered_codebase.items():
         for imp in analysis.get("imports", []):
-            imp_parts = imp.split(".")
-            for potential_path in codebase:
-                potential_base = potential_path.replace(".py", "").replace("/", ".")
-                # Match module imports like 'ultron.delta' or relative imports
-                if potential_base == imp or potential_base.endswith("." + imp) or imp.replace(".", "/") in potential_path:
-                    if potential_path != rel_path:
-                        graph[rel_path].add(potential_path)
-                    break
+            best_match = None
+            best_rank = 0  # 0: no match, 1: substring/fuzzy, 2: suffix, 3: exact
+            
+            for potential_path in filtered_codebase:
+                # Normalize potential_path for cross-platform matching
+                norm_potential = potential_path.replace("\\", "/")
+                potential_base = norm_potential.replace(".py", "").replace("/", ".")
+                
+                if potential_base == imp or potential_base.endswith("." + imp):
+                    rank = 3
+                elif potential_base.endswith(imp):
+                    rank = 2
+                elif imp.replace(".", "/") in norm_potential:
+                    rank = 1
+                else:
+                    rank = 0
+                
+                if rank > best_rank:
+                    best_rank = rank
+                    best_match = potential_path
+                    if rank == 3:
+                        break  # Exact match, can exit early
+            
+            if best_match and best_match != rel_path:
+                graph[rel_path].add(best_match)
+                
     return graph
+
 
 def detect_circular_dependencies(codebase):
     """
@@ -217,20 +248,24 @@ def score_coupling_debt(codebase):
     if not codebase:
         raise ValueError("codebase must not be empty")
 
-    graph = get_import_mappings(codebase)
+    filtered_codebase = _filter_codebase(codebase)
+    if not filtered_codebase:
+        raise ValueError("codebase must not be empty")
+
+    graph = get_import_mappings(filtered_codebase)
 
     # fan_out[f] = number of files f imports
     fan_out = {f: len(deps) for f, deps in graph.items()}
 
     # fan_in[f] = number of files that import f
-    fan_in = {f: 0 for f in codebase}
+    fan_in = {f: 0 for f in filtered_codebase}
     for f, deps in graph.items():
         for dep in deps:
             if dep in fan_in:
                 fan_in[dep] += 1
 
     results = []
-    for f in codebase:
+    for f in filtered_codebase:
         fi = fan_in[f]
         fo = fan_out[f]
         debt = fi * fo
@@ -284,14 +319,10 @@ def detect_abstraction_leaks(codebase, repo_path, max_responsibilities=8, min_co
     if repo_path is None:
         raise ValueError("repo_path cannot be None")
 
+    filtered_codebase = _filter_codebase(codebase)
     leaks = {}
 
-    for rel_path in codebase:
-        # Standardize separators for consistent matching
-        norm_path = rel_path.replace("\\", "/")
-        if any(pat in norm_path for pat in EXCLUDED_PATTERNS):
-            continue
-
+    for rel_path in filtered_codebase:
         abs_path = os.path.join(repo_path, rel_path)
         if not os.path.exists(abs_path) or not rel_path.endswith(".py"):
             continue
@@ -399,11 +430,15 @@ def compute_hotspot_scores(codebase, repo_path, risks):
     if not codebase:
         raise ValueError("codebase must not be empty")
 
+    filtered_codebase = _filter_codebase(codebase)
+    if not filtered_codebase:
+        raise ValueError("codebase must not be empty")
+
     coupling = {entry["file"]: entry["coupling_debt"]
-                for entry in score_coupling_debt(codebase)}
+                for entry in score_coupling_debt(filtered_codebase)}
 
     raw = []
-    for rel_path in codebase:
+    for rel_path in filtered_codebase:
         abs_path = os.path.join(repo_path, rel_path)
         complexity = 0
         if os.path.exists(abs_path) and rel_path.endswith(".py"):

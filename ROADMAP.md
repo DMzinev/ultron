@@ -169,6 +169,8 @@ Full Builder/Auditor/Judge/Historian loop with budget control, nullification, AS
 **Design Oracle** (`design_oracle.py`) — wired via `--oracle`
 Coupling debt, abstraction leaks, hotspot ranking, circular dependency detection. Produces real output. Not validated against ground-truth defect data. No negative test cases on pathological graphs (self-loops, highly-connected subgraphs).
 
+*Note on Graph Correction:* Discovered and resolved an alphabetical import-mapping collision bug in `get_import_mappings()` where production imports matched to alphabetically prior scratch/test files and broke early. Resolved by symmetrically filtering out `EXCLUDED_PATTERNS` from the codebase keys and introducing a rank-based matching heuristic (Exact=3, Suffix=2, Substring=1) to ensure robust import resolution.
+
 *Simplification:* Uses a module-level `EXCLUDED_PATTERNS` configuration to ignore tests/scratch/experimental directories for abstraction leaks; in Step 5, this should be replaced by dynamic scope-aware metadata checking.
 
 *Next:* Step 1 (Architectural Reasoning Layer) is the planned extension of this output.
