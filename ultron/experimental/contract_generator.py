@@ -33,7 +33,8 @@ class ContractGenerator:
     impacts to generate implementation contract cards.
     """
 
-    def __init__(self, violations: list, knowledge_graph: Any, baseline_snapshot: MetricSnapshot):
+    def __init__(self, violations: list, knowledge_graph: Any, baseline_snapshot: MetricSnapshot,
+                 debt_scores: list = None, cycles: list = None, hotspots: list = None):
         if not isinstance(violations, list):
             raise TypeError("violations must be a list")
         # knowledge_graph can be a module-level reference or list; check not None/str
@@ -45,6 +46,9 @@ class ContractGenerator:
         self.violations = violations
         self.knowledge_graph = knowledge_graph
         self.baseline_snapshot = baseline_snapshot
+        self.debt_scores = debt_scores
+        self.cycles = cycles
+        self.hotspots = hotspots
 
     def generate(self) -> List[ContractCard]:
         """
@@ -65,7 +69,50 @@ class ContractGenerator:
 
         for filepath, file_recs in grouped.items():
             try:
-                simulator = ImpactSimulator(self.baseline_snapshot, file_recs)
+                # Compute localized per-file baseline snapshot
+                # Violations: count of static violations for this file
+                file_violations = len([v for v in self.violations if getattr(v, "filepath", None) == filepath])
+
+                # Coupling Debt: file's coupling debt score if available
+                if self.debt_scores is not None:
+                    file_debt = next((e["coupling_debt"] for e in self.debt_scores if e.get("file") == filepath), 0.0)
+                else:
+                    file_debt = self.baseline_snapshot.total_coupling_debt
+
+                # Cycle Count: count of circular dependency loops this file is part of
+                if self.cycles is not None:
+                    file_cycles = sum(1 for c in self.cycles if filepath in c)
+                else:
+                    file_cycles = self.baseline_snapshot.total_cycle_count
+
+                # Instability: file's instability score if available
+                if self.debt_scores is not None:
+                    file_inst = next((e["instability"] for e in self.debt_scores if e.get("file") == filepath), 0.0)
+                else:
+                    file_inst = self.baseline_snapshot.avg_instability
+
+                # Hotspot Score: file's hotspot score if available
+                if self.hotspots is not None:
+                    file_hs = next((e["hotspot_score"] for e in self.hotspots if e.get("file") == filepath), 0.0)
+                else:
+                    file_hs = self.baseline_snapshot.avg_hotspot_score
+
+                # Clamp values to valid ranges defensively
+                file_violations = max(0, file_violations)
+                file_debt = max(0.0, float(file_debt))
+                file_cycles = max(0, file_cycles)
+                file_inst = max(0.0, min(1.0, float(file_inst)))
+                file_hs = max(0.0, min(1.0, float(file_hs)))
+
+                file_baseline = MetricSnapshot(
+                    total_coupling_debt=file_debt,
+                    total_cycle_count=file_cycles,
+                    total_violations=file_violations,
+                    avg_instability=file_inst,
+                    avg_hotspot_score=file_hs
+                )
+
+                simulator = ImpactSimulator(file_baseline, file_recs)
                 sim_res = simulator.simulate()
                 card = ContractCard(
                     filepath=filepath,
@@ -105,9 +152,9 @@ class ContractGenerator:
         for card in cards:
             lines.append(f"### `{card.filepath}`")
             lines.append("**Recommendations:**")
-            for rec in card.recommendations:
+            for idx, rec in enumerate(card.recommendations, 1):
                 lines.append(
-                    f"{rec.priority_rank}. [{rec.principle}] {rec.refactoring} (Severity {rec.severity})"
+                    f"{idx}. (Priority #{rec.priority_rank}) [{rec.principle}] {rec.refactoring} (Severity {rec.severity})"
                 )
 
             b = card.before_snapshot

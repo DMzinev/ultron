@@ -576,7 +576,8 @@ def generate_oracle_report(codebase, repo_path, risks=None):
             avg_hotspot_score=_avg_hs
         )
 
-        _generator = ContractGenerator(_violations, KNOWLEDGE_GRAPH, _snapshot)
+        _generator = ContractGenerator(_violations, KNOWLEDGE_GRAPH, _snapshot,
+                                        debt_scores=debt_scores, cycles=cycles, hotspots=hotspots)
         _cards = _generator.generate()
 
         lines.append("## Implementation Contracts\n")

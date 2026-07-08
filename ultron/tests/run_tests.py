@@ -2009,6 +2009,62 @@ class TestContractGenerator(unittest.TestCase):
         report = generate_oracle_report(codebase, repo_path)
         self.assertIn("## Implementation Contracts", report)
 
+    def test_contract_generator_uses_per_file_debt_not_global(self):
+        """
+        Verifies ContractGenerator.generate() uses the file-specific coupling
+        debt from debt_scores, not the global baseline_snapshot total.
+        If the per-file localization logic is removed, the card would carry
+        the global baseline value (99.0) instead of the file-specific value (7.0).
+        """
+        from contract_generator import ContractGenerator
+        from knowledge_graph import KNOWLEDGE_GRAPH
+        from impact_simulator import MetricSnapshot
+        snap_global = MetricSnapshot(99.0, 5, 5, 0.5, 0.5)
+        debt_scores = [{"file": "a.py", "coupling_debt": 7.0, "instability": 0.2}]
+        violations = [self._make_violation("a.py", "Dependency Inversion Principle (DIP)", "high_fan_out")]
+        generator = ContractGenerator(violations, KNOWLEDGE_GRAPH, snap_global, debt_scores=debt_scores)
+        cards = generator.generate()
+        self.assertEqual(len(cards), 1)
+        # Per-file debt must be 7.0, not the global baseline 99.0
+        self.assertEqual(cards[0].before_snapshot.total_coupling_debt, 7.0)
+        self.assertNotEqual(cards[0].before_snapshot.total_coupling_debt, 99.0)
+
+    def test_oracle_report_contracts_use_per_file_violation_counts(self):
+        """
+        Spy-based nullification guard for design_oracle.py's localized-metrics
+        pass-through. Patches ContractGenerator in its module namespace so that
+        when design_oracle.py does 'from contract_generator import ContractGenerator'
+        inside the function body it gets the spy. Captures kwargs and asserts
+        debt_scores was passed. Fails if the kwargs line in design_oracle.py is
+        removed/nullified — regardless of whether violations are present.
+        """
+        import os
+        import contract_generator as cg_module
+        from unittest.mock import patch
+
+        repo_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), '..', '..')
+        )
+        codebase = {"ultron/experimental/reasoning.py": {"imports": [], "definitions": []}}
+
+        captured_kwargs = {}
+        OriginalCG = cg_module.ContractGenerator
+
+        class SpyCG(OriginalCG):
+            def __init__(self, *args, **kwargs):
+                captured_kwargs.update(kwargs)
+                super().__init__(*args, **kwargs)
+
+        with patch.object(cg_module, 'ContractGenerator', SpyCG):
+            from design_oracle import generate_oracle_report
+            generate_oracle_report(codebase, repo_path)
+
+        self.assertIn(
+            'debt_scores', captured_kwargs,
+            "generate_oracle_report did not pass debt_scores to ContractGenerator -- "
+            "per-file localized metrics pass-through may have been removed from design_oracle.py."
+        )
+
 
 if __name__ == "__main__":
     print("[+] Running Ultron Core Tests...")
