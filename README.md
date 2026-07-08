@@ -1,91 +1,84 @@
-# What is in this folder
+# Ultron — AI-Assisted Software Architecture Platform
 
-Two projects share this directory.
-
----
-
-## 1. Cost Accounting Study Portal — **moved**
-
-The interactive cost accounting learning app (`Study_Portal.html`, `cognitive/`,
-`domain/`, `controllers/`, `storage/`, `ui/`, `utilities/`, `study_materials/`)
-has been extracted to its own repository:
-
-**`cost-accounting-study-app`** (sibling directory on Desktop)
-
-History of all files prior to the split is preserved in the backup at
-`cost_accounting_backup_20260623_140859`.
+Tells you which files in a Python codebase are risky to change, and why, before you touch them. Generates structured context for AI agents working on the codebase.
 
 ---
 
-## 2. Ultron — Python Codebase Risk Analyzer
+## Core Guarantees & Differentiators
 
-Tells you which files in a Python codebase are risky to change, and why, before you touch them.
-Generates structured context for AI agents working on the codebase.
+*   **Zero Network Calls / 100% Local:** Ultron runs completely on your local machine. No code or metadata ever leaves your system, ensuring absolute security, data privacy, and zero execution cost.
+*   **Explainable & Traceable:** Every warning and recommendation follows a deterministic trail from static analysis measurements to software design principles. No speculative AI hallucinations.
 
-### Quick start
+---
+
+## Working Today (Fully Operational)
+
+*   **Static Risk Scoring:** Computes a file-level risk score using the formula: $I(N) = \text{Complexity} \times \ln(e + \text{Coupling})$, scaled by git bug-fix history.
+*   **Plain-Language Summary:** Translates raw numerical scores into simple, jargon-free sentences (e.g. *"High risk to change. 14 other files depend on it directly..."*).
+*   **Codebase Context Brief (`--brief`):** Outputs a structured markdown codebase overview (directory trees, highest-risk files, architectural summaries) designed to serve as an orientation payload for AI coding agents.
+*   **Design Oracle (`--oracle`):** Analyzes coupling debt, circular dependencies, abstraction leaks, and hotspot rankings across the codebase.
+*   **5-Step Architectural Reasoning Pipeline:**
+    1.  **Reasoning Layer:** Maps raw metric anomalies to software engineering principles (ADP, SDP, DIP, SRP).
+    2.  **Knowledge Graph:** Traverses a curated graph of relationships between smells, candidate refactorings, and expected metric changes.
+    3.  **Recommendation Engine:** Generates and ranks concrete, deterministic refactoring strategies.
+    4.  **Impact Simulator:** Calculates projected complexity and coupling metrics post-refactoring.
+    5.  **Contract Generator:** Renders sorted, per-file markdown contracts.
+*   **MCP Server Integration:** Exposes risk metrics and codebase briefs as Model Context Protocol (MCP) endpoints for IDEs and AI agent tool integrations.
+
+---
+
+## Known Limitations & Validation Status
+
+*   **Scoring Thresholds:** The absolute risk tier thresholds (10.0 for HIGH, 3.0 for MEDIUM) are calibrated heuristics. They have not been validated against external, large-scale defect data.
+*   **Best-Case Projections:** The simulated metrics in the contract cards represent theoretical, best-case projections assuming each recommended refactoring is fully and correctly applied, rather than an empirical guarantee of the final codebase state.
+
+---
+
+## UMAGS Development Governance
+
+The code in this repository was built and verified using an internal **Unified Multi-Agent Governance Loop (UMAGS)**. 
+*   *Please Note:* UMAGS is a development-time safety framework (enforcing scope checks, programmatic code nullification tests, and AST checks) that operates locally to verify code correctness before merge. It is not shipped and does not run as part of the runtime Ultron package.
+
+---
+
+## Quick Start
+
+### Installation
+
+Clone the repository and install requirements:
+```bash
+pip install -r requirements.txt
+```
+
+### Usage
 
 **Score specific files before changing them:**
-```
+```bash
 python ultron/interfaces/ultron.py --repo . --files path/to/file.py --intent "describe what you want to change" --detail
 ```
 
-**Generate a full codebase context brief (for AI agent orientation):**
-```
+**Generate a codebase context brief (for AI agent orientation):**
+```bash
 python ultron/interfaces/ultron.py --repo . --brief
 ```
 
-**Run the Design Oracle (coupling debt, abstraction leaks, architectural hotspots):**
-```
+**Run the Design Oracle (coupling debt, circular dependencies, reasoning reports, and contract generation):**
+```bash
 python ultron/interfaces/ultron.py --repo . --oracle
 ```
 
-**Start the MCP server (for IDE / AI tool-call integration):**
-```
+**Start the MCP server:**
+```bash
 python start_ultron.py
 ```
 
-### What it actually does
-
-Reads a Python codebase and produces:
-
-| Output | How |
-|---|---|
-| Risk tier per file (HIGH / MEDIUM / LOW) | Cyclomatic complexity × ln(e + call-graph coupling), scaled by bug-fix history |
-| Plain-English explanation per file | `translate.py` converts the score into one sentence |
-| Codebase context brief | `context_brief.py` — structured markdown snapshot of directory, top-risk files, architecture notes |
-| Design Oracle report | Coupling debt score, abstraction leaks, hotspot ranking, circular dependency detection |
-| MCP tool calls | `mcp_server.py` exposes risk scoring and briefing as tool-callable endpoints |
-
-All five outputs are real and working. The context brief and MCP server were added and validated during this project.
-
-### What is validated vs. unvalidated
-
-**Validated (safe to rely on):**
-- Risk tier classification (HIGH / MEDIUM / LOW) — thresholds calibrated against this codebase's own bug history
-- Complexity and coupling metrics — deterministic, audited against known values
-- Context brief generation — output is accurate and up to date on each run
-- Design Oracle coupling and hotspot scores — deterministic static analysis
-
-**Unvalidated (exist, do not rely on):**
-- Multi-signal fusion weights (`reality_delta.py`) — calibrated on 109 transactions from a single codebase, not validated against external defect data
-- Logistic calibration (`logistic.py`) — implemented but human blind-rating ground truth not yet collected
-- Mutation kill rate signal (`fuzz.py`, `synapse_project/`) — working on trivial mutations only; boundary-sensitive mutations not exercised
-
-See `ROADMAP.md` for the honest status of every feature, and `PROJECT_LOG.md` for the full audit trail of every change.
-
-### Where to start reading the code
-
-- `SYSTEM_MAP.md` — every file and its current status
-- `ROADMAP.md` — feature-by-feature validation status
-- `PROJECT_LOG.md` — full UMAGS audit trail (what changed, why, who reviewed it)
-- `ultron/interfaces/ultron.py` — CLI entry point
-- `ultron/core/` — risk scoring, complexity, coupling, translate, context brief
-- `umags/` — UMAGS governance loop (governor, verification loop, budget governor)
-
 ---
 
-## 3. Synapse — Mutation Testing Engine
+## Directory Map
 
-`synapse_project/` — generates mutants, runs tests, logs Mutation Kill Rate.
-Working on trivial mutations only; boundary-sensitive mutations not yet exercised.
-
+*   `ultron/core/` — core risk scoring, complexity, coupling metrics, and CLI translations
+*   `ultron/experimental/` — reasoning pipeline, knowledge graph, recommendation engine, impact simulator, and contract generator
+*   `ultron/interfaces/` — CLI entry point and MCP server
+*   `ultron/tests/` — unit test suite
+*   `docs/architecture/` — architectural reference documents (`SYSTEM_MAP.md` and `UMAGS.md`)
+*   `umags/` — verification loop scripts, AST checkers, and nullifier harnesses
