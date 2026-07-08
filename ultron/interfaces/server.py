@@ -7,24 +7,20 @@ import traceback
 import shutil
 import subprocess
 
-# Configure sys.path to find moved files under their new subdirectories
+# Add parent directory of 'ultron' to sys.path to enable package imports in-place
 _dir = os.path.dirname(os.path.abspath(__file__))
-_root = os.path.abspath(os.path.join(_dir, "..", ".."))
-for _subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
-    sys.path.append(os.path.abspath(os.path.join(_root, "ultron", _subdir)))
-sys.path.append(_root)
-sys.path.append(os.path.abspath(os.path.join(_root, "umags")))
+sys.path.insert(0, os.path.abspath(os.path.join(_dir, "..", "..")))
 
-import analyzer
-import risk
-import prompt
-import classifier
-import predict
-import delta
-import pledge
-import fuzz
-import logistic
-import design_oracle
+from ultron.core import analyzer
+from ultron.core import risk
+from ultron.core import prompt
+from ultron.core import classifier
+from ultron.core import predict
+from ultron.experimental import delta
+from ultron.core import pledge
+from ultron.core import fuzz
+from ultron.core import logistic
+from ultron.experimental import design_oracle
 
 
 LAST_ANALYSIS = {
@@ -499,7 +495,7 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             if not os.path.isdir(repo_path):
                 self.send_json_response(400, {"error": f"Repository path '{repo_path}' is not a directory."})
                 return
-            import meta_layer
+            from ultron.core import meta_layer
             res = meta_layer.run_threshold_calibration(repo_path)
             self.send_json_response(200, res)
         except Exception as e:

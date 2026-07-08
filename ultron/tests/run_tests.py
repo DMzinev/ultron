@@ -7,18 +7,16 @@ import math
 # Configure sys.path to find moved files under their new subdirectories
 _dir = os.path.dirname(os.path.abspath(__file__))
 _root = os.path.abspath(os.path.join(_dir, "..", ".."))
-for _subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
-    sys.path.append(os.path.abspath(os.path.join(_root, "ultron", _subdir)))
 sys.path.append(_root)
 sys.path.append(os.path.abspath(os.path.join(_root, "umags")))
 
-import analyzer
-import risk
-import guard
-import classifier
-import predict
-import design_oracle
-import server
+from ultron.core import analyzer
+from ultron.core import risk
+from ultron.core import guard
+from ultron.core import classifier
+from ultron.core import predict
+from ultron.experimental import design_oracle
+from ultron.interfaces import server
 
 
 class TestUltronCore(unittest.TestCase):
@@ -362,7 +360,7 @@ class TestSample(unittest.TestCase):
         import tempfile
         import shutil
         import json
-        import blind_rate
+        from ultron.validation import blind_rate
         normalize_relative_path = blind_rate.normalize_relative_path
         validate_inputs = blind_rate.validate_inputs
         get_file_content = blind_rate.get_file_content
@@ -487,7 +485,7 @@ class TestSample(unittest.TestCase):
         # Test main CLI entry point in non-interactive mode
         import sys
         from unittest.mock import patch
-        import blind_rate
+        from ultron.validation import blind_rate
         
         # Test successful CLI execution in non-interactive mode
         with patch.object(sys, 'argv', ['blind_rate.py', '--rater', 'CLI_Test', '--file', 'ultron/core/risk/scoring.py', '--rating', 'HIGH', '--rationale', 'CLI rationale']):
@@ -506,7 +504,7 @@ class TestSample(unittest.TestCase):
         import shutil
         import json
         from unittest.mock import patch, MagicMock
-        import reality_delta
+        from ultron.experimental import reality_delta
 
         # Backup global paths
         orig_deltas = reality_delta.REALITY_DELTAS_PATH
@@ -613,10 +611,10 @@ class TestSample(unittest.TestCase):
             with open(reality_delta.REALITY_DELTAS_PATH, "w", encoding="utf-8") as f:
                 f.write(json.dumps(record) + "\n")
                 
-            with patch("reality_delta.extract_git_signal", return_value=1.0), \
-                 patch("reality_delta.extract_test_signal", return_value=0.5), \
-                 patch("reality_delta.extract_runtime_signal", return_value=0.0), \
-                 patch("reality_delta.extract_human_signal", return_value=0.5):
+            with patch("ultron.experimental.reality_delta.extract_git_signal", return_value=1.0), \
+                 patch("ultron.experimental.reality_delta.extract_test_signal", return_value=0.5), \
+                 patch("ultron.experimental.reality_delta.extract_runtime_signal", return_value=0.0), \
+                 patch("ultron.experimental.reality_delta.extract_human_signal", return_value=0.5):
                 
                 weights = reality_delta.load_fusion_weights()
                 self.assertAlmostEqual(sum(weights[k] for k in ["w_test", "w_git", "w_runtime", "w_human", "w_test_runtime", "w_git_human"]), 1.0)
@@ -636,8 +634,8 @@ class TestSample(unittest.TestCase):
         import tempfile
         import shutil
         import json
-        import delta
-        import reality_delta
+        from ultron.experimental import delta
+        from ultron.experimental import reality_delta
         from unittest.mock import patch
 
         # 1. Verify non-linear score with interaction terms
@@ -902,8 +900,8 @@ class TestSample(unittest.TestCase):
             shutil.rmtree(temp_dir)
 
     def test_translation_layer(self):
-        import translate
-        from models import AnalysisPacket
+        from ultron.core import translate
+        from ultron.core.models import AnalysisPacket
         
         # Test HIGH risk translation
         packet_high = AnalysisPacket(
@@ -963,7 +961,7 @@ class TestSample(unittest.TestCase):
         self.assertIn("ultron/experimental/delta.py - Moderate risk.", summary_dict)
 
     def test_load_mkr_stats(self):
-        import risk
+        from ultron.core import risk
         # Test positive load
         stats = risk.load_mkr_stats()
         self.assertIsInstance(stats, dict)
@@ -976,9 +974,9 @@ class TestSample(unittest.TestCase):
         import socket
         from unittest.mock import patch
         import os
-        import risk
-        import translate
-        import analyzer
+        from ultron.core import risk
+        from ultron.core import translate
+        from ultron.core import analyzer
 
         # 1. Block network calls at socket level
         def block_socket(*args, **kwargs):
@@ -1024,7 +1022,7 @@ class TestSample(unittest.TestCase):
                 self.assertNotIn(pattern, key_lower, f"Permit Violation: API key or licensing variable '{key}' was read!")
 
     def test_mcp_server_tools(self):
-        import mcp_server
+        from ultron.interfaces import mcp_server
         import os
 
         repo_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -1088,7 +1086,7 @@ class TestSample(unittest.TestCase):
         self.assertGreater(score, 0.0)
 
     def test_context_brief_generator(self):
-        import context_brief
+        from ultron.core import context_brief
         import tempfile
         import shutil
         
@@ -1129,7 +1127,7 @@ Another gap.
             shutil.rmtree(temp_dir)
 
     def test_ultron_cli_brief(self):
-        import ultron
+        from ultron.interfaces import ultron
         import unittest.mock as mock
         import io
         
@@ -1144,7 +1142,7 @@ Another gap.
                 self.assertIn("File Risk Profiles", output)
 
     def test_context_brief_boundary_cases(self):
-        import context_brief
+        from ultron.core import context_brief
         # Test get_attr with boundary values to satisfy negative testing/failure space
         self.assertEqual(context_brief.get_attr(None, ""), 0.0)
         self.assertEqual(context_brief.get_attr({}, ""), 0.0)
@@ -1240,7 +1238,7 @@ class TestBudgetGovernor(unittest.TestCase):
 class TestDesignOracleExtended(unittest.TestCase):
 
     def setUp(self):
-        import design_oracle
+        from ultron.experimental import design_oracle
         self.oracle = design_oracle
         self.repo_path = _root
         # Minimal stub codebase for fast, deterministic tests
@@ -1278,14 +1276,14 @@ class TestDesignOracleExtended(unittest.TestCase):
         self.assertIsInstance(leaks, dict)
 
     def test_abstraction_leaks_detects_real_repo(self):
-        import analyzer
+        from ultron.core import analyzer
         codebase = analyzer.analyze_directory(self.repo_path)
         leaks = self.oracle.detect_abstraction_leaks(codebase, self.repo_path)
         # We don't assert a specific file, but the result must be a dict
         self.assertIsInstance(leaks, dict)
 
     def test_abstraction_leaks_calibrated_behavior(self):
-        import analyzer
+        from ultron.core import analyzer
         codebase = analyzer.analyze_directory(self.repo_path)
         leaks = self.oracle.detect_abstraction_leaks(
             codebase, self.repo_path, max_responsibilities=8, min_complexity=8
@@ -1304,7 +1302,7 @@ class TestDesignOracleExtended(unittest.TestCase):
 
     # --------------- compute_hotspot_scores ---------------
     def test_hotspot_scores_returns_sorted_list(self):
-        import analyzer
+        from ultron.core import analyzer
         codebase = analyzer.analyze_directory(self.repo_path)
         results = self.oracle.compute_hotspot_scores(codebase, self.repo_path, [])
         self.assertIsInstance(results, list)
@@ -1313,7 +1311,7 @@ class TestDesignOracleExtended(unittest.TestCase):
         self.assertEqual(scores, sorted(scores, reverse=True))
 
     def test_hotspot_scores_score_in_range(self):
-        import analyzer
+        from ultron.core import analyzer
         codebase = analyzer.analyze_directory(self.repo_path)
         for entry in self.oracle.compute_hotspot_scores(codebase, self.repo_path, []):
             self.assertGreaterEqual(entry["hotspot_score"], 0.0)
@@ -1333,7 +1331,7 @@ class TestDesignOracleExtended(unittest.TestCase):
 
     # --------------- generate_oracle_report ---------------
     def test_oracle_report_contains_all_sections(self):
-        import analyzer
+        from ultron.core import analyzer
         codebase = analyzer.analyze_directory(self.repo_path)
         report = self.oracle.generate_oracle_report(codebase, self.repo_path)
         self.assertIn("# Design Oracle Report", report)
@@ -1490,27 +1488,27 @@ class TestRiskDecomposition(unittest.TestCase):
     """
 
     def setUp(self):
-        import risk
+        from ultron.core import risk
         self.risk = risk
 
     # --------------- Package structure ---------------
     def test_submodule_historical_importable(self):
-        from risk import historical
+        from ultron.core.risk import historical
         self.assertTrue(callable(historical.load_mkr_stats))
         self.assertTrue(callable(historical.load_human_feedback))
 
     def test_submodule_metrics_importable(self):
-        from risk import metrics
+        from ultron.core.risk import metrics
         self.assertTrue(callable(metrics.get_file_complexity))
         self.assertTrue(callable(metrics.get_code_complexity))
         self.assertTrue(callable(metrics.extract_ast_blocks))
 
     def test_submodule_scoring_importable(self):
-        from risk import scoring
+        from ultron.core.risk import scoring
         self.assertTrue(callable(scoring.evaluate_risks))
 
     def test_submodule_diff_importable(self):
-        from risk import diff
+        from ultron.core.risk import diff
         self.assertTrue(callable(diff.evaluate_diff_risk))
 
     # --------------- Shim backward-compatibility ---------------
@@ -1532,7 +1530,7 @@ class TestRiskDecomposition(unittest.TestCase):
 
     # --------------- Functional parity ---------------
     def test_evaluate_risks_returns_list(self):
-        import analyzer
+        from ultron.core import analyzer
         codebase = analyzer.analyze_directory(_root)
         results = self.risk.evaluate_risks(codebase, ["ultron/core/risk/scoring.py"], repo_path=_root)
         self.assertIsInstance(results, list)
@@ -1559,33 +1557,33 @@ class TestRiskDecomposition(unittest.TestCase):
 
     # --------------- metrics boundary cases ---------------
     def test_metrics_get_file_complexity_raises_on_none(self):
-        from risk import metrics
+        from ultron.core.risk import metrics
         with self.assertRaises(ValueError):
             metrics.get_file_complexity(None)
 
     def test_metrics_get_code_complexity_raises_on_none(self):
-        from risk import metrics
+        from ultron.core.risk import metrics
         with self.assertRaises(ValueError):
             metrics.get_code_complexity(None)
 
     def test_metrics_extract_ast_blocks_raises_on_none(self):
-        from risk import metrics
+        from ultron.core.risk import metrics
         with self.assertRaises(ValueError):
             metrics.extract_ast_blocks(None)
 
     def test_metrics_extract_ast_blocks_empty_code_returns_empty(self):
-        from risk import metrics
+        from ultron.core.risk import metrics
         result = metrics.extract_ast_blocks("")
         self.assertEqual(result, {})
 
     # --------------- historical boundary cases ---------------
     def test_historical_load_mkr_stats_bad_type_raises(self):
-        from risk import historical
+        from ultron.core.risk import historical
         with self.assertRaises(TypeError):
             historical.load_mkr_stats(ledger_path=42)
 
     def test_historical_load_mkr_stats_nonexistent_path_returns_empty(self):
-        from risk import historical
+        from ultron.core.risk import historical
         result = historical.load_mkr_stats(ledger_path="/nonexistent/path/ledger.jsonl")
         self.assertEqual(result, {})
 
@@ -1602,7 +1600,7 @@ class TestArchitecturalReasoning(unittest.TestCase):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_reasoning_card_formatting(self):
-        from reasoning import ReasoningCard
+        from ultron.experimental.reasoning import ReasoningCard
         card = ReasoningCard(
             filepath="core/risk.py",
             principle="Stable Dependencies Principle (SDP)",
@@ -1620,13 +1618,13 @@ class TestArchitecturalReasoning(unittest.TestCase):
         self.assertIn("- Violates SDP.", output)
 
     def test_reasoning_card_formatting_raises_on_none(self):
-        from reasoning import ReasoningCard
+        from ultron.experimental.reasoning import ReasoningCard
         card = ReasoningCard(None, None, None, None, [], 2)
         with self.assertRaises(ValueError):
             card.format()
 
     def test_reasoning_engine_circular_dependency(self):
-        from reasoning import ReasoningEngine
+        from ultron.experimental.reasoning import ReasoningEngine
         # Mock codebase with circular cycle: a.py -> b.py -> a.py
         codebase = {
             "a.py": {"imports": ["b"], "definitions": []},
@@ -1641,7 +1639,7 @@ class TestArchitecturalReasoning(unittest.TestCase):
         self.assertEqual(adp_cards[0].severity, 1)
 
     def test_reasoning_engine_stable_dependencies(self):
-        from reasoning import ReasoningEngine
+        from ultron.experimental.reasoning import ReasoningEngine
         # Mock codebase: a.py has high fan-in (imported by 11 files), and imports b.py (fan_out = 1).
         # Instability = 1 / (11 + 1) = 0.083 (stable). Coupling debt = 11 * 1 = 11.
         # Wait, trigger condition is coupling_debt > 20 and instability < 0.3 and fo > 0.
@@ -1661,7 +1659,7 @@ class TestArchitecturalReasoning(unittest.TestCase):
         self.assertEqual(sdp_cards[0].filepath, "a.py")
 
     def test_reasoning_engine_dependency_inversion(self):
-        from reasoning import ReasoningEngine
+        from ultron.experimental.reasoning import ReasoningEngine
         # Mock codebase: a.py imports 9 other files (fan_out = 9 > 8)
         codebase = {
             "a.py": {"imports": [f"dep_{i}" for i in range(9)], "definitions": []}
@@ -1677,7 +1675,7 @@ class TestArchitecturalReasoning(unittest.TestCase):
         self.assertEqual(dip_cards[0].filepath, "a.py")
 
     def test_reasoning_engine_multiple_violations_sorting(self):
-        from reasoning import ReasoningEngine
+        from ultron.experimental.reasoning import ReasoningEngine
         # Mock codebase:
         # a.py: part of cycle (ADP, severity 1) and has fan_out = 9 (DIP, severity 3)
         codebase = {
@@ -1703,7 +1701,7 @@ class TestArchitecturalReasoning(unittest.TestCase):
 class TestKnowledgeGraph(unittest.TestCase):
 
     def test_knowledge_edge_invalid_type_raises_type_error(self):
-        from knowledge_graph import KnowledgeEdge
+        from ultron.experimental.knowledge_graph import KnowledgeEdge
         # smell_key not str
         with self.assertRaises(TypeError):
             KnowledgeEdge(123, "recommend", {}, 2)
@@ -1718,7 +1716,7 @@ class TestKnowledgeGraph(unittest.TestCase):
             KnowledgeEdge("key", "recommend", {}, "not_an_int")
 
     def test_knowledge_edge_invalid_severity_raises_value_error(self):
-        from knowledge_graph import KnowledgeEdge
+        from ultron.experimental.knowledge_graph import KnowledgeEdge
         # severity < 1
         with self.assertRaises(ValueError):
             KnowledgeEdge("key", "recommend", {"coupling_debt": 0.0, "cycle_count": 0, "violations_resolved": 1}, 0)
@@ -1727,13 +1725,13 @@ class TestKnowledgeGraph(unittest.TestCase):
             KnowledgeEdge("key", "recommend", {"coupling_debt": 0.0, "cycle_count": 0, "violations_resolved": 1}, 6)
 
     def test_knowledge_edge_invalid_delta_keys_raises_value_error(self):
-        from knowledge_graph import KnowledgeEdge
+        from ultron.experimental.knowledge_graph import KnowledgeEdge
         # missing expected keys
         with self.assertRaises(ValueError):
             KnowledgeEdge("key", "recommend", {"coupling_debt": 0.0}, 2)
 
     def test_canonical_graph_edges(self):
-        from knowledge_graph import KNOWLEDGE_GRAPH
+        from ultron.experimental.knowledge_graph import KNOWLEDGE_GRAPH
         self.assertEqual(len(KNOWLEDGE_GRAPH), 6)
         keys = [edge.smell_key for edge in KNOWLEDGE_GRAPH]
         expected_keys = {
@@ -1747,18 +1745,18 @@ class TestKnowledgeGraph(unittest.TestCase):
         self.assertEqual(set(keys), expected_keys)
 
     def test_lookup_success(self):
-        from knowledge_graph import lookup
+        from ultron.experimental.knowledge_graph import lookup
         edge = lookup("circular_dependency")
         self.assertEqual(edge.severity, 1)
         self.assertEqual(edge.expected_delta["cycle_count"], -1)
 
     def test_lookup_key_error(self):
-        from knowledge_graph import lookup
+        from ultron.experimental.knowledge_graph import lookup
         with self.assertRaises(KeyError):
             lookup("non_existent_key")
 
     def test_lookup_type_error(self):
-        from knowledge_graph import lookup
+        from ultron.experimental.knowledge_graph import lookup
         # None parameter
         with self.assertRaises(TypeError):
             lookup(None)
@@ -1777,13 +1775,13 @@ class MockCard:
 class TestRecommendationEngine(unittest.TestCase):
 
     def test_recommendation_engine_invalid_init(self):
-        from recommendation_engine import RecommendationEngine
+        from ultron.experimental.recommendation_engine import RecommendationEngine
         # init with non-list
         with self.assertRaises(TypeError):
             RecommendationEngine("not_a_list")
 
     def test_recommendation_engine_skips_invalid_cards(self):
-        from recommendation_engine import RecommendationEngine
+        from ultron.experimental.recommendation_engine import RecommendationEngine
         # missing filepath / principle or unrecognized principle
         cards = [
             MockCard(None, "Acyclic Dependencies Principle (ADP)"),
@@ -1794,7 +1792,7 @@ class TestRecommendationEngine(unittest.TestCase):
         self.assertEqual(len(recs), 0)
 
     def test_recommendation_engine_sorting_and_ranking(self):
-        from recommendation_engine import RecommendationEngine
+        from ultron.experimental.recommendation_engine import RecommendationEngine
         # ADP = severity 1, DIP = severity 3, SDP = severity 2
         cards = [
             MockCard("b.py", "Dependency Inversion Principle (DIP)"),
@@ -1828,7 +1826,7 @@ class TestRecommendationEngine(unittest.TestCase):
         self.assertEqual(recs[3].priority_rank, 4)
 
     def test_recommendation_dataclass_validation(self):
-        from recommendation_engine import Recommendation
+        from ultron.experimental.recommendation_engine import Recommendation
         # invalid filepath
         with self.assertRaises(TypeError):
             Recommendation(None, "ADP", "smell", "refact", {}, 1, 1)
@@ -1844,7 +1842,7 @@ class TestRecommendationEngine(unittest.TestCase):
 class TestImpactSimulator(unittest.TestCase):
 
     def test_metric_snapshot_invalid_types_raises_type_error(self):
-        from impact_simulator import MetricSnapshot
+        from ultron.experimental.impact_simulator import MetricSnapshot
         with self.assertRaises(TypeError):
             MetricSnapshot("not_a_float", 0, 0, 0.5, 0.5)
         with self.assertRaises(TypeError):
@@ -1853,7 +1851,7 @@ class TestImpactSimulator(unittest.TestCase):
             MetricSnapshot(10.5, 0, "not_an_int", 0.5, 0.5)
 
     def test_metric_snapshot_invalid_bounds_raises_value_error(self):
-        from impact_simulator import MetricSnapshot
+        from ultron.experimental.impact_simulator import MetricSnapshot
         # negative coupling debt
         with self.assertRaises(ValueError):
             MetricSnapshot(-1.0, 0, 0, 0.5, 0.5)
@@ -1871,18 +1869,18 @@ class TestImpactSimulator(unittest.TestCase):
             MetricSnapshot(10.0, 0, 0, 0.5, -0.1)
 
     def test_metric_snapshot_valid_casting(self):
-        from impact_simulator import MetricSnapshot
+        from ultron.experimental.impact_simulator import MetricSnapshot
         snap = MetricSnapshot(10, 2, 3, 0.4, 0.6)
         self.assertIsInstance(snap.total_coupling_debt, float)
         self.assertEqual(snap.total_coupling_debt, 10.0)
 
     def test_impact_simulator_invalid_init_raises_type_error(self):
-        from impact_simulator import ImpactSimulator
+        from ultron.experimental.impact_simulator import ImpactSimulator
         with self.assertRaises(TypeError):
             ImpactSimulator("not_a_snapshot", [])
 
     def test_impact_simulator_empty_recommendations_boundary(self):
-        from impact_simulator import MetricSnapshot, ImpactSimulator
+        from ultron.experimental.impact_simulator import MetricSnapshot, ImpactSimulator
         snap = MetricSnapshot(10.0, 2, 3, 0.4, 0.6)
         sim = ImpactSimulator(snap, [])
         res = sim.simulate()
@@ -1891,8 +1889,8 @@ class TestImpactSimulator(unittest.TestCase):
         self.assertEqual(res.after.total_violations, 3)
 
     def test_impact_simulator_correct_simulation_math(self):
-        from impact_simulator import MetricSnapshot, ImpactSimulator
-        from recommendation_engine import Recommendation
+        from ultron.experimental.impact_simulator import MetricSnapshot, ImpactSimulator
+        from ultron.experimental.recommendation_engine import Recommendation
         snap = MetricSnapshot(25.0, 5, 4, 0.4, 0.6)
         recs = [
             Recommendation("a.py", "ADP", "circular_dependency", "fix", {"coupling_debt": -15.0, "cycle_count": -1, "violations_resolved": 1}, 1, 1),
@@ -1908,8 +1906,8 @@ class TestImpactSimulator(unittest.TestCase):
         self.assertEqual(res.after.total_violations, 2)
 
     def test_impact_simulator_clamping_prevents_negative_values(self):
-        from impact_simulator import MetricSnapshot, ImpactSimulator
-        from recommendation_engine import Recommendation
+        from ultron.experimental.impact_simulator import MetricSnapshot, ImpactSimulator
+        from ultron.experimental.recommendation_engine import Recommendation
         snap = MetricSnapshot(10.0, 1, 1, 0.4, 0.6)
         recs = [
             Recommendation("a.py", "ADP", "circular_dependency", "fix", {"coupling_debt": -15.0, "cycle_count": -2, "violations_resolved": 1}, 1, 1),
@@ -1922,7 +1920,7 @@ class TestImpactSimulator(unittest.TestCase):
         self.assertEqual(res.after.total_violations, 0)
 
     def test_simulation_result_dataclass(self):
-        from impact_simulator import MetricSnapshot, SimulationResult
+        from ultron.experimental.impact_simulator import MetricSnapshot, SimulationResult
         snap1 = MetricSnapshot(10.0, 1, 1, 0.4, 0.6)
         snap2 = MetricSnapshot(5.0, 0, 0, 0.4, 0.6)
         res = SimulationResult(before=snap1, after=snap2)
@@ -1930,8 +1928,8 @@ class TestImpactSimulator(unittest.TestCase):
         self.assertEqual(res.after, snap2)
 
     def test_impact_simulator_clamping_floats_and_integers(self):
-        from impact_simulator import MetricSnapshot, ImpactSimulator
-        from recommendation_engine import Recommendation
+        from ultron.experimental.impact_simulator import MetricSnapshot, ImpactSimulator
+        from ultron.experimental.recommendation_engine import Recommendation
         # If expected_delta yields non-integral float values for cycles, they must be clamped/cast to integer
         snap = MetricSnapshot(10.0, 5, 2, 0.4, 0.6)
         recs = [
@@ -1945,7 +1943,7 @@ class TestImpactSimulator(unittest.TestCase):
         self.assertEqual(res.after.total_cycle_count, 3)
 
     def test_impact_simulator_avg_metrics_carried_forward(self):
-        from impact_simulator import MetricSnapshot, ImpactSimulator
+        from ultron.experimental.impact_simulator import MetricSnapshot, ImpactSimulator
         # Instability and hotspot scores must remain unchanged
         snap = MetricSnapshot(10.0, 5, 2, 0.35, 0.75)
         sim = ImpactSimulator(snap, [])
@@ -1958,38 +1956,38 @@ class TestImpactSimulator(unittest.TestCase):
 class TestContractGenerator(unittest.TestCase):
 
     def _make_snapshot(self):
-        from impact_simulator import MetricSnapshot
+        from ultron.experimental.impact_simulator import MetricSnapshot
         return MetricSnapshot(10.0, 1, 1, 0.5, 0.5)
 
     def _make_violation(self, filepath, principle, smell):
         return MockCard(filepath, principle)
 
     def test_contract_card_rejects_empty_filepath(self):
-        from contract_generator import ContractCard
+        from ultron.experimental.contract_generator import ContractCard
         snap = self._make_snapshot()
         with self.assertRaises(TypeError):
             ContractCard("", [], snap, snap)
 
     def test_contract_card_rejects_non_string_filepath(self):
-        from contract_generator import ContractCard
+        from ultron.experimental.contract_generator import ContractCard
         snap = self._make_snapshot()
         with self.assertRaises(TypeError):
             ContractCard(123, [], snap, snap)
 
     def test_contract_card_rejects_non_list_recommendations(self):
-        from contract_generator import ContractCard
+        from ultron.experimental.contract_generator import ContractCard
         snap = self._make_snapshot()
         with self.assertRaises(TypeError):
             ContractCard("a.py", "not_a_list", snap, snap)
 
     def test_contract_generator_rejects_non_list_violations(self):
-        from contract_generator import ContractGenerator
+        from ultron.experimental.contract_generator import ContractGenerator
         snap = self._make_snapshot()
         with self.assertRaises(TypeError):
             ContractGenerator("not_a_list", [], snap)
 
     def test_contract_generator_rejects_invalid_knowledge_graph(self):
-        from contract_generator import ContractGenerator
+        from ultron.experimental.contract_generator import ContractGenerator
         snap = self._make_snapshot()
         with self.assertRaises(TypeError):
             ContractGenerator([], None, snap)
@@ -1997,13 +1995,13 @@ class TestContractGenerator(unittest.TestCase):
             ContractGenerator([], "string_is_invalid", snap)
 
     def test_contract_generator_rejects_invalid_baseline(self):
-        from contract_generator import ContractGenerator
+        from ultron.experimental.contract_generator import ContractGenerator
         with self.assertRaises(TypeError):
             ContractGenerator([], [], "not_a_snapshot")
 
     def test_generate_returns_sorted_cards_by_filepath(self):
-        from contract_generator import ContractGenerator
-        from knowledge_graph import KNOWLEDGE_GRAPH
+        from ultron.experimental.contract_generator import ContractGenerator
+        from ultron.experimental.knowledge_graph import KNOWLEDGE_GRAPH
         snap = self._make_snapshot()
         violations = [
             self._make_violation("b.py", "Dependency Inversion Principle (DIP)", "high_fan_out"),
@@ -2016,15 +2014,15 @@ class TestContractGenerator(unittest.TestCase):
         self.assertEqual(cards[1].filepath, "b.py")
 
     def test_render_markdown_raises_on_empty_list(self):
-        from contract_generator import ContractGenerator
+        from ultron.experimental.contract_generator import ContractGenerator
         snap = self._make_snapshot()
         generator = ContractGenerator([], [], snap)
         with self.assertRaises(ValueError):
             generator.render_markdown([])
 
     def test_render_markdown_contains_filepath_and_principle(self):
-        from contract_generator import ContractGenerator
-        from knowledge_graph import KNOWLEDGE_GRAPH
+        from ultron.experimental.contract_generator import ContractGenerator
+        from ultron.experimental.knowledge_graph import KNOWLEDGE_GRAPH
         snap = self._make_snapshot()
         violations = [
             self._make_violation("a.py", "Dependency Inversion Principle (DIP)", "high_fan_out")
@@ -2038,8 +2036,8 @@ class TestContractGenerator(unittest.TestCase):
         self.assertIn("All projected metrics are theoretical, best-case projections", md)
 
     def test_generate_returns_empty_list_for_no_violations(self):
-        from contract_generator import ContractGenerator
-        from knowledge_graph import KNOWLEDGE_GRAPH
+        from ultron.experimental.contract_generator import ContractGenerator
+        from ultron.experimental.knowledge_graph import KNOWLEDGE_GRAPH
         snap = self._make_snapshot()
         generator = ContractGenerator([], KNOWLEDGE_GRAPH, snap)
         cards = generator.generate()
@@ -2055,7 +2053,7 @@ class TestContractGenerator(unittest.TestCase):
         repo_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", "..")
         )
-        from design_oracle import generate_oracle_report
+        from ultron.experimental.design_oracle import generate_oracle_report
         codebase = {"ultron/experimental/reasoning.py": {"imports": [], "definitions": []}}
         report = generate_oracle_report(codebase, repo_path)
         self.assertIn("## Implementation Contracts", report)
@@ -2067,9 +2065,9 @@ class TestContractGenerator(unittest.TestCase):
         If the per-file localization logic is removed, the card would carry
         the global baseline value (99.0) instead of the file-specific value (7.0).
         """
-        from contract_generator import ContractGenerator
-        from knowledge_graph import KNOWLEDGE_GRAPH
-        from impact_simulator import MetricSnapshot
+        from ultron.experimental.contract_generator import ContractGenerator
+        from ultron.experimental.knowledge_graph import KNOWLEDGE_GRAPH
+        from ultron.experimental.impact_simulator import MetricSnapshot
         snap_global = MetricSnapshot(99.0, 5, 5, 0.5, 0.5)
         debt_scores = [{"file": "a.py", "coupling_debt": 7.0, "instability": 0.2}]
         violations = [self._make_violation("a.py", "Dependency Inversion Principle (DIP)", "high_fan_out")]
@@ -2084,13 +2082,13 @@ class TestContractGenerator(unittest.TestCase):
         """
         Spy-based nullification guard for design_oracle.py's localized-metrics
         pass-through. Patches ContractGenerator in its module namespace so that
-        when design_oracle.py does 'from contract_generator import ContractGenerator'
+        when design_oracle.py does 'from ultron.experimental.contract_generator import ContractGenerator'
         inside the function body it gets the spy. Captures kwargs and asserts
         debt_scores was passed. Fails if the kwargs line in design_oracle.py is
         removed/nullified — regardless of whether violations are present.
         """
         import os
-        import contract_generator as cg_module
+        from ultron.experimental import contract_generator as cg_module
         from unittest.mock import patch
 
         repo_path = os.path.abspath(
@@ -2107,7 +2105,7 @@ class TestContractGenerator(unittest.TestCase):
                 super().__init__(*args, **kwargs)
 
         with patch.object(cg_module, 'ContractGenerator', SpyCG):
-            from design_oracle import generate_oracle_report
+            from ultron.experimental.design_oracle import generate_oracle_report
             generate_oracle_report(codebase, repo_path)
 
         self.assertIn(
@@ -2119,7 +2117,7 @@ class TestContractGenerator(unittest.TestCase):
 
 class TestEvidenceEngine(unittest.TestCase):
     def test_metric_evidence_validation(self):
-        from evidence_engine import MetricEvidence
+        from ultron.experimental.evidence_engine import MetricEvidence
         # Valid instantiation
         m = MetricEvidence("Complexity", 12.0, 10.0, 4.0, 95.0, "McCabe")
         self.assertEqual(m.metric_name, "Complexity")
@@ -2138,7 +2136,7 @@ class TestEvidenceEngine(unittest.TestCase):
             MetricEvidence("Complexity", 12.0, 10.0, 4.0, -5.0, "McCabe")
 
     def test_evidence_bundle_validation(self):
-        from evidence_engine import EvidenceBundle, MetricEvidence
+        from ultron.experimental.evidence_engine import EvidenceBundle, MetricEvidence
         m = MetricEvidence("Complexity", 12.0, 10.0, 4.0, 95.0, "McCabe")
         
         # Valid instantiation
@@ -2156,7 +2154,7 @@ class TestEvidenceEngine(unittest.TestCase):
             EvidenceBundle("a.py", "Dependency Inversion Principle (DIP)", [123])
 
     def test_evidence_engine_statistics_medians(self):
-        from evidence_engine import EvidenceEngine
+        from ultron.experimental.evidence_engine import EvidenceEngine
         
         # Case A: Odd number of elements
         codebase = {"a.py": {}, "b.py": {}, "c.py": {}}
@@ -2182,7 +2180,7 @@ class TestEvidenceEngine(unittest.TestCase):
         self.assertEqual(engine_even.medians["coupling_debt"], 25.0)
 
     def test_evidence_engine_percentile_calculation(self):
-        from evidence_engine import EvidenceEngine
+        from ultron.experimental.evidence_engine import EvidenceEngine
         codebase = {"a.py": {}, "b.py": {}, "c.py": {}, "d.py": {}}
         coupling = [
             {"file": "a.py", "coupling_debt": 10.0},
@@ -2197,7 +2195,7 @@ class TestEvidenceEngine(unittest.TestCase):
         self.assertEqual(engine._compute_percentile("coupling_debt", 40.0), 100.0)
 
     def test_generate_bundle_mappings(self):
-        from evidence_engine import EvidenceEngine
+        from ultron.experimental.evidence_engine import EvidenceEngine
         codebase = {"a.py": {}, "b.py": {}}
         coupling = [
             {"file": "a.py", "coupling_debt": 25.0, "fan_in": 10.0, "fan_out": 9.0, "instability": 0.15},
@@ -2260,13 +2258,13 @@ class TestEvidenceEngine(unittest.TestCase):
         Laundering guard test to verify that calling generate_bundle with
         invalid state or modifying its constructor will break UMAGS nullifier.
         """
-        from evidence_engine import EvidenceEngine
+        from ultron.experimental.evidence_engine import EvidenceEngine
         engine = EvidenceEngine({"a.py": {}}, [], [], {}, {}, [])
         with self.assertRaises(TypeError):
             engine.generate_bundle(123, "Dependency Inversion Principle (DIP)")
 
     def test_private_methods_for_failure_space(self):
-        from evidence_engine import EvidenceEngine
+        from ultron.experimental.evidence_engine import EvidenceEngine
         engine = EvidenceEngine({"a.py": {}}, [], [], {}, {}, [])
         
         # Explicit calls for UMAGS tested/negative_tested check

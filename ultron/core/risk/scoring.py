@@ -13,8 +13,8 @@ at module level).
 import os
 import math
 
-from models import AnalysisPacket
-import logistic
+from ultron.core.models import AnalysisPacket
+from ultron.core import logistic
 from .historical import load_mkr_stats, load_human_feedback
 from .metrics import get_file_complexity
 
@@ -58,7 +58,7 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
     risks = []
 
     # Lazy import to prevent circular dependency (analyzer imports risk at module level)
-    import analyzer
+    from ultron.core import analyzer
     bug_fixes = {}
     if repo_path:
         try:

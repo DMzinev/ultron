@@ -22,13 +22,9 @@ import sys
 import json
 import datetime
 
-# Configure sys.path to find moved files under their new subdirectories
+# REPO_ROOT configuration
 _dir = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(_dir, "..", ".."))
-for _subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
-    sys.path.append(os.path.abspath(os.path.join(REPO_ROOT, "ultron", _subdir)))
-sys.path.append(REPO_ROOT)
-sys.path.append(os.path.abspath(os.path.join(REPO_ROOT, "umags")))
 
 META_DIR = os.path.join(REPO_ROOT, "ultron", "meta")
 RATINGS_PATH = os.path.join(META_DIR, "ai_ratings.jsonl")
@@ -52,11 +48,11 @@ def get_caller_list(file_path: str, repo_path: str) -> list:
 
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     try:
-        from analyzer import analyze_directory
+        from ultron.core import analyzer
     except ImportError as e:
-        raise ImportError(f"Cannot import analyzer from ultron/: {e}")
+        raise ImportError(f"Cannot import analyzer: {e}")
 
-    codebase = analyze_directory(repo_path)
+    codebase = analyzer.analyze_directory(repo_path)
     if not codebase:
         return []
 

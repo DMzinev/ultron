@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ultron-risk-scorer"
+version = "1.1.0"
+description = "AI-Assisted Software Architecture Platform"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = []
+
+[project.scripts]
+ultron = "ultron.interfaces.ultron:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ultron*"]
+exclude = ["umags*", "synapse_project*"]

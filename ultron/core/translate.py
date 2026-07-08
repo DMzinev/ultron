@@ -66,13 +66,8 @@ if __name__ == "__main__":
     try:
         repo_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
         
-        # Configure sys.path so we can import other core modules
-        for subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
-            sys.path.append(os.path.join(repo_path, "ultron", subdir))
-        sys.path.append(repo_path)
-        
-        import analyzer
-        import risk
+        from ultron.core import analyzer
+        from ultron.core import risk
         
         codebase = analyzer.analyze_directory(repo_path)
         

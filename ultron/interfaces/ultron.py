@@ -3,23 +3,19 @@ import sys
 import os
 import json
 
-# Add repository root and micro folders to sys.path to enable absolute/flat imports
+# Add parent directory of 'ultron' to sys.path to enable package imports in-place
 _dir = os.path.dirname(os.path.abspath(__file__))
-_root = os.path.abspath(os.path.join(_dir, "..", ".."))
-for _subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
-    sys.path.append(os.path.abspath(os.path.join(_root, "ultron", _subdir)))
-sys.path.append(_root)
-sys.path.append(os.path.abspath(os.path.join(_root, "umags")))
+sys.path.insert(0, os.path.abspath(os.path.join(_dir, "..", "..")))
 
-import analyzer
-import risk
-import prompt
-import classifier
-import translate
+from ultron.core import analyzer
+from ultron.core import risk
+from ultron.core import prompt
+from ultron.core import classifier
+from ultron.core import translate
 
 def main():
     parser = argparse.ArgumentParser(description="Ultron: AI Pre-Execution Boundary Optimizer")
-    parser.add_argument("--repo", required=True, help="Path to codebase repository")
+    parser.add_argument("--repo", default=".", help="Path to codebase repository")
     parser.add_argument("--intent", help="Natural language change intent description (required for prompt generation)")
     parser.add_argument("--files", help="Comma-separated relative paths of files to modify")
     parser.add_argument("--output", help="Path to save the optimized prompt (.txt)")
@@ -82,7 +78,7 @@ def main():
     # Context brief mode
     if args.brief:
         log("[+] Ultron: Generating codebase context brief...")
-        import context_brief
+        from ultron.core import context_brief
         brief = context_brief.compile_brief(repo_path)
         if args.output:
             out_path = os.path.abspath(args.output)
@@ -111,7 +107,7 @@ def main():
     # Design Oracle mode
     if args.oracle:
         log("[+] Ultron: Running Design Oracle analysis...")
-        import design_oracle
+        from ultron.experimental import design_oracle
         codebase = analyzer.analyze_directory(repo_path)
         risks = risk.evaluate_risks(codebase, [], "", repo_path=repo_path)
         report = design_oracle.generate_oracle_report(codebase, repo_path, risks)
@@ -139,9 +135,58 @@ def main():
                 print(report)
         sys.exit(0)
 
-    # Standard prompt generation mode
+    # Default risk evaluation mode if intent is not specified
     if not args.intent:
-        parser.error("--intent is required when not in --check-anomaly or --brief mode.")
+        target_files = []
+        if args.files:
+            target_files = [f.strip() for f in args.files.split(",") if f.strip()]
+            
+        log("[+] Ultron: Analysing codebase structure...")
+        codebase = analyzer.analyze_directory(repo_path)
+        
+        # If no specific files are requested, evaluate all python files in the directory
+        if not target_files:
+            target_files = [f for f in codebase.keys() if f.endswith(".py")]
+            
+        log("[+] Ultron: Evaluating interaction risks...")
+        risks = risk.evaluate_risks(codebase, target_files, repo_path=repo_path)
+        
+        # Sort risks: HIGH first, then MEDIUM, then LOW
+        tier_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+        risks_sorted = sorted(risks, key=lambda r: (tier_order.get(r.level, 3), -r.impact_score))
+        
+        high_medium_risks = [r for r in risks_sorted if r.level in ("HIGH", "MEDIUM")]
+        
+        if args.json:
+            out_data = {
+                "status": "success",
+                "risks": [
+                    {
+                        "file": r.file_path,
+                        "level": r.level,
+                        "coupling_score": r.coupling_score,
+                        "complexity": r.complexity,
+                        "impact_score": r.impact_score,
+                        "summary": translate.plain_language_summary(r)
+                    }
+                    for r in risks_sorted
+                ]
+            }
+            print(json.dumps(out_data, indent=2))
+        else:
+            if not risks:
+                log("[-] Warning: No python files found or evaluated.")
+            elif high_medium_risks:
+                print(f"[+] Ultron found {len(high_medium_risks)} HIGH/MEDIUM risk file(s) in {repo_path}:")
+                for r in high_medium_risks:
+                    print(f"  * {translate.plain_language_summary(r)}")
+                    if args.detail:
+                        print(translate.detailed_breakdown(r))
+            else:
+                print(f"[+] All files in {repo_path} are LOW risk (safe to change).")
+                
+            print("\n[i] Run 'ultron --brief' for an orientation brief, or 'ultron --oracle' for the architectural design oracle report.")
+        sys.exit(0)
         
     target_files = []
     if args.files:

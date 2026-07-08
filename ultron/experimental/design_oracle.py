@@ -565,7 +565,7 @@ def generate_oracle_report(codebase, repo_path, risks=None):
     # 5. Architectural Reasoning Report
     lines.append("## Architectural Reasoning Report\n")
     try:
-        from reasoning import ReasoningEngine
+        from ultron.experimental.reasoning import ReasoningEngine
         engine = ReasoningEngine(codebase, repo_path)
         cards = engine.analyze()
         if cards:
@@ -581,10 +581,10 @@ def generate_oracle_report(codebase, repo_path, risks=None):
     # NOTE: heading is inside the try block so that nullifying this logic
     # removes the header, failing the test-laundering guard.
     try:
-        from reasoning import ReasoningEngine as _RE
-        from knowledge_graph import KNOWLEDGE_GRAPH
-        from impact_simulator import MetricSnapshot
-        from contract_generator import ContractGenerator
+        from ultron.experimental.reasoning import ReasoningEngine as _RE
+        from ultron.experimental.knowledge_graph import KNOWLEDGE_GRAPH
+        from ultron.experimental.impact_simulator import MetricSnapshot
+        from ultron.experimental.contract_generator import ContractGenerator
 
         _engine = _RE(codebase, repo_path)
         _violations = _engine.analyze()

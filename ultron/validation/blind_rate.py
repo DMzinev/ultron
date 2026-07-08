@@ -5,15 +5,7 @@ import random
 import time
 import argparse
 
-# Configure sys.path to find moved files under their new subdirectories
-_dir = os.path.dirname(os.path.abspath(__file__))
-_root = os.path.abspath(os.path.join(_dir, "..", ".."))
-for _subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
-    sys.path.append(os.path.abspath(os.path.join(_root, "ultron", _subdir)))
-sys.path.append(_root)
-sys.path.append(os.path.abspath(os.path.join(_root, "umags")))
-
-import analyzer
+from ultron.core import analyzer
 
 def normalize_relative_path(path_str):
     """
@@ -104,7 +96,7 @@ def calculate_agreement(repo_path, rel_path, rater_tier):
         raise ValueError("Arguments cannot be None")
     
     # Dynamic import to avoid loading risk.py at module level
-    import risk
+    from ultron.core import risk
     
     codebase = analyzer.analyze_directory(repo_path)
     norm_rel = normalize_relative_path(rel_path)

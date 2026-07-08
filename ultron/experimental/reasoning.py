@@ -2,7 +2,7 @@ import os
 import sys
 
 # Absolute imports used since ultron/core/ and ultron/experimental/ are on sys.path
-from design_oracle import (
+from ultron.experimental.design_oracle import (
     detect_circular_dependencies,
     score_coupling_debt,
     detect_abstraction_leaks,

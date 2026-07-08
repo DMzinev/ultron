@@ -66,7 +66,7 @@ class RecommendationEngine:
         """
         Processes cards, resolves smells, sorts, and ranks recommendations.
         """
-        from knowledge_graph import lookup
+        from ultron.experimental.knowledge_graph import lookup
 
         assert self.cards is not None, "Violation cards list cannot be None"
         recs: List[Recommendation] = []

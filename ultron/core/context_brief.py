@@ -4,15 +4,8 @@ import time
 import math
 import json
 
-# Add parent directories to sys.path to resolve imports properly
-_dir = os.path.dirname(os.path.abspath(__file__))
-_root = os.path.abspath(os.path.join(_dir, "..", ".."))
-for _subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
-    sys.path.append(os.path.abspath(os.path.join(_root, "ultron", _subdir)))
-sys.path.append(_root)
-
-import analyzer
-import risk
+from ultron.core import analyzer
+from ultron.core import risk
 
 def generate_directory_tree(dirpath):
     if not dirpath:

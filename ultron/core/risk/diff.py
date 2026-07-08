@@ -10,7 +10,7 @@ historical (MKR loading).
 import os
 import math
 
-from models import AnalysisPacket
+from ultron.core.models import AnalysisPacket
 from .metrics import extract_ast_blocks, get_code_complexity
 from .historical import load_mkr_stats
 

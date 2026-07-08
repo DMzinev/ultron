@@ -9,8 +9,7 @@ import shlex
 # Import prediction engine for weights calibration
 _dir = os.path.dirname(os.path.abspath(__file__))
 _root = os.path.abspath(os.path.join(_dir, "..", ".."))
-sys.path.append(os.path.abspath(os.path.join(_root, "ultron", "experimental")))
-import delta
+from ultron.experimental import delta
 
 FUSION_WEIGHTS_PATH = os.path.join(_root, "ultron", "meta", "fusion_weights.json")
 REALITY_DELTAS_PATH = os.path.join(_root, "ultron", "meta", "reality_deltas.jsonl")

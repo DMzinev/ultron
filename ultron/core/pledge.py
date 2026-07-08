@@ -92,7 +92,7 @@ def verify_pledge(file_path, actual_delta_i, actual_mkr, actual_delta_cest, actu
     save_active_pledges(pledges)
     
     # Trigger online confidence index calibration
-    import logistic
+    from ultron.core import logistic
     logistic.train_confidence_classifier()
     
     return log_entry

@@ -147,8 +147,8 @@ def log_calibration_experiment(predicted_risk, actual_failures, prediction_error
     print(f"[Meta-Ultron] logged calibration to ledger: precision={precision:.2f}, recall={recall:.2f}, f1={f1:.2f}")
 
 def run_threshold_calibration(repo_path):
-    import classifier
-    import analyzer
+    from ultron.core import classifier
+    from ultron.core import analyzer
     import random
     
     print(f"[Meta-Ultron] Starting threshold sweep auto-calibration on repo: {repo_path}")

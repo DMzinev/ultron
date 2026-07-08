@@ -3,19 +3,15 @@ import os
 import json
 import traceback
 
-# Configure sys.path to find moved files under their new subdirectories
+# Add parent directory of 'ultron' to sys.path to enable package imports in-place
 _dir = os.path.dirname(os.path.abspath(__file__))
-_root = os.path.abspath(os.path.join(_dir, "..", ".."))
-for _subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
-    sys.path.append(os.path.abspath(os.path.join(_root, "ultron", _subdir)))
-sys.path.append(_root)
-sys.path.append(os.path.abspath(os.path.join(_root, "umags")))
+sys.path.insert(0, os.path.abspath(os.path.join(_dir, "..", "..")))
 
-import analyzer
-import risk
-import prompt
-import classifier
-import translate
+from ultron.core import analyzer
+from ultron.core import risk
+from ultron.core import prompt
+from ultron.core import classifier
+from ultron.core import translate
 
 # Standard tool definitions
 TOOLS = [
