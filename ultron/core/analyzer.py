@@ -20,7 +20,7 @@ def analyze_file(filepath):
     - definitions: list of defined functions/classes with metadata and calls
     """
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, 'r', encoding='utf-8-sig') as f:
             source = f.read()
         tree = ast.parse(source)
     except Exception as e:

@@ -43,7 +43,7 @@ def load_mkr_stats(ledger_path=None):
 
     stats = {}
     try:
-        with open(ledger_path, "r", encoding="utf-8") as f:
+        with open(ledger_path, "r", encoding="utf-8-sig") as f:
             for line in f:
                 if not line.strip():
                     continue
@@ -80,7 +80,7 @@ def load_human_feedback():
     if not os.path.exists(feedback_path):
         return feedback
     try:
-        with open(feedback_path, "r", encoding="utf-8") as f:
+        with open(feedback_path, "r", encoding="utf-8-sig") as f:
             for line in f:
                 if not line.strip():
                     continue

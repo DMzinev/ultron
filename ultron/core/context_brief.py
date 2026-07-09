@@ -45,7 +45,7 @@ def parse_roadmap_gaps(repo_path):
     if not os.path.exists(roadmap_path):
         return {}
     try:
-        with open(roadmap_path, "r", encoding="utf-8") as f:
+        with open(roadmap_path, "r", encoding="utf-8-sig") as f:
             content = f.read()
     except Exception as e:
         return {"Error": f"Could not read ROADMAP.md: {e}"}

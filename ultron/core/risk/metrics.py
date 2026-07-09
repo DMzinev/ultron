@@ -22,7 +22,7 @@ def get_file_complexity(filepath):
     if filepath is None:
         raise ValueError("filepath cannot be None")
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, "r", encoding="utf-8-sig") as f:
             code = f.read()
         visitor = ComplexityVisitor.from_code(code)
         if visitor.blocks:

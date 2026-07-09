@@ -97,7 +97,7 @@ def build_models(dirpath, exclude_file=None, os=os):
                 if exclude_path and os.path.abspath(filepath) == exclude_path:
                     continue
                 try:
-                    with open(filepath, 'r', encoding='utf-8') as f:
+                    with open(filepath, 'r', encoding='utf-8-sig') as f:
                         tree = ast.parse(f.read())
                     
                     # Top-level names (globals, functions, classes, imports)
@@ -158,7 +158,7 @@ def audit_target_file(filepath, defined_names, transition_probs, typo_threshold=
     import importlib
     anomalies = []
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, 'r', encoding='utf-8-sig') as f:
             tree = ast.parse(f.read())
             
         # Compile a set of built-in type method names dynamically

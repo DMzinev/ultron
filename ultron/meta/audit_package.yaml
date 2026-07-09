@@ -23,6 +23,10 @@ CHANGED_FILES:
 - 'ultron/validation/blind_rate.py'
 - 'pyproject.toml'
 - 'umags/run_verification_loop.py'
+- 'ultron/core/analyzer.py'
+- 'ultron/core/classifier.py'
+- 'ultron/core/risk/metrics.py'
+- 'ultron/core/risk/historical.py'
 PATCH_DIFF: |
   diff --git a/umags/run_verification_loop.py b/umags/run_verification_loop.py
   index f7a147c..e1da1d7 100644

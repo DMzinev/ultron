@@ -216,7 +216,7 @@ def extract_human_signal(feedback_path, rel_path):
     ratings = []
     
     try:
-        with open(feedback_path, "r", encoding="utf-8") as f:
+        with open(feedback_path, "r", encoding="utf-8-sig") as f:
             for line in f:
                 if not line.strip():
                     continue

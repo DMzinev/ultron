@@ -106,7 +106,7 @@ def scan_file_for_globals(filepath):
         return []
         
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, "r", encoding="utf-8-sig") as f:
             source = f.read()
         tree = ast.parse(source)
         globals_declared = []
@@ -328,10 +328,11 @@ def detect_abstraction_leaks(codebase, repo_path, max_responsibilities=8, min_co
             continue
 
         try:
-            with open(abs_path, "r", encoding="utf-8") as f:
+            with open(abs_path, "r", encoding="utf-8-sig") as f:
                 source = f.read()
             tree = ast.parse(source)
-        except (SyntaxError, OSError, ValueError):
+        except (SyntaxError, OSError, ValueError) as e:
+            sys.stderr.write(f"[Warning] Design Oracle abstraction leak parser failed for {abs_path}: {e}\n")
             continue
 
         file_leaks = []
@@ -443,11 +444,12 @@ def compute_hotspot_scores(codebase, repo_path, risks):
         complexity = 0
         if os.path.exists(abs_path) and rel_path.endswith(".py"):
             try:
-                with open(abs_path, "r", encoding="utf-8") as f:
+                with open(abs_path, "r", encoding="utf-8-sig") as f:
                     source = f.read()
                 tree = ast.parse(source)
                 complexity = _count_cyclomatic_complexity(tree)
-            except (SyntaxError, OSError, ValueError):
+            except (SyntaxError, OSError, ValueError) as e:
+                sys.stderr.write(f"[Warning] Design Oracle hotspot parser failed for {abs_path}: {e}\n")
                 complexity = 0
 
         bug_fix_count = _get_bug_fix_count(repo_path, rel_path)
