@@ -104,3 +104,23 @@ For every non-trivial coding task or request:
 ## 7. Walkthrough Integrity Rules
 1.  **Labeled Process Answers:** Every walkthrough must directly answer any open process question from the prior review turn, in its own labeled section, before reporting new work. A walkthrough that skips a direct question is incomplete by definition.
 2.  **No Fabricated Metrics:** All metrics and performance numbers reported in the walkthrough must explicitly state whether they are measured or estimated/extrapolated. Unmeasured estimates must never be formatted or presented as empirical data.
+
+---
+
+## 8. Ponytail Simplicity & YAGNI Code Rules (The Simplicity Ladder)
+Before proposing plans, executing tasks, or writing any code in this repository, you must strictly follow the **Ponytail Simplicity Ladder** to ensure you produce the most lean and essential results without burning unnecessary tokens:
+
+1. **Does this need to exist at all?** Speculative need = skip it, say so in one line. (YAGNI)
+2. **Already in this codebase?** A helper, util, type, or pattern that already lives here → reuse it. Do not re-implement logic.
+3. **Does the Python Standard Library do it?** Use it.
+4. **Does a native platform feature cover it?** CSS over JS, native inputs over component libraries, database constraints over application logic.
+5. **Does an already-installed dependency solve it?** Use it. Never add a new dependency if a few lines of code or existing tools can do the job.
+6. **Can it be done in one line?** Make it one line.
+7. **Only then:** write the minimum code that works.
+
+**Crucial Constraints:**
+- **No unrequested abstractions:** No interface with one implementation, no factory for one product, no config for a value that never changes.
+- **No boilerplate:** No scaffolding "for later", later can scaffold for itself.
+- **Deletion over addition:** Boring code over clever code. Fewest files possible.
+- **Root-cause bug fixing:** Fix bugs once, where all callers route through. Grep every caller of a function you are about to touch.
+- **Lazy, not negligent:** Never compromise on trust-boundary validation, data-loss handling, security, performance, or accessibility.
