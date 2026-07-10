@@ -233,3 +233,6 @@ comparison. This is implemented in `run_preflight_risk_gate()`.
 
 ### Labeled Process Answers
 Every walkthrough must directly answer any open process question from the prior review turn, in its own labeled section, before reporting new work. A walkthrough that skips a direct question is incomplete by definition. All metrics and performance numbers reported in the walkthrough must explicitly state whether they are measured or estimated/extrapolated.
+
+### Walkthrough Delta-Only Rule
+Every walkthrough reports ONLY the current task. Walkthroughs must not re-list or re-describe prior tasks, fixes, or steps that are already closed and committed. Prior work should be referenced strictly by task name or commit hash.
