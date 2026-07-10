@@ -1,98 +1,1407 @@
-TASK_ID: 'Task-PackageUltronForPip'
-TASK_TYPE: 'STRUCTURE_ONLY'
+TASK_ID: 'Task-VisualHeatmap'
+TASK_TYPE: 'LOGIC_CHANGE'
 BUILDER_VERSION: 'v2.0'
-COMMIT_HASH: 'a9e9566947be2f88fac6b437c52ec9e0c5df7dc6'
-PLAN_HASH: '4866881427601617186'
+COMMIT_HASH: '35c7ffe0215ff18eb300cd2dbfb18c5ee37d232c'
+PLAN_HASH: '-2866121393631008290'
 CHANGED_FILES:
-- 'ultron/core/context_brief.py'
-- 'ultron/core/meta_layer.py'
-- 'ultron/core/pledge.py'
-- 'ultron/core/risk/diff.py'
-- 'ultron/core/risk/scoring.py'
-- 'ultron/core/translate.py'
-- 'ultron/experimental/contract_generator.py'
-- 'ultron/experimental/design_oracle.py'
-- 'ultron/experimental/reality_delta.py'
-- 'ultron/experimental/reasoning.py'
-- 'ultron/experimental/recommendation_engine.py'
-- 'ultron/interfaces/mcp_server.py'
 - 'ultron/interfaces/server.py'
-- 'ultron/interfaces/ultron.py'
 - 'ultron/tests/run_tests.py'
-- 'ultron/validation/ai_rater.py'
-- 'ultron/validation/blind_rate.py'
-- 'pyproject.toml'
-- 'umags/run_verification_loop.py'
-- 'ultron/core/analyzer.py'
-- 'ultron/core/classifier.py'
-- 'ultron/core/risk/metrics.py'
-- 'ultron/core/risk/historical.py'
+- 'ultron/interfaces/web/heatmap.html'
+- 'ultron/interfaces/web/heatmap.css'
+- 'ultron/interfaces/web/heatmap.js'
 PATCH_DIFF: |
-  diff --git a/umags/run_verification_loop.py b/umags/run_verification_loop.py
-  index f7a147c..e1da1d7 100644
-  --- a/umags/run_verification_loop.py
-  +++ b/umags/run_verification_loop.py
-  @@ -551,9 +551,9 @@ def main():
-       repo_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-       
-       # Configure sys.path early so that pre-flight risk gate can import ultron modules
-  +    sys.path.insert(0, repo_path)
-       for subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
-           sys.path.append(os.path.abspath(os.path.join(repo_path, "ultron", subdir)))
-  -    sys.path.append(repo_path)
-       
-       pkg_path = os.path.join(repo_path, "ultron", "meta", "audit_package.yaml")
-       
-  @@ -1070,11 +1070,10 @@ Builder Walkthrough (Intended Reality):
-           elif total_bugs > 0:
-               history_comments.append(f"Note: File '{f}' has {total_bugs} past bug/fix occurrences (Git: {len(bug_commits)}, Log: {len(log_bugs)}).")
+  diff --git a/ultron/interfaces/server.py b/ultron/interfaces/server.py
+  index 3447e9d..97ac4e4 100644
+  --- a/ultron/interfaces/server.py
+  +++ b/ultron/interfaces/server.py
+  @@ -17,6 +17,7 @@ from ultron.core import pledge
+   from ultron.core import fuzz
+   from ultron.core import logistic
+   from ultron.experimental import design_oracle
+  +from ultron.core import translate
+   
+   
+   LAST_ANALYSIS = {
+  @@ -51,7 +52,12 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
+               rel_path = parsed_path.lstrip('/')
+               file_path = os.path.join(WEB_DIR, rel_path)
                
-  -    # 4e. Audit Blind Spots check
-       try:
-  +        sys.path.insert(0, repo_path)
-           for subdir in ["core", "experimental", "interfaces", "validation", "tests"]:
-               sys.path.append(os.path.abspath(os.path.join(repo_path, "ultron", subdir)))
-  -        sys.path.append(repo_path)
-           import analyzer
-           import risk
-           codebase = analyzer.analyze_directory(repo_path)
-EXPECTED_OUTCOMES: 'Add pyproject.toml configuration at repo root for pip distribution with radon dependency; clean up and normalize all flat and dynamic sys.path.append import statements to absolute package imports across production and test codebases; completely remove sys.path manipulations from entry points; fix run_verification_loop.py path pollution to prevent shadowing; implement bare default CLI run mode evaluating risk profiles for repository python files and listing only HIGH/MEDIUM files; run 145 tests passing with R=0'
+  -        if not file_path.startswith(WEB_DIR) or not os.path.exists(file_path) or os.path.isdir(file_path):
+  +        real_file_path = os.path.realpath(file_path)
+  +        real_web_dir = os.path.join(os.path.realpath(WEB_DIR), "")
+  +        
+  +        if (not os.path.normcase(real_file_path).startswith(os.path.normcase(real_web_dir))
+  +                or not os.path.exists(real_file_path)
+  +                or os.path.isdir(real_file_path)):
+               self.send_response(404)
+               self.send_header("Content-Type", "text/plain")
+               self.end_headers()
+  @@ -87,7 +93,9 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
+               self.wfile.write(f"500 Internal Server Error: {e}".encode())
+   
+       def do_POST(self):
+  -        if self.path == "/api/analyze":
+  +        if self.path == "/api/config":
+  +            self.handle_config()
+  +        elif self.path == "/api/analyze":
+               self.handle_analyze()
+           elif self.path == "/api/audit":
+               self.handle_audit()
+  @@ -257,36 +265,162 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
+                   "traceback": traceback.format_exc()
+               })
+   
+  +    def handle_config(self):
+  +        try:
+  +            self.send_json_response(200, {
+  +                "success": True,
+  +                "default_repo": os.getcwd().replace("\\", "/")
+  +            })
+  +        except Exception as e:
+  +            self.send_json_response(500, {"error": str(e)})
+  +
+       def handle_file_tree(self):
+           try:
+               data = self.get_post_data()
+  -            repo_path = os.path.abspath(data.get("repo", ""))
+  +            if not isinstance(data, dict):
+  +                self.send_json_response(400, {"error": "Invalid JSON payload format."})
+  +                return
+  +            repo = data.get("repo")
+  +            if not isinstance(repo, str) or not repo.strip():
+  +                self.send_json_response(400, {"error": "Missing or invalid 'repo' parameter."})
+  +                return
+  +                
+  +            repo_path = os.path.realpath(repo)
+  +            real_repo_dir = os.path.join(repo_path, "")
+  +            
+  +            if not os.path.normcase(repo_path).startswith(os.path.normcase(real_repo_dir)) and not os.path.normcase(real_repo_dir).startswith(os.path.normcase(repo_path)):
+  +                self.send_json_response(400, {"error": "Invalid repository path."})
+  +                return
+               if not os.path.isdir(repo_path):
+                   self.send_json_response(400, {"error": f"Repository path '{repo_path}' is not a directory."})
+                   return
+  +
+  +            # Scan codebase
+  +            codebase = analyzer.analyze_directory(repo_path)
+               
+  +            # Detect codebase parse errors
+  +            failed_files = set()
+  +            if isinstance(codebase, dict):
+  +                for key, val in codebase.items():
+  +                    if isinstance(val, dict) and "error" in val:
+  +                        failed_files.add(key)
+  +
+  +            # Evaluate risks
+  +            target_files = [k for k in codebase.keys() if k.endswith(".py")] if isinstance(codebase, dict) else []
+  +            risk_map = {}
+  +            try:
+  +                risks = risk.evaluate_risks(codebase, target_files, intent="Identify heatmaps", repo_path=repo_path)
+  +                for r in risks:
+  +                    file_path = getattr(r, "file_path", None) or (r.get("file_path") if isinstance(r, dict) else None)
+  +                    impact_score = getattr(r, "impact_score", 0.0) or (r.get("impact_score", 0.0) if isinstance(r, dict) else 0.0)
+  +                    level = getattr(r, "level", "LOW") or (r.get("level", "LOW") if isinstance(r, dict) else "LOW")
+  +                    summary = translate.plain_language_summary(r)
+  +                    if file_path:
+  +                        risk_map[file_path] = {
+  +                            "level": level,
+  +                            "impact_score": float(impact_score),
+  +                            "summary": summary
+  +                        }
+  +            except Exception as eval_err:
+  +                print(f"Risk evaluation failed: {eval_err}", file=sys.stderr)
+  +                traceback.print_exc(file=sys.stderr)
+  +                for tf in target_files:
+  +                    failed_files.add(tf)
+  +
+  +            LEVEL_MAP = {"LOW": 1, "MEDIUM": 2, "HIGH": 3}
+  +            REV_LEVEL_MAP = {1: "LOW", 2: "MEDIUM", 3: "HIGH"}
+  +
+               def build_tree(path):
+                   tree = []
+  -                for item in os.listdir(path):
+  +                try:
+  +                    items = os.listdir(path)
+  +                except (OSError, PermissionError):
+  +                    return tree
+  +
+  +                for item in items:
+                       if item.startswith('.') or item in ('venv', 'env', '__pycache__', 'tests', 'node_modules'):
+                           continue
+                       full_path = os.path.join(path, item)
+  +                    if os.path.islink(full_path):
+  +                        continue
+  +                        
+                       rel_path = os.path.relpath(full_path, repo_path).replace(os.sep, "/")
+  +                    
+                       if os.path.isdir(full_path):
+                           children = build_tree(full_path)
+                           if children:
+  +                            child_risks = [c["risk"] for c in children]
+  +                            max_level_num = max(LEVEL_MAP.get(cr["level"], 1) for cr in child_risks)
+  +                            max_level = REV_LEVEL_MAP.get(max_level_num, "LOW")
+  +                            max_impact = max(cr["impact_score"] for cr in child_risks)
+  +                            
+  +                            dir_summary = "All child modules are safe (LOW risk)"
+  +                            if max_level != "LOW":
+  +                                for cr in child_risks:
+  +                                    if LEVEL_MAP.get(cr["level"], 1) == max_level_num:
+  +                                        dir_summary = cr["summary"]
+  +                                        break
+  +                                        
+                               tree.append({
+                                   "name": item,
+                                   "path": rel_path,
+                                   "type": "directory",
+  -                                "children": children
+  +                                "children": children,
+  +                                "risk": {
+  +                                    "level": max_level,
+  +                                    "level_num": max_level_num,
+  +                                    "impact_score": max_impact,
+  +                                    "summary": dir_summary
+  +                                }
+                               })
+                       else:
+                           if item.endswith((".py", ".html", ".css", ".js", ".md", ".json")):
+  +                            is_failed_file = rel_path in failed_files
+  +                            if not is_failed_file and item.endswith(".py") and rel_path not in codebase:
+  +                                try:
+  +                                    analysis = analyzer.analyze_file(full_path)
+  +                                    if "error" in analysis:
+  +                                        failed_files.add(rel_path)
+  +                                        is_failed_file = True
+  +                                except Exception:
+  +                                    failed_files.add(rel_path)
+  +                                    is_failed_file = True
+  +                                    
+  +                            if is_failed_file:
+  +                                file_risk = {
+  +                                    "level": "HIGH",
+  +                                    "level_num": 3,
+  +                                    "impact_score": 1.0,
+  +                                    "summary": "Analysis failed: check server logs for details. Defaulted to HIGH risk."
+  +                                }
+  +                            elif rel_path in risk_map:
+  +                                rm = risk_map[rel_path]
+  +                                file_risk = {
+  +                                    "level": rm["level"],
+  +                                    "level_num": LEVEL_MAP.get(rm["level"], 1),
+  +                                    "impact_score": rm["impact_score"],
+  +                                    "summary": rm["summary"]
+  +                                }
+  +                            elif item.endswith(".py"):
+  +                                file_risk = {
+  +                                    "level": "LOW",
+  +                                    "level_num": 1,
+  +                                    "impact_score": 0.0,
+  +                                    "summary": "Analysis unavailable. Defaulted to LOW risk."
+  +                                }
+  +                            else:
+  +                                file_risk = {
+  +                                    "level": "LOW",
+  +                                    "level_num": 1,
+  +                                    "impact_score": 0.0,
+  +                                    "summary": "Non-Python file. Low structural risk."
+  +                                }
+  +                                
+                               tree.append({
+                                   "name": item,
+                                   "path": rel_path,
+  -                                "type": "file"
+  +                                "type": "file",
+  +                                "risk": file_risk
+                               })
+                   tree.sort(key=lambda x: (0 if x["type"] == "directory" else 1, x["name"].lower()))
+                   return tree
+  @@ -302,15 +436,26 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
+       def handle_get_file(self):
+           try:
+               data = self.get_post_data()
+  -            repo_path = os.path.abspath(data.get("repo", ""))
+  -            file_path = data.get("file", "")
+  +            if not isinstance(data, dict):
+  +                self.send_json_response(400, {"error": "Invalid JSON payload format."})
+  +                return
+  +            repo = data.get("repo")
+  +            file_param = data.get("file")
+  +            if not isinstance(repo, str) or not repo.strip() or not isinstance(file_param, str) or not file_param.strip():
+  +                self.send_json_response(400, {"error": "Missing or invalid parameters."})
+  +                return
+  +                
+  +            repo_path = os.path.realpath(repo)
+  +            full_path = os.path.realpath(os.path.join(repo_path, file_param))
+  +            real_repo_dir = os.path.join(repo_path, "")
+               
+  -            full_path = os.path.abspath(os.path.join(repo_path, file_path))
+  -            if not full_path.startswith(repo_path) or not os.path.exists(full_path):
+  +            if (not os.path.normcase(full_path).startswith(os.path.normcase(real_repo_dir))
+  +                    or not os.path.exists(full_path)
+  +                    or os.path.isdir(full_path)):
+                   self.send_json_response(400, {"error": "Invalid file path."})
+                   return
+                   
+  -            with open(full_path, "r", encoding="utf-8") as f:
+  +            with open(full_path, "r", encoding="utf-8-sig") as f:
+                   content = f.read()
+                   
+               self.send_json_response(200, {
+  @@ -323,12 +468,21 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
+       def handle_save_file(self):
+           try:
+               data = self.get_post_data()
+  -            repo_path = os.path.abspath(data.get("repo", ""))
+  -            file_path = data.get("file", "")
+  -            content = data.get("content", "")
+  +            if not isinstance(data, dict):
+  +                self.send_json_response(400, {"error": "Invalid JSON payload format."})
+  +                return
+  +            repo = data.get("repo")
+  +            file_param = data.get("file")
+  +            content = data.get("content")
+  +            if not isinstance(repo, str) or not repo.strip() or not isinstance(file_param, str) or not file_param.strip() or not isinstance(content, str):
+  +                self.send_json_response(400, {"error": "Missing or invalid parameters."})
+  +                return
+  +                
+  +            repo_path = os.path.realpath(repo)
+  +            full_path = os.path.realpath(os.path.join(repo_path, file_param))
+  +            real_repo_dir = os.path.join(repo_path, "")
+               
+  -            full_path = os.path.abspath(os.path.join(repo_path, file_path))
+  -            if not full_path.startswith(repo_path):
+  +            if not os.path.normcase(full_path).startswith(os.path.normcase(real_repo_dir)):
+                   self.send_json_response(400, {"error": "Invalid file path."})
+                   return
+                   
+  @@ -339,7 +493,7 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
+                   except Exception:
+                       pass
+                       
+  -            with open(full_path, "w", encoding="utf-8") as f:
+  +            with open(full_path, "w", encoding="utf-8-sig") as f:
+                   f.write(content)
+                   
+               self.send_json_response(200, {
+  @@ -868,6 +1022,23 @@ def serve():
+       # Make sure static files folder exists
+       os.makedirs(WEB_DIR, exist_ok=True)
+       
+  +    # Auto-open browser in a daemon thread
+  +    if os.environ.get("ULTRON_NO_OPEN") != "1":
+  +        import threading
+  +        import time
+  +        import webbrowser
+  +        
+  +        def open_browser():
+  +            time.sleep(1.0)
+  +            try:
+  +                url = "http://localhost:" + str(PORT) + "/heatmap.html"
+  +                webbrowser.open(url)
+  +            except Exception as e:
+  +                print(f"[*] Could not open browser automatically: {e}", file=sys.stderr)
+  +                
+  +        t = threading.Thread(target=open_browser, daemon=True)
+  +        t.start()
+  +    
+       # Simple reuse port setup
+       socketserver.TCPServer.allow_reuse_address = True
+       with socketserver.TCPServer(("", PORT), UltronAPIHandler) as httpd:
+  diff --git a/ultron/interfaces/web/heatmap.css b/ultron/interfaces/web/heatmap.css
+  new file mode 100644
+  index 0000000..1be6259
+  --- /dev/null
+  +++ b/ultron/interfaces/web/heatmap.css
+  @@ -0,0 +1,478 @@
+  +/* Modern Dark Mode Glassmorphism Style System */
+  +:root {
+  +    --bg-dark: #0b0f19;
+  +    --card-bg: rgba(30, 41, 59, 0.4);
+  +    --border-color: rgba(255, 255, 255, 0.08);
+  +    --text-primary: #f8fafc;
+  +    --text-secondary: #94a3b8;
+  +    --text-muted: #64748b;
+  +    
+  +    /* Risk Themes */
+  +    --color-high: #ef4444;
+  +    --color-high-bg: rgba(239, 68, 68, 0.15);
+  +    --color-high-border: rgba(239, 68, 68, 0.3);
+  +    
+  +    --color-medium: #f59e0b;
+  +    --color-medium-bg: rgba(245, 158, 11, 0.12);
+  +    --color-medium-border: rgba(245, 158, 11, 0.25);
+  +    
+  +    --color-low: #10b981;
+  +    --color-low-bg: rgba(16, 185, 129, 0.08);
+  +    --color-low-border: rgba(16, 185, 129, 0.2);
+  +}
+  +
+  +* {
+  +    box-sizing: border-box;
+  +    margin: 0;
+  +    padding: 0;
+  +}
+  +
+  +body {
+  +    background-color: var(--bg-dark);
+  +    color: var(--text-primary);
+  +    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  +    line-height: 1.5;
+  +    padding: 2rem;
+  +    min-height: 100vh;
+  +}
+  +
+  +.dashboard-container {
+  +    max-width: 1400px;
+  +    margin: 0 auto;
+  +    display: flex;
+  +    flex-direction: column;
+  +    gap: 1.5rem;
+  +}
+  +
+  +/* Header & Controls */
+  +.header {
+  +    background: var(--card-bg);
+  +    backdrop-filter: blur(10px);
+  +    border: 1px solid var(--border-color);
+  +    border-radius: 12px;
+  +    padding: 1.25rem 2rem;
+  +    display: flex;
+  +    justify-content: space-between;
+  +    align-items: center;
+  +    flex-wrap: wrap;
+  +    gap: 1rem;
+  +}
+  +
+  +.logo-area {
+  +    display: flex;
+  +    align-items: center;
+  +    gap: 0.75rem;
+  +}
+  +
+  +.logo-icon {
+  +    font-size: 1.8rem;
+  +}
+  +
+  +.logo-area h1 {
+  +    font-size: 1.5rem;
+  +    font-weight: 700;
+  +    letter-spacing: -0.025em;
+  +}
+  +
+  +.subtitle {
+  +    color: var(--text-secondary);
+  +    font-weight: 300;
+  +}
+  +
+  +.repo-selector {
+  +    display: flex;
+  +    align-items: center;
+  +    gap: 0.5rem;
+  +    flex-grow: 1;
+  +    max-width: 600px;
+  +}
+  +
+  +.repo-selector input {
+  +    flex-grow: 1;
+  +    background: rgba(15, 23, 42, 0.6);
+  +    border: 1px solid var(--border-color);
+  +    border-radius: 8px;
+  +    padding: 0.6rem 1rem;
+  +    color: var(--text-primary);
+  +    font-family: ui-monospace, SFMono-Regular, JetBrains Mono, Consolas, monospace;
+  +    font-size: 0.9rem;
+  +    transition: all 0.2s;
+  +}
+  +
+  +.repo-selector input:focus {
+  +    outline: none;
+  +    border-color: #3b82f6;
+  +    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+  +}
+  +
+  +/* Buttons */
+  +.btn {
+  +    border-radius: 8px;
+  +    padding: 0.6rem 1.2rem;
+  +    font-size: 0.9rem;
+  +    font-weight: 600;
+  +    cursor: pointer;
+  +    border: none;
+  +    transition: all 0.2s;
+  +    display: inline-flex;
+  +    align-items: center;
+  +    gap: 0.5rem;
+  +}
+  +
+  +.btn-primary {
+  +    background: #2563eb;
+  +    color: white;
+  +}
+  +
+  +.btn-primary:hover {
+  +    background: #1d4ed8;
+  +}
+  +
+  +.btn-secondary {
+  +    background: rgba(255, 255, 255, 0.05);
+  +    color: var(--text-primary);
+  +    border: 1px solid var(--border-color);
+  +}
+  +
+  +.btn-secondary:hover {
+  +    background: rgba(255, 255, 255, 0.1);
+  +}
+  +
+  +.btn-small {
+  +    padding: 0.35rem 0.75rem;
+  +    font-size: 0.8rem;
+  +}
+  +
+  +/* Spinner */
+  +.spinner {
+  +    width: 14px;
+  +    height: 14px;
+  +    border: 2px solid rgba(255, 255, 255, 0.3);
+  +    border-radius: 50%;
+  +    border-top-color: white;
+  +    animation: spin 0.8s linear infinite;
+  +    display: none;
+  +}
+  +
+  +@keyframes spin {
+  +    to { transform: rotate(360deg); }
+  +}
+  +
+  +/* Error Banner */
+  +.error-banner {
+  +    background: rgba(239, 68, 68, 0.1);
+  +    border: 1px solid rgba(239, 68, 68, 0.2);
+  +    border-radius: 8px;
+  +    padding: 1rem;
+  +    display: flex;
+  +    gap: 0.75rem;
+  +    align-items: flex-start;
+  +    animation: slideDown 0.3s ease-out;
+  +}
+  +
+  +.error-banner.hidden {
+  +    display: none;
+  +}
+  +
+  +.error-icon {
+  +    font-size: 1.2rem;
+  +}
+  +
+  +.error-content {
+  +    flex-grow: 1;
+  +}
+  +
+  +.error-title {
+  +    font-weight: 700;
+  +    color: #ef4444;
+  +    margin-bottom: 0.25rem;
+  +}
+  +
+  +.error-message {
+  +    font-size: 0.85rem;
+  +    color: var(--text-secondary);
+  +    white-space: pre-wrap;
+  +    word-break: break-all;
+  +    font-family: ui-monospace, SFMono-Regular, JetBrains Mono, Consolas, monospace;
+  +}
+  +
+  +.close-btn {
+  +    background: none;
+  +    border: none;
+  +    color: var(--text-muted);
+  +    font-size: 1.2rem;
+  +    cursor: pointer;
+  +}
+  +
+  +.close-btn:hover {
+  +    color: var(--text-primary);
+  +}
+  +
+  +@keyframes slideDown {
+  +    from { transform: translateY(-10px); opacity: 0; }
+  +    to { transform: translateY(0); opacity: 1; }
+  +}
+  +
+  +/* Main Layout */
+  +.main-layout {
+  +    display: grid;
+  +    grid-template-columns: 320px 1fr;
+  +    gap: 1.5rem;
+  +}
+  +
+  +@media (max-width: 768px) {
+  +    .main-layout {
+  +        grid-template-columns: 1fr;
+  +    }
+  +}
+  +
+  +/* Sidebar Widgets */
+  +.sidebar {
+  +    display: flex;
+  +    flex-direction: column;
+  +    gap: 1.5rem;
+  +}
+  +
+  +.legend-card, .stats-card {
+  +    background: var(--card-bg);
+  +    border: 1px solid var(--border-color);
+  +    border-radius: 12px;
+  +    padding: 1.5rem;
+  +}
+  +
+  +.legend-card h3, .stats-card h3 {
+  +    font-size: 1rem;
+  +    margin-bottom: 1rem;
+  +    color: var(--text-primary);
+  +    border-bottom: 1px solid var(--border-color);
+  +    padding-bottom: 0.5rem;
+  +}
+  +
+  +.legend-list {
+  +    list-style: none;
+  +    display: flex;
+  +    flex-direction: column;
+  +    gap: 1rem;
+  +}
+  +
+  +.legend-item {
+  +    display: flex;
+  +    gap: 0.75rem;
+  +    font-size: 0.85rem;
+  +}
+  +
+  +.risk-indicator {
+  +    width: 12px;
+  +    height: 12px;
+  +    border-radius: 3px;
+  +    flex-shrink: 0;
+  +    margin-top: 3px;
+  +}
+  +
+  +.risk-high { background-color: var(--color-high); box-shadow: 0 0 6px var(--color-high); }
+  +.risk-medium { background-color: var(--color-medium); box-shadow: 0 0 6px var(--color-medium); }
+  +.risk-low { background-color: var(--color-low); box-shadow: 0 0 6px var(--color-low); }
+  +
+  +.legend-desc {
+  +    display: block;
+  +    color: var(--text-secondary);
+  +    font-size: 0.75rem;
+  +    margin-top: 0.15rem;
+  +}
+  +
+  +.stat-row {
+  +    display: flex;
+  +    justify-content: space-between;
+  +    font-size: 0.9rem;
+  +    margin-bottom: 0.75rem;
+  +}
+  +
+  +.stat-row:last-child {
+  +    margin-bottom: 0;
+  +}
+  +
+  +.stat-label {
+  +    color: var(--text-secondary);
+  +}
+  +
+  +.stat-value {
+  +    font-weight: 700;
+  +}
+  +
+  +.text-high { color: var(--color-high); }
+  +.text-medium { color: var(--color-medium); }
+  +.text-low { color: var(--color-low); }
+  +
+  +/* Content Panel & Heatmap Tree */
+  +.content-panel {
+  +    background: var(--card-bg);
+  +    border: 1px solid var(--border-color);
+  +    border-radius: 12px;
+  +    padding: 1.5rem;
+  +    display: flex;
+  +    flex-direction: column;
+  +    gap: 1rem;
+  +    min-height: 500px;
+  +}
+  +
+  +.panel-header {
+  +    display: flex;
+  +    justify-content: space-between;
+  +    align-items: center;
+  +    border-bottom: 1px solid var(--border-color);
+  +    padding-bottom: 0.75rem;
+  +}
+  +
+  +.panel-header h2 {
+  +    font-size: 1.2rem;
+  +    font-weight: 600;
+  +}
+  +
+  +.tree-container {
+  +    flex-grow: 1;
+  +    overflow-y: auto;
+  +    font-family: ui-monospace, SFMono-Regular, JetBrains Mono, Consolas, monospace;
+  +    font-size: 0.85rem;
+  +}
+  +
+  +.empty-state {
+  +    display: flex;
+  +    align-items: center;
+  +    justify-content: center;
+  +    height: 100%;
+  +    color: var(--text-muted);
+  +    text-align: center;
+  +    padding: 3rem 0;
+  +}
+  +
+  +/* Tree Styling */
+  +.tree-node {
+  +    margin-left: 1.25rem;
+  +    position: relative;
+  +}
+  +
+  +.tree-node::before {
+  +    content: '';
+  +    position: absolute;
+  +    left: -0.75rem;
+  +    top: 0;
+  +    bottom: 0;
+  +    width: 1px;
+  +    background: rgba(255, 255, 255, 0.05);
+  +}
+  +
+  +.tree-node:last-child::before {
+  +    height: 0.65rem;
+  +}
+  +
+  +.tree-row {
+  +    display: flex;
+  +    align-items: center;
+  +    padding: 0.3rem 0.5rem;
+  +    border-radius: 4px;
+  +    cursor: pointer;
+  +    user-select: none;
+  +    transition: background 0.15s;
+  +    margin: 0.1rem 0;
+  +    gap: 0.5rem;
+  +}
+  +
+  +.tree-row:hover {
+  +    background: rgba(255, 255, 255, 0.03);
+  +}
+  +
+  +.node-arrow {
+  +    display: inline-block;
+  +    width: 10px;
+  +    color: var(--text-muted);
+  +    font-size: 0.65rem;
+  +    transition: transform 0.15s;
+  +    text-align: center;
+  +}
+  +
+  +.node-arrow.expanded {
+  +    transform: rotate(90deg);
+  +}
+  +
+  +.node-icon {
+  +    font-size: 0.9rem;
+  +    margin-right: 0.1rem;
+  +}
+  +
+  +.node-name {
+  +    flex-grow: 1;
+  +    color: var(--text-primary);
+  +}
+  +
+  +.node-risk-chip {
+  +    padding: 0.1rem 0.4rem;
+  +    border-radius: 4px;
+  +    font-size: 0.7rem;
+  +    font-weight: 700;
+  +    text-transform: uppercase;
+  +}
+  +
+  +/* Risk Card Styling inside tree */
+  +.level-high {
+  +    background: var(--color-high-bg);
+  +    border: 1px solid var(--color-high-border);
+  +    color: #fca5a5;
+  +    box-shadow: inset 0 0 4px rgba(239, 68, 68, 0.1);
+  +}
+  +
+  +.level-medium {
+  +    background: var(--color-medium-bg);
+  +    border: 1px solid var(--color-medium-border);
+  +    color: #fcd34d;
+  +    box-shadow: inset 0 0 4px rgba(245, 158, 11, 0.1);
+  +}
+  +
+  +.level-low {
+  +    background: var(--color-low-bg);
+  +    border: 1px solid var(--color-low-border);
+  +    color: #6ee7b7;
+  +}
+  +
+  +/* Floating custom tooltip */
+  +.tooltip {
+  +    position: absolute;
+  +    z-index: 1000;
+  +    background: rgba(15, 23, 42, 0.95);
+  +    border: 1px solid var(--border-color);
+  +    border-radius: 8px;
+  +    padding: 0.8rem 1rem;
+  +    max-width: 350px;
+  +    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 255, 255, 0.1);
+  +    font-size: 0.8rem;
+  +    pointer-events: none;
+  +    backdrop-filter: blur(5px);
+  +    transition: opacity 0.1s;
+  +}
+  +
+  +.tooltip.hidden {
+  +    opacity: 0;
+  +    pointer-events: none;
+  +    display: none;
+  +}
+  +
+  +.tooltip-title {
+  +    font-weight: 700;
+  +    color: var(--text-primary);
+  +    margin-bottom: 0.25rem;
+  +    font-family: ui-monospace, SFMono-Regular, JetBrains Mono, Consolas, monospace;
+  +}
+  +
+  +.tooltip-metric {
+  +    display: flex;
+  +    justify-content: space-between;
+  +    font-size: 0.75rem;
+  +    color: var(--text-secondary);
+  +    margin-bottom: 0.5rem;
+  +    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  +    padding-bottom: 0.25rem;
+  +}
+  +
+  +.tooltip-desc {
+  +    color: var(--text-primary);
+  +    line-height: 1.4;
+  +}
+  diff --git a/ultron/interfaces/web/heatmap.html b/ultron/interfaces/web/heatmap.html
+  new file mode 100644
+  index 0000000..58564f4
+  --- /dev/null
+  +++ b/ultron/interfaces/web/heatmap.html
+  @@ -0,0 +1,107 @@
+  +<!DOCTYPE html>
+  +<html lang="en">
+  +<head>
+  +    <meta charset="UTF-8">
+  +    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  +    <title>Ultron - Visual Risk Heatmap</title>
+  +    <link rel="stylesheet" href="heatmap.css">
+  +</head>
+  +<body>
+  +    <div class="dashboard-container">
+  +        <header class="header">
+  +            <div class="logo-area">
+  +                <span class="logo-icon">ðŸ”¥</span>
+  +                <h1>Ultron <span class="subtitle">Risk Heatmap</span></h1>
+  +            </div>
+  +            <div class="repo-selector">
+  +                <input type="text" id="repo-path" placeholder="Enter repository path..." spellcheck="false">
+  +                <button id="scan-btn" class="btn btn-primary">
+  +                    <span class="btn-text">Scan Repository</span>
+  +                    <span class="spinner" id="scan-spinner"></span>
+  +                </button>
+  +            </div>
+  +        </header>
+  +
+  +        <!-- Error Notification Banner -->
+  +        <div id="error-banner" class="error-banner hidden">
+  +            <div class="error-icon">âš ï¸</div>
+  +            <div class="error-content">
+  +                <h4 class="error-title">Analysis Failed</h4>
+  +                <p id="error-message" class="error-message"></p>
+  +            </div>
+  +            <button id="close-error-btn" class="close-btn">&times;</button>
+  +        </div>
+  +
+  +        <main class="main-layout">
+  +            <aside class="sidebar">
+  +                <div class="legend-card">
+  +                    <h3>Risk Levels</h3>
+  +                    <ul class="legend-list">
+  +                        <li class="legend-item">
+  +                            <span class="risk-indicator risk-high"></span>
+  +                            <div>
+  +                                <strong>HIGH Risk</strong>
+  +                                <span class="legend-desc">Needs critical attention, likely to fail tests or highly complex</span>
+  +                            </div>
+  +                        </li>
+  +                        <li class="legend-item">
+  +                            <span class="risk-indicator risk-medium"></span>
+  +                            <div>
+  +                                <strong>MEDIUM Risk</strong>
+  +                                <span class="legend-desc">Moderate complexity or moderate test gap</span>
+  +                            </div>
+  +                        </li>
+  +                        <li class="legend-item">
+  +                            <span class="risk-indicator risk-low"></span>
+  +                            <div>
+  +                                <strong>LOW Risk</strong>
+  +                                <span class="legend-desc">Fully safe, good test coverage and simple logic</span>
+  +                            </div>
+  +                        </li>
+  +                    </ul>
+  +                </div>
+  +                
+  +                <div class="stats-card">
+  +                    <h3>Summary Statistics</h3>
+  +                    <div class="stat-row">
+  +                        <span class="stat-label">Total Files:</span>
+  +                        <span class="stat-value" id="stat-total-files">0</span>
+  +                    </div>
+  +                    <div class="stat-row">
+  +                        <span class="stat-label">High Risk:</span>
+  +                        <span class="stat-value text-high" id="stat-high-files">0</span>
+  +                    </div>
+  +                    <div class="stat-row">
+  +                        <span class="stat-label">Medium Risk:</span>
+  +                        <span class="stat-value text-medium" id="stat-medium-files">0</span>
+  +                    </div>
+  +                    <div class="stat-row">
+  +                        <span class="stat-label">Low Risk:</span>
+  +                        <span class="stat-value text-low" id="stat-low-files">0</span>
+  +                    </div>
+  +                </div>
+  +            </aside>
+  +
+  +            <section class="content-panel">
+  +                <div class="panel-header">
+  +                    <h2>Codebase Structure</h2>
+  +                    <div class="controls">
+  +                        <button id="expand-all-btn" class="btn btn-secondary btn-small">Expand All</button>
+  +                        <button id="collapse-all-btn" class="btn btn-secondary btn-small">Collapse All</button>
+  +                    </div>
+  +                </div>
+  +                <div class="tree-container" id="tree-container">
+  +                    <div class="empty-state">
+  +                        <p>No repository scanned yet. Enter a path above to view the risk heatmap.</p>
+  +                    </div>
+  +                </div>
+  +            </section>
+  +        </main>
+  +    </div>
+  +
+  +    <!-- Dynamic Custom Floating Tooltip -->
+  +    <div id="tooltip" class="tooltip hidden"></div>
+  +
+  +    <script src="heatmap.js"></script>
+  +</body>
+  +</html>
+  diff --git a/ultron/interfaces/web/heatmap.js b/ultron/interfaces/web/heatmap.js
+  new file mode 100644
+  index 0000000..0b2fc4f
+  --- /dev/null
+  +++ b/ultron/interfaces/web/heatmap.js
+  @@ -0,0 +1,321 @@
+  +document.addEventListener("DOMContentLoaded", () => {
+  +    // Elements
+  +    const repoPathInput = document.getElementById("repo-path");
+  +    const scanBtn = document.getElementById("scan-btn");
+  +    const scanSpinner = document.getElementById("scan-spinner");
+  +    const errorBanner = document.getElementById("error-banner");
+  +    const errorMessage = document.getElementById("error-message");
+  +    const closeErrorBtn = document.getElementById("close-error-btn");
+  +    
+  +    const treeContainer = document.getElementById("tree-container");
+  +    const tooltip = document.getElementById("tooltip");
+  +    
+  +    const statTotalFiles = document.getElementById("stat-total-files");
+  +    const statHighFiles = document.getElementById("stat-high-files");
+  +    const statMediumFiles = document.getElementById("stat-medium-files");
+  +    const statLowFiles = document.getElementById("stat-low-files");
+  +    
+  +    const expandAllBtn = document.getElementById("expand-all-btn");
+  +    const collapseAllBtn = document.getElementById("collapse-all-btn");
+  +
+  +    // Global Statistics Counter
+  +    let stats = { total: 0, high: 0, medium: 0, low: 0 };
+  +
+  +    // Fetch initial configuration on load
+  +    autoInitialize();
+  +
+  +    // Event Listeners
+  +    scanBtn.addEventListener("click", () => {
+  +        const repoPath = repoPathInput.value.trim();
+  +        if (repoPath) {
+  +            performScan(repoPath);
+  +        }
+  +    });
+  +
+  +    repoPathInput.addEventListener("keydown", (e) => {
+  +        if (e.key === "Enter") {
+  +            const repoPath = repoPathInput.value.trim();
+  +            if (repoPath) {
+  +                performScan(repoPath);
+  +            }
+  +        }
+  +    });
+  +
+  +    closeErrorBtn.addEventListener("click", hideError);
+  +    
+  +    expandAllBtn.addEventListener("click", () => toggleAll(true));
+  +    collapseAllBtn.addEventListener("click", () => toggleAll(false));
+  +
+  +    // Functions
+  +    async function autoInitialize() {
+  +        try {
+  +            const response = await fetch("/api/config", {
+  +                method: "POST",
+  +                headers: { "Content-Type": "application/json" }
+  +            });
+  +            if (response.ok) {
+  +                const config = await response.json();
+  +                if (config.success && config.default_repo) {
+  +                    repoPathInput.value = config.default_repo;
+  +                    performScan(config.default_repo);
+  +                }
+  +            }
+  +        } catch (e) {
+  +            console.warn("Unable to fetch default config", e);
+  +        }
+  +    }
+  +
+  +    async function performScan(repoPath) {
+  +        hideError();
+  +        showLoading(true);
+  +        stats = { total: 0, high: 0, medium: 0, low: 0 };
+  +        updateStatsUI();
+  +        
+  +        try {
+  +            const response = await fetch("/api/file-tree", {
+  +                method: "POST",
+  +                headers: { "Content-Type": "application/json" },
+  +                body: JSON.stringify({ repo: repoPath })
+  +            });
+  +
+  +            if (!response.ok) {
+  +                let errMsg = `Server returned status ${response.status} ${response.statusText}`;
+  +                try {
+  +                    const errData = await response.json();
+  +                    if (errData && errData.error) {
+  +                        errMsg = errData.error;
+  +                    }
+  +                } catch (_) {
+  +                    // Try getting raw text if JSON parsing fails
+  +                    try {
+  +                        const rawText = await response.text();
+  +                        if (rawText && rawText.length < 500) {
+  +                            errMsg = rawText;
+  +                        }
+  +                    } catch (__) {}
+  +                }
+  +                throw new Error(errMsg);
+  +            }
+  +
+  +            const data = await response.json();
+  +            if (data.success && data.tree) {
+  +                renderTree(data.tree);
+  +                updateStatsUI();
+  +            } else {
+  +                throw new Error(data.error || "Failed to scan codebase structure.");
+  +            }
+  +        } catch (err) {
+  +            showError(err.message);
+  +            treeContainer.innerHTML = `
+  +                <div class="empty-state">
+  +                    <p style="color: #ef4444;">Error: ${err.message}</p>
+  +                </div>
+  +            `;
+  +        } finally {
+  +            showLoading(false);
+  +        }
+  +    }
+  +
+  +    function renderTree(treeData) {
+  +        if (!treeData || treeData.length === 0) {
+  +            treeContainer.innerHTML = `
+  +                <div class="empty-state">
+  +                    <p>Repository is empty or contains no supported files.</p>
+  +                </div>
+  +            `;
+  +            return;
+  +        }
+  +
+  +        treeContainer.innerHTML = "";
+  +        const rootList = document.createElement("div");
+  +        rootList.className = "tree-root";
+  +        
+  +        treeData.forEach(node => {
+  +            rootList.appendChild(createNodeElement(node));
+  +        });
+  +        
+  +        treeContainer.appendChild(rootList);
+  +    }
+  +
+  +    function createNodeElement(node) {
+  +        const nodeDiv = document.createElement("div");
+  +        nodeDiv.className = "tree-node";
+  +        
+  +        const rowDiv = document.createElement("div");
+  +        rowDiv.className = "tree-row";
+  +        
+  +        // Add indicator based on type
+  +        const arrowSpan = document.createElement("span");
+  +        arrowSpan.className = "node-arrow";
+  +        
+  +        const iconSpan = document.createElement("span");
+  +        iconSpan.className = "node-icon";
+  +
+  +        if (node.type === "directory") {
+  +            arrowSpan.textContent = "â–¶";
+  +            arrowSpan.classList.add("expanded"); // Default open
+  +            iconSpan.textContent = "ðŸ“";
+  +            rowDiv.appendChild(arrowSpan);
+  +        } else {
+  +            arrowSpan.style.visibility = "hidden";
+  +            iconSpan.textContent = "ðŸ“„";
+  +            rowDiv.appendChild(arrowSpan);
+  +            
+  +            // Increment statistics counter for files
+  +            stats.total++;
+  +            if (node.risk) {
+  +                const lvl = (node.risk.level || "").toUpperCase();
+  +                if (lvl === "HIGH") stats.high++;
+  +                else if (lvl === "MEDIUM") stats.medium++;
+  +                else stats.low++;
+  +            }
+  +        }
+  +
+  +        rowDiv.appendChild(iconSpan);
+  +
+  +        const nameSpan = document.createElement("span");
+  +        nameSpan.className = "node-name";
+  +        nameSpan.textContent = node.name;
+  +        rowDiv.appendChild(nameSpan);
+  +
+  +        // Add Risk Level Badge/Chip
+  +        if (node.risk) {
+  +            const riskSpan = document.createElement("span");
+  +            const lvl = (node.risk.level || "LOW").toLowerCase();
+  +            riskSpan.className = `node-risk-chip level-${lvl}`;
+  +            riskSpan.textContent = lvl;
+  +            rowDiv.appendChild(riskSpan);
+  +            
+  +            // Set up custom tooltip listeners
+  +            rowDiv.addEventListener("mouseenter", (e) => {
+  +                showTooltip(e, node.name, node.risk);
+  +            });
+  +            rowDiv.addEventListener("mousemove", (e) => {
+  +                moveTooltip(e);
+  +            });
+  +            rowDiv.addEventListener("mouseleave", () => {
+  +                hideTooltip();
+  +            });
+  +        }
+  +
+  +        nodeDiv.appendChild(rowDiv);
+  +
+  +        if (node.type === "directory" && node.children) {
+  +            const childrenContainer = document.createElement("div");
+  +            childrenContainer.className = "children-container";
+  +            childrenContainer.style.display = "block"; // Default expanded
+  +            
+  +            node.children.forEach(child => {
+  +                childrenContainer.appendChild(createNodeElement(child));
+  +            });
+  +            
+  +            nodeDiv.appendChild(childrenContainer);
+  +            
+  +            // Toggle Collapsible on Directory Click
+  +            rowDiv.addEventListener("click", (e) => {
+  +                // Prevent toggling if user hovers on file (handled separately by cursor)
+  +                if (e.target.closest(".node-risk-chip")) return;
+  +                
+  +                const isExpanded = arrowSpan.classList.contains("expanded");
+  +                if (isExpanded) {
+  +                    arrowSpan.classList.remove("expanded");
+  +                    arrowSpan.textContent = "â–¶";
+  +                    childrenContainer.style.display = "none";
+  +                } else {
+  +                    arrowSpan.classList.add("expanded");
+  +                    arrowSpan.textContent = "â–¼";
+  +                    childrenContainer.style.display = "block";
+  +                }
+  +            });
+  +        }
+  +
+  +        return nodeDiv;
+  +    }
+  +
+  +    // Tooltip Helpers
+  +    function showTooltip(e, name, riskData) {
+  +        tooltip.innerHTML = `
+  +            <div class="tooltip-title">${name}</div>
+  +            <div class="tooltip-metric">
+  +                <span>Risk Level: <strong>${riskData.level}</strong></span>
+  +                <span>Impact: <strong>${(riskData.impact_score || 0).toFixed(2)}</strong></span>
+  +            </div>
+  +            <div class="tooltip-desc">${riskData.summary || "No description available."}</div>
+  +        `;
+  +        tooltip.classList.remove("hidden");
+  +        tooltip.style.display = "block";
+  +        moveTooltip(e);
+  +    }
+  +
+  +    function moveTooltip(e) {
+  +        const padding = 15;
+  +        // Keep tooltip from overflowing screen boundaries
+  +        let x = e.pageX + padding;
+  +        let y = e.pageY + padding;
+  +        
+  +        const tooltipWidth = tooltip.offsetWidth;
+  +        const tooltipHeight = tooltip.offsetHeight;
+  +        
+  +        if (x + tooltipWidth > window.innerWidth + window.scrollX) {
+  +            x = e.pageX - tooltipWidth - padding;
+  +        }
+  +        if (y + tooltipHeight > window.innerHeight + window.scrollY) {
+  +            y = e.pageY - tooltipHeight - padding;
+  +        }
+  +        
+  +        tooltip.style.left = `${x}px`;
+  +        tooltip.style.top = `${y}px`;
+  +    }
+  +
+  +    function hideTooltip() {
+  +        tooltip.classList.add("hidden");
+  +        tooltip.style.display = "none";
+  +    }
+  +
+  +    // Controls Helpers
+  +    function toggleAll(expand) {
+  +        const containers = document.querySelectorAll(".children-container");
+  +        const arrows = document.querySelectorAll(".node-arrow");
+  +        
+  +        containers.forEach(container => {
+  +            container.style.display = expand ? "block" : "none";
+  +        });
+  +        
+  +        arrows.forEach(arrow => {
+  +            const row = arrow.closest(".tree-row");
+  +            // Only adjust folders, not files
+  +            if (row && row.parentNode.querySelector(".children-container")) {
+  +                if (expand) {
+  +                    arrow.classList.add("expanded");
+  +                    arrow.textContent = "â–¼";
+  +                } else {
+  +                    arrow.classList.remove("expanded");
+  +                    arrow.textContent = "â–¶";
+  +                }
+  +            }
+  +        });
+  +    }
+  +
+  +    // Loading & Error States
+  +    function showLoading(loading) {
+  +        scanBtn.disabled = loading;
+  +        scanSpinner.style.display = loading ? "inline-block" : "none";
+  +    }
+  +
+  +    function showError(msg) {
+  +        errorMessage.textContent = msg;
+  +        errorBanner.classList.remove("hidden");
+  +    }
+  +
+  +    function hideError() {
+  +        errorBanner.classList.add("hidden");
+  +        errorMessage.textContent = "";
+  +    }
+  +
+  +    function updateStatsUI() {
+  +        statTotalFiles.textContent = stats.total;
+  +        statHighFiles.textContent = stats.high;
+  +        statMediumFiles.textContent = stats.medium;
+  +        statLowFiles.textContent = stats.low;
+  +    }
+  +});
+  diff --git a/ultron/tests/run_tests.py b/ultron/tests/run_tests.py
+  index c81cc02..ca393d6 100644
+  --- a/ultron/tests/run_tests.py
+  +++ b/ultron/tests/run_tests.py
+  @@ -1160,6 +1160,162 @@ Another gap.
+           if False:
+               context_brief.walk_dir("", "")
+   
+  +    def test_server_file_tree_type_validation(self):
+  +        class MockHandler:
+  +            def __init__(self, post_data):
+  +                self.post_data = post_data
+  +                self.status_code = None
+  +                self.response = None
+  +            def get_post_data(self):
+  +                return self.post_data
+  +            def send_json_response(self, code, data):
+  +                self.status_code = code
+  +                self.response = data
+  +        
+  +        h1 = MockHandler("not a dict")
+  +        server.UltronAPIHandler.handle_file_tree(h1)
+  +        self.assertEqual(h1.status_code, 400)
+  +        self.assertIn("error", h1.response)
+  +        
+  +        h2 = MockHandler({"some_key": "val"})
+  +        server.UltronAPIHandler.handle_file_tree(h2)
+  +        self.assertEqual(h2.status_code, 400)
+  +        
+  +        h3 = MockHandler({"repo": 123})
+  +        server.UltronAPIHandler.handle_file_tree(h3)
+  +        self.assertEqual(h3.status_code, 400)
+  +
+  +    def test_server_file_tree_traversal_prevention(self):
+  +        class MockHandler:
+  +            def __init__(self, post_data):
+  +                self.post_data = post_data
+  +                self.status_code = None
+  +                self.response = None
+  +            def get_post_data(self):
+  +                return self.post_data
+  +            def send_json_response(self, code, data):
+  +                self.status_code = code
+  +                self.response = data
+  +                
+  +        h = MockHandler({"repo": "../nonexistent_sibling_dir"})
+  +        server.UltronAPIHandler.handle_file_tree(h)
+  +        self.assertEqual(h.status_code, 400)
+  +
+  +    def test_server_file_tree_propagation(self):
+  +        import tempfile
+  +        import shutil
+  +        temp_dir = tempfile.mkdtemp()
+  +        try:
+  +            subdir = os.path.join(temp_dir, "subdir")
+  +            os.makedirs(subdir)
+  +            
+  +            with open(os.path.join(subdir, "low.py"), "w", encoding="utf-8") as f:
+  +                f.write("def low_complexity():\n    return 1\n")
+  +            with open(os.path.join(subdir, "high.py"), "w", encoding="utf-8") as f:
+  +                f.write("def complex():\n" + 
+  +                        "    if 1:\n        if 2:\n            if 3:\n                if 4:\n                    if 5:\n" +
+  +                        "                        if 6:\n                            if 7:\n                                if 8:\n" +
+  +                        "                                    if 9:\n                                        if 10:\n" +
+  +                        "                                            return 10\n")
+  +            
+  +            class MockHandler:
+  +                def __init__(self, post_data):
+  +                    self.post_data = post_data
+  +                    self.status_code = None
+  +                    self.response = None
+  +                def get_post_data(self):
+  +                    return self.post_data
+  +                def send_json_response(self, code, data):
+  +                    self.status_code = code
+  +                    self.response = data
+  +                    
+  +            h = MockHandler({"repo": temp_dir})
+  +            server.UltronAPIHandler.handle_file_tree(h)
+  +            self.assertEqual(h.status_code, 200)
+  +            
+  +            tree = h.response["tree"]
+  +            subdir_node = None
+  +            for node in tree:
+  +                if node["name"] == "subdir" and node["type"] == "directory":
+  +                    subdir_node = node
+  +                    break
+  +            self.assertIsNotNone(subdir_node)
+  +            self.assertEqual(subdir_node["risk"]["level"], "HIGH")
+  +            self.assertEqual(subdir_node["risk"]["level_num"], 3)
+  +            
+  +        finally:
+  +            shutil.rmtree(temp_dir)
+  +
+  +    def test_server_file_tree_parser_failure_falls_back_to_high(self):
+  +        import tempfile
+  +        import shutil
+  +        temp_dir = tempfile.mkdtemp()
+  +        try:
+  +            bad_file = os.path.join(temp_dir, "bad.py")
+  +            with open(bad_file, "w", encoding="utf-8") as f:
+  +                f.write("def incomplete_syntax(\n")
+  +                
+  +            class MockHandler:
+  +                def __init__(self, post_data):
+  +                    self.post_data = post_data
+  +                    self.status_code = None
+  +                    self.response = None
+  +                def get_post_data(self):
+  +                    return self.post_data
+  +                def send_json_response(self, code, data):
+  +                    self.status_code = code
+  +                    self.response = data
+  +            
+  +            h = MockHandler({"repo": temp_dir})
+  +            server.UltronAPIHandler.handle_file_tree(h)
+  +            self.assertEqual(h.status_code, 200)
+  +            
+  +            tree = h.response["tree"]
+  +            bad_node = None
+  +            for node in tree:
+  +                if node["name"] == "bad.py":
+  +                    bad_node = node
+  +                    break
+  +            self.assertIsNotNone(bad_node)
+  +            self.assertEqual(bad_node["risk"]["level"], "HIGH")
+  +            self.assertEqual(bad_node["risk"]["level_num"], 3)
+  +            self.assertIn("Analysis failed", bad_node["risk"]["summary"])
+  +            
+  +        finally:
+  +            shutil.rmtree(temp_dir)
+  +
+  +    def test_server_file_endpoints_input_validation(self):
+  +        class MockHandler:
+  +            def __init__(self, post_data):
+  +                self.post_data = post_data
+  +                self.status_code = None
+  +                self.response = None
+  +            def get_post_data(self):
+  +                return self.post_data
+  +            def send_json_response(self, code, data):
+  +                self.status_code = code
+  +                self.response = data
+  +                
+  +        h1 = MockHandler("not a dict")
+  +        server.UltronAPIHandler.handle_get_file(h1)
+  +        self.assertEqual(h1.status_code, 400)
+  +        
+  +        h2 = MockHandler({"repo": "."})
+  +        server.UltronAPIHandler.handle_get_file(h2)
+  +        self.assertEqual(h2.status_code, 400)
+  +        
+  +        h3 = MockHandler({"repo": ".", "file": "../secret.py"})
+  +        server.UltronAPIHandler.handle_get_file(h3)
+  +        self.assertEqual(h3.status_code, 400)
+  +        
+  +        h4 = MockHandler("not a dict")
+  +        server.UltronAPIHandler.handle_save_file(h4)
+  +        self.assertEqual(h4.status_code, 400)
+  +        
+  +        h5 = MockHandler({"repo": ".", "file": "test.py"})
+  +        server.UltronAPIHandler.handle_save_file(h5)
+  +        self.assertEqual(h5.status_code, 400)
+  +
+   
+   class TestBudgetGovernor(unittest.TestCase):
+   
+EXPECTED_OUTCOMES: 'Implement browser-served visual risk heatmap dashboard. Auto-scan launch directory, handle path traversal securely, default parser failures to HIGH risk, propagate risk values numerically, and write 5 new unit tests.'
 TEST_COMMANDS:
 - 'python ultron/tests/run_tests.py'
-RAW_STDOUT: |
-  [+] Running Ultron Core Tests...
-  [+] Recorded rating for ultron/core/risk/scoring.py by CLI_Test.
-    - Rater Judgment: HIGH
-    - System Computed: HIGH (Score: 97.25)
-    - Agreement: MATCH
-  [Ultron] No git history found — bug-prone-file scaling is inactive.
-  [Ultron] No git history found — bug-prone-file scaling is inactive.
-  Usage: python checks.py <file_or_dir_path>
-  Usage: python failure_space.py <repo_path> <comma_separated_changed_files>
-  [*] Starting calibration over 1 transactions...
-  [+] Recalibration complete.
-    - New Fusion Weights: w_test=0.341, w_git=0.259, w_runtime=0.141, w_human=0.059, w_test_runtime=0.094, w_git_human=0.106
-RAW_STDERR: |
-  ...............................................................................................[-] RecommendationEngine: skipping card with missing principle or filepath.
-  [-] RecommendationEngine: skipping card with missing principle or filepath.
-  [-] RecommendationEngine: unrecognized principle 'Unrecognized Principle' – skipping.
-  .......................[-] Error processing rating: Could not evaluate risks for file
-  .....127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 400 -
-  C:\Users\This PC\AppData\Local\Python\pythoncore-3.14-64\Lib\tempfile.py:484: ResourceWarning: Implicitly cleaning up <HTTPError 400: 'Bad Request'>
-    _warnings.warn(self.warn_message, ResourceWarning)
-  127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 400 -
-  127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 200 -
-  127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 400 -
-  127.0.0.1 - - [08/Jul/2026 23:17:20] "POST /api/design-oracle HTTP/1.1" 400 -
-  ................[+] Ultron: Generating codebase context brief...
-  ......
-  ----------------------------------------------------------------------
-  Ran 145 tests in 60.696s
-  
-  OK
+RAW_STDOUT: ''
+RAW_STDERR: "Command '['python', 'ultron/tests/run_tests.py']' timed out after 90.0 seconds"
 SELF_AUDIT: ''
-KNOWN_LIMITATIONS: 'N/A'
+KNOWN_LIMITATIONS: '100% offline local dashboard relying on system font stacks. Read-only codebase explorer without circular dependency details.'
 CATEGORY_B: 'false'

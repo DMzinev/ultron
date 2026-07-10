@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultron - Visual Risk Heatmap</title>
+    <link rel="stylesheet" href="heatmap.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="header">
+            <div class="logo-area">
+                <span class="logo-icon">🔥</span>
+                <h1>Ultron <span class="subtitle">Risk Heatmap</span></h1>
+            </div>
+            <div class="repo-selector">
+                <input type="text" id="repo-path" placeholder="Enter repository path..." spellcheck="false">
+                <button id="scan-btn" class="btn btn-primary">
+                    <span class="btn-text">Scan Repository</span>
+                    <span class="spinner" id="scan-spinner"></span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Error Notification Banner -->
+        <div id="error-banner" class="error-banner hidden">
+            <div class="error-icon">⚠️</div>
+            <div class="error-content">
+                <h4 class="error-title">Analysis Failed</h4>
+                <p id="error-message" class="error-message"></p>
+            </div>
+            <button id="close-error-btn" class="close-btn">&times;</button>
+        </div>
+
+        <main class="main-layout">
+            <aside class="sidebar">
+                <div class="legend-card">
+                    <h3>Risk Levels</h3>
+                    <ul class="legend-list">
+                        <li class="legend-item">
+                            <span class="risk-indicator risk-high"></span>
+                            <div>
+                                <strong>HIGH Risk</strong>
+                                <span class="legend-desc">Needs critical attention, likely to fail tests or highly complex</span>
+                            </div>
+                        </li>
+                        <li class="legend-item">
+                            <span class="risk-indicator risk-medium"></span>
+                            <div>
+                                <strong>MEDIUM Risk</strong>
+                                <span class="legend-desc">Moderate complexity or moderate test gap</span>
+                            </div>
+                        </li>
+                        <li class="legend-item">
+                            <span class="risk-indicator risk-low"></span>
+                            <div>
+                                <strong>LOW Risk</strong>
+                                <span class="legend-desc">Fully safe, good test coverage and simple logic</span>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div class="stats-card">
+                    <h3>Summary Statistics</h3>
+                    <div class="stat-row">
+                        <span class="stat-label">Total Files:</span>
+                        <span class="stat-value" id="stat-total-files">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">High Risk:</span>
+                        <span class="stat-value text-high" id="stat-high-files">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Medium Risk:</span>
+                        <span class="stat-value text-medium" id="stat-medium-files">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Low Risk:</span>
+                        <span class="stat-value text-low" id="stat-low-files">0</span>
+                    </div>
+                </div>
+            </aside>
+
+            <section class="content-panel">
+                <div class="panel-header">
+                    <h2>Codebase Structure</h2>
+                    <div class="controls">
+                        <button id="expand-all-btn" class="btn btn-secondary btn-small">Expand All</button>
+                        <button id="collapse-all-btn" class="btn btn-secondary btn-small">Collapse All</button>
+                    </div>
+                </div>
+                <div class="tree-container" id="tree-container">
+                    <div class="empty-state">
+                        <p>No repository scanned yet. Enter a path above to view the risk heatmap.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Dynamic Custom Floating Tooltip -->
+    <div id="tooltip" class="tooltip hidden"></div>
+
+    <script src="heatmap.js"></script>
+</body>
+</html>

@@ -17,6 +17,7 @@ from ultron.core import pledge
 from ultron.core import fuzz
 from ultron.core import logistic
 from ultron.experimental import design_oracle
+from ultron.core import translate
 
 
 LAST_ANALYSIS = {
@@ -51,7 +52,12 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             rel_path = parsed_path.lstrip('/')
             file_path = os.path.join(WEB_DIR, rel_path)
             
-        if not file_path.startswith(WEB_DIR) or not os.path.exists(file_path) or os.path.isdir(file_path):
+        real_file_path = os.path.realpath(file_path)
+        real_web_dir = os.path.join(os.path.realpath(WEB_DIR), "")
+        
+        if (not os.path.normcase(real_file_path).startswith(os.path.normcase(real_web_dir))
+                or not os.path.exists(real_file_path)
+                or os.path.isdir(real_file_path)):
             self.send_response(404)
             self.send_header("Content-Type", "text/plain")
             self.end_headers()
@@ -87,7 +93,9 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(f"500 Internal Server Error: {e}".encode())
 
     def do_POST(self):
-        if self.path == "/api/analyze":
+        if self.path == "/api/config":
+            self.handle_config()
+        elif self.path == "/api/analyze":
             self.handle_analyze()
         elif self.path == "/api/audit":
             self.handle_audit()
@@ -257,36 +265,162 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                 "traceback": traceback.format_exc()
             })
 
+    def handle_config(self):
+        try:
+            self.send_json_response(200, {
+                "success": True,
+                "default_repo": os.getcwd().replace("\\", "/")
+            })
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
+
     def handle_file_tree(self):
         try:
             data = self.get_post_data()
-            repo_path = os.path.abspath(data.get("repo", ""))
+            if not isinstance(data, dict):
+                self.send_json_response(400, {"error": "Invalid JSON payload format."})
+                return
+            repo = data.get("repo")
+            if not isinstance(repo, str) or not repo.strip():
+                self.send_json_response(400, {"error": "Missing or invalid 'repo' parameter."})
+                return
+                
+            repo_path = os.path.realpath(repo)
+            real_repo_dir = os.path.join(repo_path, "")
+            
+            if not os.path.normcase(repo_path).startswith(os.path.normcase(real_repo_dir)) and not os.path.normcase(real_repo_dir).startswith(os.path.normcase(repo_path)):
+                self.send_json_response(400, {"error": "Invalid repository path."})
+                return
             if not os.path.isdir(repo_path):
                 self.send_json_response(400, {"error": f"Repository path '{repo_path}' is not a directory."})
                 return
+
+            # Scan codebase
+            codebase = analyzer.analyze_directory(repo_path)
             
+            # Detect codebase parse errors
+            failed_files = set()
+            if isinstance(codebase, dict):
+                for key, val in codebase.items():
+                    if isinstance(val, dict) and "error" in val:
+                        failed_files.add(key)
+
+            # Evaluate risks
+            target_files = [k for k in codebase.keys() if k.endswith(".py")] if isinstance(codebase, dict) else []
+            risk_map = {}
+            try:
+                risks = risk.evaluate_risks(codebase, target_files, intent="Identify heatmaps", repo_path=repo_path)
+                for r in risks:
+                    file_path = getattr(r, "file_path", None) or (r.get("file_path") if isinstance(r, dict) else None)
+                    impact_score = getattr(r, "impact_score", 0.0) or (r.get("impact_score", 0.0) if isinstance(r, dict) else 0.0)
+                    level = getattr(r, "level", "LOW") or (r.get("level", "LOW") if isinstance(r, dict) else "LOW")
+                    summary = translate.plain_language_summary(r)
+                    if file_path:
+                        risk_map[file_path] = {
+                            "level": level,
+                            "impact_score": float(impact_score),
+                            "summary": summary
+                        }
+            except Exception as eval_err:
+                print(f"Risk evaluation failed: {eval_err}", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+                for tf in target_files:
+                    failed_files.add(tf)
+
+            LEVEL_MAP = {"LOW": 1, "MEDIUM": 2, "HIGH": 3}
+            REV_LEVEL_MAP = {1: "LOW", 2: "MEDIUM", 3: "HIGH"}
+
             def build_tree(path):
                 tree = []
-                for item in os.listdir(path):
+                try:
+                    items = os.listdir(path)
+                except (OSError, PermissionError):
+                    return tree
+
+                for item in items:
                     if item.startswith('.') or item in ('venv', 'env', '__pycache__', 'tests', 'node_modules'):
                         continue
                     full_path = os.path.join(path, item)
+                    if os.path.islink(full_path):
+                        continue
+                        
                     rel_path = os.path.relpath(full_path, repo_path).replace(os.sep, "/")
+                    
                     if os.path.isdir(full_path):
                         children = build_tree(full_path)
                         if children:
+                            child_risks = [c["risk"] for c in children]
+                            max_level_num = max(LEVEL_MAP.get(cr["level"], 1) for cr in child_risks)
+                            max_level = REV_LEVEL_MAP.get(max_level_num, "LOW")
+                            max_impact = max(cr["impact_score"] for cr in child_risks)
+                            
+                            dir_summary = "All child modules are safe (LOW risk)"
+                            if max_level != "LOW":
+                                for cr in child_risks:
+                                    if LEVEL_MAP.get(cr["level"], 1) == max_level_num:
+                                        dir_summary = cr["summary"]
+                                        break
+                                        
                             tree.append({
                                 "name": item,
                                 "path": rel_path,
                                 "type": "directory",
-                                "children": children
+                                "children": children,
+                                "risk": {
+                                    "level": max_level,
+                                    "level_num": max_level_num,
+                                    "impact_score": max_impact,
+                                    "summary": dir_summary
+                                }
                             })
                     else:
                         if item.endswith((".py", ".html", ".css", ".js", ".md", ".json")):
+                            is_failed_file = rel_path in failed_files
+                            if not is_failed_file and item.endswith(".py") and rel_path not in codebase:
+                                try:
+                                    analysis = analyzer.analyze_file(full_path)
+                                    if "error" in analysis:
+                                        failed_files.add(rel_path)
+                                        is_failed_file = True
+                                except Exception:
+                                    failed_files.add(rel_path)
+                                    is_failed_file = True
+                                    
+                            if is_failed_file:
+                                file_risk = {
+                                    "level": "HIGH",
+                                    "level_num": 3,
+                                    "impact_score": 1.0,
+                                    "summary": "Analysis failed: check server logs for details. Defaulted to HIGH risk."
+                                }
+                            elif rel_path in risk_map:
+                                rm = risk_map[rel_path]
+                                file_risk = {
+                                    "level": rm["level"],
+                                    "level_num": LEVEL_MAP.get(rm["level"], 1),
+                                    "impact_score": rm["impact_score"],
+                                    "summary": rm["summary"]
+                                }
+                            elif item.endswith(".py"):
+                                file_risk = {
+                                    "level": "LOW",
+                                    "level_num": 1,
+                                    "impact_score": 0.0,
+                                    "summary": "Analysis unavailable. Defaulted to LOW risk."
+                                }
+                            else:
+                                file_risk = {
+                                    "level": "LOW",
+                                    "level_num": 1,
+                                    "impact_score": 0.0,
+                                    "summary": "Non-Python file. Low structural risk."
+                                }
+                                
                             tree.append({
                                 "name": item,
                                 "path": rel_path,
-                                "type": "file"
+                                "type": "file",
+                                "risk": file_risk
                             })
                 tree.sort(key=lambda x: (0 if x["type"] == "directory" else 1, x["name"].lower()))
                 return tree
@@ -302,15 +436,26 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
     def handle_get_file(self):
         try:
             data = self.get_post_data()
-            repo_path = os.path.abspath(data.get("repo", ""))
-            file_path = data.get("file", "")
+            if not isinstance(data, dict):
+                self.send_json_response(400, {"error": "Invalid JSON payload format."})
+                return
+            repo = data.get("repo")
+            file_param = data.get("file")
+            if not isinstance(repo, str) or not repo.strip() or not isinstance(file_param, str) or not file_param.strip():
+                self.send_json_response(400, {"error": "Missing or invalid parameters."})
+                return
+                
+            repo_path = os.path.realpath(repo)
+            full_path = os.path.realpath(os.path.join(repo_path, file_param))
+            real_repo_dir = os.path.join(repo_path, "")
             
-            full_path = os.path.abspath(os.path.join(repo_path, file_path))
-            if not full_path.startswith(repo_path) or not os.path.exists(full_path):
+            if (not os.path.normcase(full_path).startswith(os.path.normcase(real_repo_dir))
+                    or not os.path.exists(full_path)
+                    or os.path.isdir(full_path)):
                 self.send_json_response(400, {"error": "Invalid file path."})
                 return
                 
-            with open(full_path, "r", encoding="utf-8") as f:
+            with open(full_path, "r", encoding="utf-8-sig") as f:
                 content = f.read()
                 
             self.send_json_response(200, {
@@ -323,12 +468,21 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
     def handle_save_file(self):
         try:
             data = self.get_post_data()
-            repo_path = os.path.abspath(data.get("repo", ""))
-            file_path = data.get("file", "")
-            content = data.get("content", "")
+            if not isinstance(data, dict):
+                self.send_json_response(400, {"error": "Invalid JSON payload format."})
+                return
+            repo = data.get("repo")
+            file_param = data.get("file")
+            content = data.get("content")
+            if not isinstance(repo, str) or not repo.strip() or not isinstance(file_param, str) or not file_param.strip() or not isinstance(content, str):
+                self.send_json_response(400, {"error": "Missing or invalid parameters."})
+                return
+                
+            repo_path = os.path.realpath(repo)
+            full_path = os.path.realpath(os.path.join(repo_path, file_param))
+            real_repo_dir = os.path.join(repo_path, "")
             
-            full_path = os.path.abspath(os.path.join(repo_path, file_path))
-            if not full_path.startswith(repo_path):
+            if not os.path.normcase(full_path).startswith(os.path.normcase(real_repo_dir)):
                 self.send_json_response(400, {"error": "Invalid file path."})
                 return
                 
@@ -339,7 +493,7 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                 except Exception:
                     pass
                     
-            with open(full_path, "w", encoding="utf-8") as f:
+            with open(full_path, "w", encoding="utf-8-sig") as f:
                 f.write(content)
                 
             self.send_json_response(200, {
@@ -867,6 +1021,23 @@ if __name__ == "__main__":
 def serve():
     # Make sure static files folder exists
     os.makedirs(WEB_DIR, exist_ok=True)
+    
+    # Auto-open browser in a daemon thread
+    if os.environ.get("ULTRON_NO_OPEN") != "1":
+        import threading
+        import time
+        import webbrowser
+        
+        def open_browser():
+            time.sleep(1.0)
+            try:
+                url = "http://localhost:" + str(PORT) + "/heatmap.html"
+                webbrowser.open(url)
+            except Exception as e:
+                print(f"[*] Could not open browser automatically: {e}", file=sys.stderr)
+                
+        t = threading.Thread(target=open_browser, daemon=True)
+        t.start()
     
     # Simple reuse port setup
     socketserver.TCPServer.allow_reuse_address = True

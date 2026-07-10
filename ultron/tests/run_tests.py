@@ -1160,6 +1160,162 @@ Another gap.
         if False:
             context_brief.walk_dir("", "")
 
+    def test_server_file_tree_type_validation(self):
+        class MockHandler:
+            def __init__(self, post_data):
+                self.post_data = post_data
+                self.status_code = None
+                self.response = None
+            def get_post_data(self):
+                return self.post_data
+            def send_json_response(self, code, data):
+                self.status_code = code
+                self.response = data
+        
+        h1 = MockHandler("not a dict")
+        server.UltronAPIHandler.handle_file_tree(h1)
+        self.assertEqual(h1.status_code, 400)
+        self.assertIn("error", h1.response)
+        
+        h2 = MockHandler({"some_key": "val"})
+        server.UltronAPIHandler.handle_file_tree(h2)
+        self.assertEqual(h2.status_code, 400)
+        
+        h3 = MockHandler({"repo": 123})
+        server.UltronAPIHandler.handle_file_tree(h3)
+        self.assertEqual(h3.status_code, 400)
+
+    def test_server_file_tree_traversal_prevention(self):
+        class MockHandler:
+            def __init__(self, post_data):
+                self.post_data = post_data
+                self.status_code = None
+                self.response = None
+            def get_post_data(self):
+                return self.post_data
+            def send_json_response(self, code, data):
+                self.status_code = code
+                self.response = data
+                
+        h = MockHandler({"repo": "../nonexistent_sibling_dir"})
+        server.UltronAPIHandler.handle_file_tree(h)
+        self.assertEqual(h.status_code, 400)
+
+    def test_server_file_tree_propagation(self):
+        import tempfile
+        import shutil
+        temp_dir = tempfile.mkdtemp()
+        try:
+            subdir = os.path.join(temp_dir, "subdir")
+            os.makedirs(subdir)
+            
+            with open(os.path.join(subdir, "low.py"), "w", encoding="utf-8") as f:
+                f.write("def low_complexity():\n    return 1\n")
+            with open(os.path.join(subdir, "high.py"), "w", encoding="utf-8") as f:
+                f.write("def complex():\n" + 
+                        "    if 1:\n        if 2:\n            if 3:\n                if 4:\n                    if 5:\n" +
+                        "                        if 6:\n                            if 7:\n                                if 8:\n" +
+                        "                                    if 9:\n                                        if 10:\n" +
+                        "                                            return 10\n")
+            
+            class MockHandler:
+                def __init__(self, post_data):
+                    self.post_data = post_data
+                    self.status_code = None
+                    self.response = None
+                def get_post_data(self):
+                    return self.post_data
+                def send_json_response(self, code, data):
+                    self.status_code = code
+                    self.response = data
+                    
+            h = MockHandler({"repo": temp_dir})
+            server.UltronAPIHandler.handle_file_tree(h)
+            self.assertEqual(h.status_code, 200)
+            
+            tree = h.response["tree"]
+            subdir_node = None
+            for node in tree:
+                if node["name"] == "subdir" and node["type"] == "directory":
+                    subdir_node = node
+                    break
+            self.assertIsNotNone(subdir_node)
+            self.assertEqual(subdir_node["risk"]["level"], "HIGH")
+            self.assertEqual(subdir_node["risk"]["level_num"], 3)
+            
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def test_server_file_tree_parser_failure_falls_back_to_high(self):
+        import tempfile
+        import shutil
+        temp_dir = tempfile.mkdtemp()
+        try:
+            bad_file = os.path.join(temp_dir, "bad.py")
+            with open(bad_file, "w", encoding="utf-8") as f:
+                f.write("def incomplete_syntax(\n")
+                
+            class MockHandler:
+                def __init__(self, post_data):
+                    self.post_data = post_data
+                    self.status_code = None
+                    self.response = None
+                def get_post_data(self):
+                    return self.post_data
+                def send_json_response(self, code, data):
+                    self.status_code = code
+                    self.response = data
+            
+            h = MockHandler({"repo": temp_dir})
+            server.UltronAPIHandler.handle_file_tree(h)
+            self.assertEqual(h.status_code, 200)
+            
+            tree = h.response["tree"]
+            bad_node = None
+            for node in tree:
+                if node["name"] == "bad.py":
+                    bad_node = node
+                    break
+            self.assertIsNotNone(bad_node)
+            self.assertEqual(bad_node["risk"]["level"], "HIGH")
+            self.assertEqual(bad_node["risk"]["level_num"], 3)
+            self.assertIn("Analysis failed", bad_node["risk"]["summary"])
+            
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def test_server_file_endpoints_input_validation(self):
+        class MockHandler:
+            def __init__(self, post_data):
+                self.post_data = post_data
+                self.status_code = None
+                self.response = None
+            def get_post_data(self):
+                return self.post_data
+            def send_json_response(self, code, data):
+                self.status_code = code
+                self.response = data
+                
+        h1 = MockHandler("not a dict")
+        server.UltronAPIHandler.handle_get_file(h1)
+        self.assertEqual(h1.status_code, 400)
+        
+        h2 = MockHandler({"repo": "."})
+        server.UltronAPIHandler.handle_get_file(h2)
+        self.assertEqual(h2.status_code, 400)
+        
+        h3 = MockHandler({"repo": ".", "file": "../secret.py"})
+        server.UltronAPIHandler.handle_get_file(h3)
+        self.assertEqual(h3.status_code, 400)
+        
+        h4 = MockHandler("not a dict")
+        server.UltronAPIHandler.handle_save_file(h4)
+        self.assertEqual(h4.status_code, 400)
+        
+        h5 = MockHandler({"repo": ".", "file": "test.py"})
+        server.UltronAPIHandler.handle_save_file(h5)
+        self.assertEqual(h5.status_code, 400)
+
 
 class TestBudgetGovernor(unittest.TestCase):
 
