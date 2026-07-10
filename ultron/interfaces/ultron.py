@@ -22,8 +22,14 @@ def main():
     parser.add_argument("--detail", action="store_true", help="Show detailed risk statistics and formula breakdown")
     parser.add_argument("--brief", action="store_true", help="Generate a compact markdown context brief for AI agent orientation")
     parser.add_argument("--oracle", action="store_true", help="Run the Design Oracle: coupling debt, abstraction leaks, hotspots, and circular dependencies")
+    parser.add_argument("--serve", action="store_true", help="Start the local server and open visual dashboard in browser")
     args = parser.parse_args()
     
+    if args.serve:
+        from ultron.interfaces import server as server_module
+        server_module.serve()
+        sys.exit(0)
+        
     def log(msg):
         print(msg, file=sys.stderr)
             

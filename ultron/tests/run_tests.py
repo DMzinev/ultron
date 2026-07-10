@@ -1419,6 +1419,18 @@ Another gap.
         finally:
             shutil.rmtree(temp_dir)
 
+    def test_cli_serve_option(self):
+        from unittest.mock import patch
+        from ultron.interfaces import ultron as ultron_cli
+        
+        with patch("ultron.interfaces.server.serve") as mock_serve, \
+             patch("sys.argv", ["ultron", "--serve"]), \
+             patch("sys.exit", side_effect=SystemExit) as mock_exit:
+            with self.assertRaises(SystemExit):
+                ultron_cli.main()
+            mock_serve.assert_called_once()
+            mock_exit.assert_called_once_with(0)
+
 
 class TestBudgetGovernor(unittest.TestCase):
 
