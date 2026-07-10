@@ -103,6 +103,8 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_generate()
         elif self.path == "/api/file-tree":
             self.handle_file_tree()
+        elif self.path == "/api/architecture-health":
+            self.handle_architecture_health()
         elif self.path == "/api/get-file":
             self.handle_get_file()
         elif self.path == "/api/save-file":
@@ -432,6 +434,162 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             })
         except Exception as e:
             self.send_json_response(500, {"error": str(e)})
+
+    def handle_architecture_health(self):
+        try:
+            data = self.get_post_data()
+            if not isinstance(data, dict):
+                self.send_json_response(400, {"error": "Invalid request payload. Expected JSON object."})
+                return
+            repo = data.get("repo")
+            if not isinstance(repo, str) or not repo.strip():
+                self.send_json_response(400, {"error": "Missing or invalid 'repo' parameter."})
+                return
+                
+            import tempfile
+            base_dir = os.path.join(os.path.realpath(os.getcwd()), "")
+            repo_path = os.path.join(os.path.realpath(repo), "")
+            temp_base = os.path.join(os.path.realpath(tempfile.gettempdir()), "")
+            
+            is_under_cwd = os.path.normcase(repo_path).startswith(os.path.normcase(base_dir))
+            is_under_temp = os.path.normcase(repo_path).startswith(os.path.normcase(temp_base))
+            
+            if not is_under_cwd and not is_under_temp:
+                self.send_json_response(400, {"error": "Access denied: Repository path must be inside the server directory."})
+                return
+            if not os.path.isdir(repo_path):
+                self.send_json_response(400, {"error": f"Repository path '{repo_path}' is not a directory."})
+                return
+
+            codebase = analyzer.analyze_directory(repo_path)
+            target_files = [k for k in codebase.keys() if k.endswith(".py")] if isinstance(codebase, dict) else []
+            
+            if not codebase or not target_files:
+                self.send_json_response(200, {
+                    "success": True,
+                    "health_score": 100,
+                    "hotspots": [],
+                    "circular_dependencies": [],
+                    "violations": [],
+                    "contracts": []
+                })
+                return
+
+            # Helper serialization functions
+            def serialize_snapshot(s):
+                return {
+                    "total_coupling_debt": float(s.total_coupling_debt),
+                    "total_cycle_count": int(s.total_cycle_count),
+                    "total_violations": int(s.total_violations),
+                    "avg_instability": float(s.avg_instability),
+                    "avg_hotspot_score": float(s.avg_hotspot_score)
+                }
+                
+            def serialize_recommendation(rec):
+                return {
+                    "filepath": rec.filepath,
+                    "principle": rec.principle,
+                    "smell": rec.smell,
+                    "refactoring": rec.refactoring,
+                    "expected_delta": rec.expected_delta,
+                    "severity": int(rec.severity),
+                    "priority_rank": int(rec.priority_rank)
+                }
+                
+            def serialize_violation(v):
+                return {
+                    "filepath": v.filepath,
+                    "principle": v.principle,
+                    "observation": v.observation,
+                    "reason": v.reason,
+                    "consequences": v.consequences,
+                    "severity": int(v.severity)
+                }
+
+            def serialize_contract(c):
+                return {
+                    "filepath": c.filepath,
+                    "recommendations": [serialize_recommendation(rec) for rec in c.recommendations],
+                    "before_snapshot": serialize_snapshot(c.before_snapshot),
+                    "after_snapshot": serialize_snapshot(c.after_snapshot)
+                }
+
+            # 1. Circular dependencies
+            cycles = design_oracle.detect_circular_dependencies(codebase)
+            
+            # 2. Abstraction leaks
+            leaks = design_oracle.detect_abstraction_leaks(codebase, repo_path)
+            total_leaks = sum(len(v) for v in leaks.values()) if isinstance(leaks, dict) else 0
+            
+            # 3. Violations (Reasoning Cards)
+            from ultron.experimental.reasoning import ReasoningEngine
+            engine = ReasoningEngine(codebase, repo_path)
+            violations = engine.analyze()
+            
+            # 4. Calculate Health Score
+            health_score = 100 - (len(cycles) * 15 + len(violations) * 5 + total_leaks * 2)
+            health_score = max(10, min(100, health_score))
+            
+            # 5. Complexity Hotspots
+            risks = []
+            try:
+                risks = risk.evaluate_risks(codebase, target_files, intent="Identify hotspots", repo_path=repo_path)
+            except Exception:
+                pass
+            hotspots = design_oracle.compute_hotspot_scores(codebase, repo_path, risks)
+            
+            # 6. Recommended refactoring contracts
+            from ultron.experimental.impact_simulator import MetricSnapshot
+            from ultron.experimental.contract_generator import ContractGenerator
+            from ultron.experimental.knowledge_graph import KNOWLEDGE_GRAPH
+            
+            debt_scores = design_oracle.score_coupling_debt(codebase)
+            total_debt = sum(e["coupling_debt"] for e in debt_scores)
+            avg_hs = (sum(e["hotspot_score"] for e in hotspots) / len(hotspots)) if hotspots else 0.0
+            avg_inst = (sum(e["instability"] for e in debt_scores) / len(debt_scores)) if debt_scores else 0.0
+            
+            snapshot = MetricSnapshot(
+                total_coupling_debt=float(total_debt),
+                total_cycle_count=int(len(cycles)),
+                total_violations=int(len(violations)),
+                avg_instability=float(avg_inst),
+                avg_hotspot_score=float(avg_hs)
+            )
+            
+            generator = ContractGenerator(
+                violations, 
+                KNOWLEDGE_GRAPH, 
+                snapshot, 
+                debt_scores=debt_scores, 
+                cycles=cycles, 
+                hotspots=hotspots
+            )
+            contracts = generator.generate()
+            
+            # Clean and normalize path keys for JSON response
+            cleaned_hotspots = []
+            for h in hotspots:
+                cleaned_hotspots.append({
+                    "file": h["file"].replace("\\", "/"),
+                    "hotspot_score": float(h["hotspot_score"]),
+                    "complexity": int(h["complexity"]),
+                    "coupling_debt": float(h["coupling_debt"]),
+                    "bug_fix_count": int(h["bug_fix_count"])
+                })
+                
+            self.send_json_response(200, {
+                "success": True,
+                "health_score": health_score,
+                "hotspots": cleaned_hotspots,
+                "circular_dependencies": [list(c) for c in cycles],
+                "violations": [serialize_violation(v) for v in violations],
+                "contracts": [serialize_contract(c) for c in contracts]
+            })
+        except Exception as e:
+            self.send_json_response(500, {
+                "error": f"Internal Server Error: {e}",
+                "traceback": traceback.format_exc()
+            })
 
     def handle_get_file(self):
         try:

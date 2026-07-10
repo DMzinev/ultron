@@ -3,20 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultron - Visual Risk Heatmap</title>
+    <title>Ultron - Architecture Health & Simulator</title>
     <link rel="stylesheet" href="heatmap.css">
 </head>
 <body>
     <div class="dashboard-container">
         <header class="header">
             <div class="logo-area">
-                <span class="logo-icon">🔥</span>
-                <h1>Ultron <span class="subtitle">Risk Heatmap</span></h1>
+                <span class="logo-icon">🔮</span>
+                <h1>Ultron <span class="subtitle">Architecture Oracle</span></h1>
             </div>
+            
+            <!-- Navigation Tabs -->
+            <div class="tab-nav">
+                <button id="tab-btn-heatmap" class="tab-btn active" data-tab="view-heatmap">🔥 Risk Heatmap</button>
+                <button id="tab-btn-health" class="tab-btn" data-tab="view-health">📊 Health Analytics</button>
+                <button id="tab-btn-simulator" class="tab-btn" data-tab="view-simulator">⚡ Impact Simulator</button>
+            </div>
+
             <div class="repo-selector">
                 <input type="text" id="repo-path" placeholder="Enter repository path..." spellcheck="false">
                 <button id="scan-btn" class="btn btn-primary">
-                    <span class="btn-text">Scan Repository</span>
+                    <span class="btn-text">Scan Base</span>
                     <span class="spinner" id="scan-spinner"></span>
                 </button>
             </div>
@@ -32,70 +40,138 @@
             <button id="close-error-btn" class="close-btn">&times;</button>
         </div>
 
+        <!-- MAIN LAYOUT VIEWS -->
         <main class="main-layout">
-            <aside class="sidebar">
-                <div class="legend-card">
-                    <h3>Risk Levels</h3>
-                    <ul class="legend-list">
-                        <li class="legend-item">
-                            <span class="risk-indicator risk-high"></span>
-                            <div>
-                                <strong>HIGH Risk</strong>
-                                <span class="legend-desc">Needs critical attention, likely to fail tests or highly complex</span>
+            
+            <!-- VIEW 1: HEATMAP & SIDE PANEL -->
+            <div id="view-heatmap" class="tab-pane active">
+                <div class="heatmap-grid">
+                    <section class="content-panel">
+                        <div class="panel-header">
+                            <h2>Codebase Directory Heatmap</h2>
+                            <div class="controls">
+                                <button id="expand-all-btn" class="btn btn-secondary btn-small">Expand All</button>
+                                <button id="collapse-all-btn" class="btn btn-secondary btn-small">Collapse All</button>
                             </div>
-                        </li>
-                        <li class="legend-item">
-                            <span class="risk-indicator risk-medium"></span>
-                            <div>
-                                <strong>MEDIUM Risk</strong>
-                                <span class="legend-desc">Moderate complexity or moderate test gap</span>
+                        </div>
+                        <div class="tree-container" id="tree-container">
+                            <div class="empty-state">
+                                <p>No repository scanned yet. Enter a path above and click Scan.</p>
                             </div>
-                        </li>
-                        <li class="legend-item">
-                            <span class="risk-indicator risk-low"></span>
-                            <div>
-                                <strong>LOW Risk</strong>
-                                <span class="legend-desc">Fully safe, good test coverage and simple logic</span>
-                            </div>
-                        </li>
-                    </ul>
+                        </div>
+                    </section>
+                    
+                    <!-- File Detail Panel (Slides out on click) -->
+                    <aside id="file-detail-panel" class="detail-panel closed">
+                        <div class="panel-close-bar">
+                            <h3>File Details</h3>
+                            <button id="close-detail-btn" class="close-detail-btn">&times;</button>
+                        </div>
+                        <div id="file-detail-content" class="detail-content">
+                            <div class="empty-state-small">Select a file in the tree to inspect details.</div>
+                        </div>
+                    </aside>
                 </div>
-                
-                <div class="stats-card">
-                    <h3>Summary Statistics</h3>
-                    <div class="stat-row">
-                        <span class="stat-label">Total Files:</span>
-                        <span class="stat-value" id="stat-total-files">0</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">High Risk:</span>
-                        <span class="stat-value text-high" id="stat-high-files">0</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">Medium Risk:</span>
-                        <span class="stat-value text-medium" id="stat-medium-files">0</span>
-                    </div>
-                    <div class="stat-row">
-                        <span class="stat-label">Low Risk:</span>
-                        <span class="stat-value text-low" id="stat-low-files">0</span>
-                    </div>
-                </div>
-            </aside>
+            </div>
 
-            <section class="content-panel">
-                <div class="panel-header">
-                    <h2>Codebase Structure</h2>
-                    <div class="controls">
-                        <button id="expand-all-btn" class="btn btn-secondary btn-small">Expand All</button>
-                        <button id="collapse-all-btn" class="btn btn-secondary btn-small">Collapse All</button>
+            <!-- VIEW 2: HEALTH ANALYTICS -->
+            <div id="view-health" class="tab-pane">
+                <div class="health-grid">
+                    <!-- Column 1: Health Ring & Stats -->
+                    <div class="health-column">
+                        <div class="health-card center-content">
+                            <h3>Repository Health Score</h3>
+                            <div class="radial-progress-wrapper">
+                                <svg class="radial-progress" width="220" height="220">
+                                    <circle class="radial-bg" cx="110" cy="110" r="90" />
+                                    <circle id="health-progress-bar" class="radial-bar" cx="110" cy="110" r="90" />
+                                </svg>
+                                <div id="health-score-val" class="health-score-text">100%</div>
+                            </div>
+                            <p class="health-description">Overall quality metric factoring circular dependencies, structural violations, and abstraction leaks.</p>
+                        </div>
+
+                        <div class="stats-card">
+                            <h3>Codebase Statistics</h3>
+                            <div class="stat-row">
+                                <span class="stat-label">Total Files Scanned:</span>
+                                <span class="stat-value" id="stat-total-files">0</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">High Risk Files:</span>
+                                <span class="stat-value text-high" id="stat-high-files">0</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Medium Risk Files:</span>
+                                <span class="stat-value text-medium" id="stat-medium-files">0</span>
+                            </div>
+                            <div class="stat-row">
+                                <span class="stat-label">Low Risk Files:</span>
+                                <span class="stat-value text-low" id="stat-low-files">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Column 2: Hotspots & Cycles -->
+                    <div class="health-column">
+                        <div class="hotspots-card">
+                            <h3>Critical Hotspots</h3>
+                            <div class="table-wrapper">
+                                <table class="hotspots-table">
+                                    <thead>
+                                        <tr>
+                                            <th>File</th>
+                                            <th>Score</th>
+                                            <th>Complexity</th>
+                                            <th>Coupling</th>
+                                            <th>Fixes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="hotspots-tbody">
+                                        <tr>
+                                            <td colspan="5" class="empty-table">No scan performed yet.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="cycles-card">
+                            <h3>Circular Dependency Loops</h3>
+                            <div id="cycles-list-container" class="cycles-list-container">
+                                <div class="empty-state-small">No circular dependencies found. Codebase is clean!</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="tree-container" id="tree-container">
-                    <div class="empty-state">
-                        <p>No repository scanned yet. Enter a path above to view the risk heatmap.</p>
+            </div>
+
+            <!-- VIEW 3: IMPACT SIMULATOR -->
+            <div id="view-simulator" class="tab-pane">
+                <div class="simulator-grid">
+                    <!-- Left Column: Recommended Contracts -->
+                    <div class="simulator-column">
+                        <div class="contracts-panel">
+                            <h3>Recommended Refactoring Contracts</h3>
+                            <p class="contracts-subtitle">Select a contract below to simulate and preview the quality impact of the refactoring delta before coding.</p>
+                            <div id="contracts-list" class="contracts-list">
+                                <div class="empty-state">No refactoring contracts available.</div>
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- Right Column: Comparative Metrics Projection -->
+                    <aside id="simulator-detail-panel" class="simulator-column">
+                        <div class="simulation-preview-card">
+                            <h3>Projected Refactoring Impact</h3>
+                            <div id="simulation-content" class="simulation-content">
+                                <div class="empty-state-small">Select a refactoring contract to simulate projected deltas.</div>
+                            </div>
+                        </div>
+                    </aside>
                 </div>
-            </section>
+            </div>
+
         </main>
     </div>
 

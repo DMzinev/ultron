@@ -1316,6 +1316,109 @@ Another gap.
         server.UltronAPIHandler.handle_save_file(h5)
         self.assertEqual(h5.status_code, 400)
 
+    def test_server_architecture_health_validation(self):
+        class MockHandler:
+            def __init__(self, post_data):
+                self.post_data = post_data
+                self.status_code = None
+                self.response = None
+            def get_post_data(self):
+                return self.post_data
+            def send_json_response(self, code, data):
+                self.status_code = code
+                self.response = data
+                
+        h1 = MockHandler("not a dict")
+        server.UltronAPIHandler.handle_architecture_health(h1)
+        self.assertEqual(h1.status_code, 400)
+        self.assertIn("error", h1.response)
+        
+        h2 = MockHandler({"some_key": "val"})
+        server.UltronAPIHandler.handle_architecture_health(h2)
+        self.assertEqual(h2.status_code, 400)
+        
+        h3 = MockHandler({"repo": "/nonexistent_path_12345"})
+        server.UltronAPIHandler.handle_architecture_health(h3)
+        self.assertEqual(h3.status_code, 400)
+
+    def test_server_architecture_health_traversal(self):
+        class MockHandler:
+            def __init__(self, post_data):
+                self.post_data = post_data
+                self.status_code = None
+                self.response = None
+            def get_post_data(self):
+                return self.post_data
+            def send_json_response(self, code, data):
+                self.status_code = code
+                self.response = data
+                
+        h = MockHandler({"repo": "../nonexistent_sibling_dir"})
+        server.UltronAPIHandler.handle_architecture_health(h)
+        self.assertEqual(h.status_code, 400)
+
+    def test_server_architecture_health_empty(self):
+        import tempfile
+        import shutil
+        temp_dir = tempfile.mkdtemp()
+        try:
+            class MockHandler:
+                def __init__(self, post_data):
+                    self.post_data = post_data
+                    self.status_code = None
+                    self.response = None
+                def get_post_data(self):
+                    return self.post_data
+                def send_json_response(self, code, data):
+                    self.status_code = code
+                    self.response = data
+                    
+            h = MockHandler({"repo": temp_dir})
+            server.UltronAPIHandler.handle_architecture_health(h)
+            self.assertEqual(h.status_code, 200)
+            self.assertTrue(h.response["success"])
+            self.assertEqual(h.response["health_score"], 100)
+            self.assertEqual(h.response["hotspots"], [])
+            self.assertEqual(h.response["circular_dependencies"], [])
+            self.assertEqual(h.response["violations"], [])
+            self.assertEqual(h.response["contracts"], [])
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def test_server_architecture_health_analysis(self):
+        import tempfile
+        import shutil
+        import os
+        temp_dir = tempfile.mkdtemp()
+        try:
+            file_path = os.path.join(temp_dir, "app.py")
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write("import os\n\ndef run():\n    pass\n")
+                
+            class MockHandler:
+                def __init__(self, post_data):
+                    self.post_data = post_data
+                    self.status_code = None
+                    self.response = None
+                def get_post_data(self):
+                    return self.post_data
+                def send_json_response(self, code, data):
+                    self.status_code = code
+                    self.response = data
+                    
+            h = MockHandler({"repo": temp_dir})
+            server.UltronAPIHandler.handle_architecture_health(h)
+            self.assertEqual(h.status_code, 200)
+            self.assertTrue(h.response["success"])
+            self.assertGreaterEqual(h.response["health_score"], 10)
+            self.assertLessEqual(h.response["health_score"], 100)
+            self.assertIn("hotspots", h.response)
+            self.assertIn("circular_dependencies", h.response)
+            self.assertIn("violations", h.response)
+            self.assertIn("contracts", h.response)
+        finally:
+            shutil.rmtree(temp_dir)
+
 
 class TestBudgetGovernor(unittest.TestCase):
 

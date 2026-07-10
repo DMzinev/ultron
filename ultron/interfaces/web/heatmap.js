@@ -8,45 +8,65 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeErrorBtn = document.getElementById("close-error-btn");
     
     const treeContainer = document.getElementById("tree-container");
+    const fileDetailPanel = document.getElementById("file-detail-panel");
+    const fileDetailContent = document.getElementById("file-detail-content");
+    const closeDetailBtn = document.getElementById("close-detail-btn");
     const tooltip = document.getElementById("tooltip");
     
+    // Tab Elements
+    const tabBtns = document.querySelectorAll(".tab-btn");
+    const tabPanes = document.querySelectorAll(".tab-pane");
+    
+    // Health Elements
+    const healthProgressBar = document.getElementById("health-progress-bar");
+    const healthScoreVal = document.getElementById("health-score-val");
     const statTotalFiles = document.getElementById("stat-total-files");
     const statHighFiles = document.getElementById("stat-high-files");
     const statMediumFiles = document.getElementById("stat-medium-files");
     const statLowFiles = document.getElementById("stat-low-files");
+    const hotspotsTbody = document.getElementById("hotspots-tbody");
+    const cyclesListContainer = document.getElementById("cycles-list-container");
     
+    // Simulator Elements
+    const contractsList = document.getElementById("contracts-list");
+    const simulationContent = document.getElementById("simulation-content");
+
+    // Controls
     const expandAllBtn = document.getElementById("expand-all-btn");
     const collapseAllBtn = document.getElementById("collapse-all-btn");
 
-    // Global Statistics Counter
+    // Global State
     let stats = { total: 0, high: 0, medium: 0, low: 0 };
+    let globalScanData = null; // Stored from scan responses
+    let fileRiskDetails = {};  // Map of filepath -> risk metrics
 
-    // Fetch initial configuration on load
+    // Auto-Initialize on page load
     autoInitialize();
 
     // Event Listeners
-    scanBtn.addEventListener("click", () => {
-        const repoPath = repoPathInput.value.trim();
-        if (repoPath) {
-            performScan(repoPath);
-        }
-    });
-
+    scanBtn.addEventListener("click", () => triggerScan());
     repoPathInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-            const repoPath = repoPathInput.value.trim();
-            if (repoPath) {
-                performScan(repoPath);
-            }
-        }
+        if (e.key === "Enter") triggerScan();
     });
-
     closeErrorBtn.addEventListener("click", hideError);
-    
+    closeDetailBtn.addEventListener("click", closeFileDetail);
     expandAllBtn.addEventListener("click", () => toggleAll(true));
     collapseAllBtn.addEventListener("click", () => toggleAll(false));
 
-    // Functions
+    // Tab Navigation switching
+    tabBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+            const targetTab = btn.getAttribute("data-tab");
+            
+            tabBtns.forEach(b => b.classList.remove("active"));
+            tabPanes.forEach(p => p.classList.remove("active"));
+            
+            btn.classList.add("active");
+            document.getElementById(targetTab).classList.add("active");
+        });
+    });
+
+    // API Handlers
     async function autoInitialize() {
         try {
             const response = await fetch("/api/config", {
@@ -65,57 +85,89 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function triggerScan() {
+        const repoPath = repoPathInput.value.trim();
+        if (repoPath) {
+            performScan(repoPath);
+        }
+    }
+
     async function performScan(repoPath) {
         hideError();
         showLoading(true);
+        closeFileDetail();
         stats = { total: 0, high: 0, medium: 0, low: 0 };
-        updateStatsUI();
+        fileRiskDetails = {};
+        updateStatsUI(0, 0, 0, 0);
         
         try {
-            const response = await fetch("/api/file-tree", {
+            // 1. Fetch File Tree Heatmap
+            const treeResponse = await fetch("/api/file-tree", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ repo: repoPath })
             });
 
-            if (!response.ok) {
-                let errMsg = `Server returned status ${response.status} ${response.statusText}`;
-                try {
-                    const errData = await response.json();
-                    if (errData && errData.error) {
-                        errMsg = errData.error;
-                    }
-                } catch (_) {
-                    // Try getting raw text if JSON parsing fails
-                    try {
-                        const rawText = await response.text();
-                        if (rawText && rawText.length < 500) {
-                            errMsg = rawText;
-                        }
-                    } catch (__) {}
-                }
-                throw new Error(errMsg);
+            if (!treeResponse.ok) {
+                throw new Error(await getErrorMessage(treeResponse));
             }
 
-            const data = await response.json();
-            if (data.success && data.tree) {
-                renderTree(data.tree);
-                updateStatsUI();
+            const treeData = await treeResponse.json();
+            if (treeData.success && treeData.tree) {
+                renderTree(treeData.tree);
             } else {
-                throw new Error(data.error || "Failed to scan codebase structure.");
+                throw new Error(treeData.error || "Failed to scan codebase structure.");
             }
+
+            // 2. Fetch Architecture Health & Simulator deltas
+            const healthResponse = await fetch("/api/architecture-health", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ repo: repoPath })
+            });
+
+            if (!healthResponse.ok) {
+                throw new Error(await getErrorMessage(healthResponse));
+            }
+
+            const healthData = await healthResponse.json();
+            if (healthData.success) {
+                globalScanData = healthData;
+                renderHealthDashboard(healthData);
+                renderSimulatorDashboard(healthData);
+            } else {
+                throw new Error(healthData.error || "Failed to retrieve architecture metrics.");
+            }
+
         } catch (err) {
             showError(err.message);
             treeContainer.innerHTML = `
                 <div class="empty-state">
-                    <p style="color: #ef4444;">Error: ${err.message}</p>
+                    <p style="color: #ef4444; font-weight: 600;">Error: ${err.message}</p>
                 </div>
             `;
+            renderHealthErrorState(err.message);
+            renderSimulatorErrorState(err.message);
         } finally {
             showLoading(false);
         }
     }
 
+    async function getErrorMessage(res) {
+        try {
+            const errData = await res.json();
+            return errData.error || `Server returned status ${res.status}`;
+        } catch (_) {
+            try {
+                const text = await res.text();
+                return text.length < 200 ? text : `Server returned status ${res.status}`;
+            } catch (__) {
+                return `Server returned status ${res.status}`;
+            }
+        }
+    }
+
+    // Heatmap Tree Rendering
     function renderTree(treeData) {
         if (!treeData || treeData.length === 0) {
             treeContainer.innerHTML = `
@@ -144,7 +196,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const rowDiv = document.createElement("div");
         rowDiv.className = "tree-row";
         
-        // Add indicator based on type
         const arrowSpan = document.createElement("span");
         arrowSpan.className = "node-arrow";
         
@@ -153,7 +204,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (node.type === "directory") {
             arrowSpan.textContent = "▶";
-            arrowSpan.classList.add("expanded"); // Default open
+            arrowSpan.classList.add("expanded");
             iconSpan.textContent = "📁";
             rowDiv.appendChild(arrowSpan);
         } else {
@@ -161,13 +212,15 @@ document.addEventListener("DOMContentLoaded", () => {
             iconSpan.textContent = "📄";
             rowDiv.appendChild(arrowSpan);
             
-            // Increment statistics counter for files
             stats.total++;
             if (node.risk) {
                 const lvl = (node.risk.level || "").toUpperCase();
                 if (lvl === "HIGH") stats.high++;
                 else if (lvl === "MEDIUM") stats.medium++;
                 else stats.low++;
+                
+                // Map risk stats globally for Detail Panel lookups
+                fileRiskDetails[node.path] = node.risk;
             }
         }
 
@@ -178,7 +231,6 @@ document.addEventListener("DOMContentLoaded", () => {
         nameSpan.textContent = node.name;
         rowDiv.appendChild(nameSpan);
 
-        // Add Risk Level Badge/Chip
         if (node.risk) {
             const riskSpan = document.createElement("span");
             const lvl = (node.risk.level || "LOW").toLowerCase();
@@ -186,16 +238,10 @@ document.addEventListener("DOMContentLoaded", () => {
             riskSpan.textContent = lvl;
             rowDiv.appendChild(riskSpan);
             
-            // Set up custom tooltip listeners
-            rowDiv.addEventListener("mouseenter", (e) => {
-                showTooltip(e, node.name, node.risk);
-            });
-            rowDiv.addEventListener("mousemove", (e) => {
-                moveTooltip(e);
-            });
-            rowDiv.addEventListener("mouseleave", () => {
-                hideTooltip();
-            });
+            // Tooltip events
+            rowDiv.addEventListener("mouseenter", (e) => showTooltip(e, node.name, node.risk));
+            rowDiv.addEventListener("mousemove", moveTooltip);
+            rowDiv.addEventListener("mouseleave", hideTooltip);
         }
 
         nodeDiv.appendChild(rowDiv);
@@ -203,7 +249,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (node.type === "directory" && node.children) {
             const childrenContainer = document.createElement("div");
             childrenContainer.className = "children-container";
-            childrenContainer.style.display = "block"; // Default expanded
+            childrenContainer.style.display = "block";
             
             node.children.forEach(child => {
                 childrenContainer.appendChild(createNodeElement(child));
@@ -211,9 +257,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             nodeDiv.appendChild(childrenContainer);
             
-            // Toggle Collapsible on Directory Click
             rowDiv.addEventListener("click", (e) => {
-                // Prevent toggling if user hovers on file (handled separately by cursor)
                 if (e.target.closest(".node-risk-chip")) return;
                 
                 const isExpanded = arrowSpan.classList.contains("expanded");
@@ -227,12 +271,287 @@ document.addEventListener("DOMContentLoaded", () => {
                     childrenContainer.style.display = "block";
                 }
             });
+        } else {
+            // File click details overlay
+            rowDiv.addEventListener("click", () => openFileDetail(node.path));
         }
 
         return nodeDiv;
     }
 
-    // Tooltip Helpers
+    // File Details Overlay Panel
+    function openFileDetail(filepath) {
+        const riskData = fileRiskDetails[filepath];
+        if (!riskData) return;
+        
+        fileDetailPanel.classList.remove("closed");
+        
+        // Find hotspots metrics if available
+        let complexity = "N/A";
+        let coupling = "N/A";
+        let fixes = "N/A";
+        if (globalScanData && globalScanData.hotspots) {
+            const hot = globalScanData.hotspots.find(h => h.file === filepath);
+            if (hot) {
+                complexity = hot.complexity;
+                coupling = hot.coupling_debt;
+                fixes = hot.bug_fix_count;
+            }
+        }
+
+        // Find violation cards if any
+        let violationsHtml = '<div class="empty-state-small" style="padding: 1rem 0;">No active architectural violations.</div>';
+        if (globalScanData && globalScanData.violations) {
+            const fileViolations = globalScanData.violations.filter(v => v.filepath === filepath);
+            if (fileViolations.length > 0) {
+                violationsHtml = fileViolations.map(v => `
+                    <div class="sim-rec-item" style="border-left: 3px solid #ef4444;">
+                        <div class="sim-rec-title" style="color: #fca5a5;">${v.principle}</div>
+                        <div class="sim-rec-desc">${v.observation}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                            <strong>Reason:</strong> ${v.reason}
+                        </div>
+                    </div>
+                `).join("");
+            }
+        }
+        
+        fileDetailContent.innerHTML = `
+            <div class="detail-file-title">${filepath}</div>
+            
+            <div class="stats-card" style="padding: 1rem; border-radius: 8px;">
+                <div class="stat-row">
+                    <span class="stat-label">Risk Level:</span>
+                    <span class="stat-value text-${riskData.level.toLowerCase()}">${riskData.level}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Impact Score:</span>
+                    <span class="stat-value">${riskData.impact_score.toFixed(2)}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Cyclomatic Complexity:</span>
+                    <span class="stat-value">${complexity}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Coupling Debt:</span>
+                    <span class="stat-value">${coupling}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Bug-Fix Commits:</span>
+                    <span class="stat-value">${fixes}</span>
+                </div>
+            </div>
+            
+            <div class="sim-block-title" style="margin-top: 0.5rem;">Plain-English Summary</div>
+            <div style="font-size: 0.85rem; line-height: 1.4; color: var(--text-secondary); background: rgba(255,255,255,0.02); padding: 0.8rem; border-radius: 6px; border: 1px solid var(--border-color);">
+                ${riskData.summary}
+            </div>
+
+            <div class="sim-block-title" style="margin-top: 0.5rem;">Smell Warnings</div>
+            <div class="sim-recs-list">
+                ${violationsHtml}
+            </div>
+        `;
+    }
+
+    function closeFileDetail() {
+        fileDetailPanel.classList.add("closed");
+        fileDetailContent.innerHTML = '<div class="empty-state-small">Select a file in the tree to inspect details.</div>';
+    }
+
+    // Health Dashboard Rendering
+    function renderHealthDashboard(data) {
+        // Animate Radial Score Circle
+        const score = Math.max(10, Math.min(100, data.health_score || 100));
+        healthScoreVal.textContent = `${score}%`;
+        
+        const r = 90;
+        const circ = 2 * Math.PI * r; // 565.48
+        const offset = circ * (1 - score / 100);
+        
+        healthProgressBar.style.strokeDasharray = `${circ}`;
+        healthProgressBar.style.strokeDashoffset = `${offset}`;
+        
+        // Dynamic score coloring
+        if (score >= 80) {
+            healthProgressBar.style.stroke = "var(--color-low)";
+            healthScoreVal.style.color = "var(--color-low)";
+        } else if (score >= 50) {
+            healthProgressBar.style.stroke = "var(--color-medium)";
+            healthScoreVal.style.color = "var(--color-medium)";
+        } else {
+            healthProgressBar.style.stroke = "var(--color-high)";
+            healthScoreVal.style.color = "var(--color-high)";
+        }
+
+        // Stats summary
+        updateStatsUI(stats.total, stats.high, stats.medium, stats.low);
+
+        // Hotspots table
+        if (data.hotspots && data.hotspots.length > 0) {
+            hotspotsTbody.innerHTML = data.hotspots.map(h => `
+                <tr data-file="${h.file}">
+                    <td class="file-cell" title="${h.file}">${h.file}</td>
+                    <td style="font-weight: 700;">${h.hotspot_score.toFixed(3)}</td>
+                    <td>${h.complexity}</td>
+                    <td>${h.coupling_debt}</td>
+                    <td>${h.bug_fix_count}</td>
+                </tr>
+            `).join("");
+            
+            // Add click events to hotspot rows
+            hotspotsTbody.querySelectorAll("tr").forEach(row => {
+                row.addEventListener("click", () => {
+                    const filepath = row.getAttribute("data-file");
+                    // Switch to Heatmap tab
+                    document.getElementById("tab-btn-heatmap").click();
+                    openFileDetail(filepath);
+                });
+            });
+        } else {
+            hotspotsTbody.innerHTML = `<tr><td colspan="5" class="empty-table">No metrics available. Codebase is empty.</td></tr>`;
+        }
+
+        // Circular loops list
+        if (data.circular_dependencies && data.circular_dependencies.length > 0) {
+            cyclesListContainer.innerHTML = data.circular_dependencies.map(cycle => `
+                <div class="cycle-item">
+                    🔄 ${cycle.join(" &rarr; ")}
+                </div>
+            `).join("");
+        } else {
+            cyclesListContainer.innerHTML = `<div class="empty-state-small" style="color: var(--color-low);">No circular dependencies found. Codebase is clean!</div>`;
+        }
+    }
+
+    // Simulator Dashboard Rendering
+    function renderSimulatorDashboard(data) {
+        if (!data.contracts || data.contracts.length === 0) {
+            contractsList.innerHTML = `<div class="empty-state">No refactoring contracts available (zero design violations detected).</div>`;
+            simulationContent.innerHTML = `<div class="empty-state-small">Select a refactoring contract to simulate projected deltas.</div>`;
+            return;
+        }
+
+        contractsList.innerHTML = data.contracts.map((c, idx) => `
+            <div class="contract-card" data-idx="${idx}">
+                <div class="contract-header">
+                    <span class="contract-file" title="${c.filepath}">${c.filepath}</span>
+                    <span class="contract-violations-badge">${c.recommendations.length} smell${c.recommendations.length > 1 ? 's' : ''}</span>
+                </div>
+                <div class="contract-body">
+                    Proposed: ${c.recommendations.map(r => r.refactoring).join(", ")}
+                </div>
+            </div>
+        `).join("");
+
+        // Click events on contracts
+        const contractCards = contractsList.querySelectorAll(".contract-card");
+        contractCards.forEach(card => {
+            card.addEventListener("click", () => {
+                contractCards.forEach(c => c.classList.remove("selected"));
+                card.classList.add("selected");
+                
+                const idx = parseInt(card.getAttribute("data-idx"));
+                renderSimulationDetail(data.contracts[idx]);
+            });
+        });
+    }
+
+    function renderSimulationDetail(contract) {
+        const before = contract.before_snapshot;
+        const after = contract.after_snapshot;
+
+        // Calculate deltas
+        const debtDelta = after.total_coupling_debt - before.total_coupling_debt;
+        const cycleDelta = after.total_cycle_count - before.total_cycle_count;
+        const violationDelta = after.total_violations - before.total_violations;
+        const instDelta = after.avg_instability - before.avg_instability;
+        const hsDelta = after.avg_hotspot_score - before.avg_hotspot_score;
+
+        function formatDelta(val, dec = 0, lowerIsBetter = true) {
+            if (val === 0) return `<span class="sim-metric-delta delta-neutral">0</span>`;
+            const sign = val > 0 ? "+" : "";
+            const isGood = lowerIsBetter ? val < 0 : val > 0;
+            const cls = isGood ? "delta-good" : "text-high";
+            return `<span class="sim-metric-delta ${cls}">${sign}${val.toFixed(dec)}</span>`;
+        }
+
+        simulationContent.innerHTML = `
+            <div class="detail-file-title" style="font-size: 0.95rem; margin-bottom: 0.25rem;">${contract.filepath}</div>
+            
+            <div class="sim-block-title">Projected Metric Improvements</div>
+            
+            <div class="sim-metric-table">
+                <div class="sim-metric-row">
+                    <span class="sim-metric-name">Coupling Debt</span>
+                    <span class="sim-metric-before">${before.total_coupling_debt.toFixed(1)}</span>
+                    <span class="sim-metric-arrow">&rarr;</span>
+                    <span class="sim-metric-after">${after.total_coupling_debt.toFixed(1)}</span>
+                    ${formatDelta(debtDelta, 1, true)}
+                </div>
+                
+                <div class="sim-metric-row">
+                    <span class="sim-metric-name">Circular Loops</span>
+                    <span class="sim-metric-before">${before.total_cycle_count}</span>
+                    <span class="sim-metric-arrow">&rarr;</span>
+                    <span class="sim-metric-after">${after.total_cycle_count}</span>
+                    ${formatDelta(cycleDelta, 0, true)}
+                </div>
+                
+                <div class="sim-metric-row">
+                    <span class="sim-metric-name">Design Smells</span>
+                    <span class="sim-metric-before">${before.total_violations}</span>
+                    <span class="sim-metric-arrow">&rarr;</span>
+                    <span class="sim-metric-after">${after.total_violations}</span>
+                    ${formatDelta(violationDelta, 0, true)}
+                </div>
+                
+                <div class="sim-metric-row">
+                    <span class="sim-metric-name">Average Instability</span>
+                    <span class="sim-metric-before">${before.avg_instability.toFixed(3)}</span>
+                    <span class="sim-metric-arrow">&rarr;</span>
+                    <span class="sim-metric-after">${after.avg_instability.toFixed(3)}</span>
+                    ${formatDelta(instDelta, 3, true)}
+                </div>
+                
+                <div class="sim-metric-row">
+                    <span class="sim-metric-name">Average Hotspot Score</span>
+                    <span class="sim-metric-before">${before.avg_hotspot_score.toFixed(4)}</span>
+                    <span class="sim-metric-arrow">&rarr;</span>
+                    <span class="sim-metric-after">${after.avg_hotspot_score.toFixed(4)}</span>
+                    ${formatDelta(hsDelta, 4, true)}
+                </div>
+            </div>
+
+            <div class="sim-block-title" style="margin-top: 0.75rem;">Refactoring Action Plan</div>
+            <div class="sim-recs-list">
+                ${contract.recommendations.map(r => `
+                    <div class="sim-rec-item">
+                        <div class="sim-rec-title">${r.principle} Refactor</div>
+                        <div class="sim-rec-desc">${r.refactoring}</div>
+                    </div>
+                `).join("")}
+            </div>
+        `;
+    }
+
+    // Visual Error / Warning Fallbacks
+    function renderHealthErrorState(msg) {
+        healthScoreVal.textContent = "N/A";
+        healthScoreVal.style.color = "var(--text-muted)";
+        healthProgressBar.style.strokeDashoffset = "565.48";
+        healthProgressBar.style.stroke = "var(--border-color)";
+        
+        hotspotsTbody.innerHTML = `<tr><td colspan="5" class="empty-table" style="color: #ef4444;">Error: ${msg}</td></tr>`;
+        cyclesListContainer.innerHTML = `<div class="empty-state-small" style="color: #ef4444;">Failed to load dependencies.</div>`;
+    }
+
+    function renderSimulatorErrorState(msg) {
+        contractsList.innerHTML = `<div class="empty-state" style="color: #ef4444;">Error: ${msg}</div>`;
+        simulationContent.innerHTML = `<div class="empty-state-small" style="color: #ef4444;">Simulation unavailable due to errors.</div>`;
+    }
+
+    // Tooltip Position Helpers
     function showTooltip(e, name, riskData) {
         tooltip.innerHTML = `
             <div class="tooltip-title">${name}</div>
@@ -249,7 +568,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function moveTooltip(e) {
         const padding = 15;
-        // Keep tooltip from overflowing screen boundaries
         let x = e.pageX + padding;
         let y = e.pageY + padding;
         
@@ -272,7 +590,7 @@ document.addEventListener("DOMContentLoaded", () => {
         tooltip.style.display = "none";
     }
 
-    // Controls Helpers
+    // Toggle Folders
     function toggleAll(expand) {
         const containers = document.querySelectorAll(".children-container");
         const arrows = document.querySelectorAll(".node-arrow");
@@ -283,7 +601,6 @@ document.addEventListener("DOMContentLoaded", () => {
         
         arrows.forEach(arrow => {
             const row = arrow.closest(".tree-row");
-            // Only adjust folders, not files
             if (row && row.parentNode.querySelector(".children-container")) {
                 if (expand) {
                     arrow.classList.add("expanded");
@@ -296,7 +613,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Loading & Error States
+    // Utilities
     function showLoading(loading) {
         scanBtn.disabled = loading;
         scanSpinner.style.display = loading ? "inline-block" : "none";
@@ -312,10 +629,10 @@ document.addEventListener("DOMContentLoaded", () => {
         errorMessage.textContent = "";
     }
 
-    function updateStatsUI() {
-        statTotalFiles.textContent = stats.total;
-        statHighFiles.textContent = stats.high;
-        statMediumFiles.textContent = stats.medium;
-        statLowFiles.textContent = stats.low;
+    function updateStatsUI(total, high, medium, low) {
+        statTotalFiles.textContent = total;
+        statHighFiles.textContent = high;
+        statMediumFiles.textContent = medium;
+        statLowFiles.textContent = low;
     }
 });
