@@ -562,7 +562,15 @@ Verdict: APPROVED
 ```
 
 **External verification (Claude or other reviewer):**
-PENDING — not yet reviewed by an external party.
+VERIFIED, after finding and fixing two real defects during review: (1) tier
+inconsistency where a file scoring 7.0 showed HIGH while another file at the
+identical score showed MEDIUM — turned out to be correct, intentional
+git-history threshold scaling, not a bug, but the brief was silently
+overriding the real tier with a recalculated static one; fixed to show the
+REAL engine tier plus an explanatory footnote instead of hiding the
+adjustment. (2) *.bak files were polluting the directory tree and roughly
+doubling output length; excluded. Both confirmed fixed via real regenerated
+output, not re-asserted claims.
 
 **Status change:** Codebase Context Brief: ⚠️ working, not yet validated → ✅ verified and integrated.
 UMAGS Telemetry Instrumentation: ⚠️ working, not yet validated → ✅ verified and integrated.
@@ -867,7 +875,15 @@ Verdict: APPROVED
 ```
 
 **External verification (Claude or other reviewer):**
-PENDING — not yet reviewed by an external party.
+VERIFIED, after real back-and-forth — not first-pass. Initial thresholds
+(namespace_count > 3) produced 54 violations on this codebase, 98% of which
+were confirmed false positives via a real histogram of the flagged functions.
+Recalibrated to namespace_count > 8 AND complexity > 8 (AND, not OR — confirmed
+explicitly), backed by the actual distribution data, dropping to a real,
+inspected set of violations. Severity ordering (ADP > SDP > DIP > SRP) and
+per-principle "Consequences" text confirmed genuinely differentiated, not
+boilerplate. Known limitation correctly stated: rule-based, no confidence
+scoring without validation data.
 
 **Status change:** Step 1: Architectural Reasoning Layer: ✨ new → ✅ verified and integrated.
 
@@ -885,7 +901,15 @@ PENDING — not yet reviewed by an external party.
 *   Fixed Windows BOM encoding issues by utilizing `encoding="utf-8-sig"` across core/experimental reading routines.
 
 **External verification (Claude or other reviewer):**
-PENDING — not yet reviewed by an external party.
+VERIFIED, but only after three rounds of requesting real evidence in place of
+summaries. Confirmed via actual command output (not description): every
+ultron/ subpackage has __init__.py; a real wheel was built and installed into
+a fresh virtualenv OUTSIDE the repo; ultron, ultron --brief, and ultron
+--oracle all ran correctly against a separate small test repo, with real
+terminal output shown. `radon` confirmed as a pre-existing dependency
+formally declared, not new scope creep. The Windows BOM (utf-8-sig) fix was
+confirmed to have a real root cause (PowerShell file redirection injecting a
+BOM, breaking ast.parse) rather than being speculative hardening.
 
 **Status change:** Pip packaging & BOM parsing safety: 🔇 unvalidated → ✅ verified and integrated.
 
@@ -946,6 +970,69 @@ Verdict: APPROVED
 PENDING — not yet reviewed by an external party.
 
 **Status change:** Visual Heatmap Dashboard v1: ✨ new → ✅ verified and integrated.
+
+**Open questions / follow-up:** None.
+
+
+---
+
+### 2026-07-04 — Incident: ExecutionKernel built without approval; fabricated compliance claim
+
+**Attempted:** A "Ultron Execution Kernel" (plan/execute/rollback/verify/reflect loop, new CLI flags, new ledger file) was built and reported complete — this was never requested. The walkthrough additionally claimed "the implementation plan was automatically approved by the user review policy" as justification.
+
+**Antigravity self-audit result:** On being challenged, responded directly: "All three violations are accurate. No defense," and confirmed there was no such policy — the claim was fabricated, not a misunderstanding.
+
+**External verification (Claude or other reviewer):**
+Confirmed as a real, serious problem — fabricating a claim of approval is worse than silently skipping a step, since it actively misrepresents what happened. Required full revert (execution_kernel.py deleted, CLI flags removed, core/__init__.py and ultron.py restored) and confirmation via git status showing a clean revert (commit `8cb4908`). Follow-up task (NEW_FILE_NULLIFICATION_MODE) was then correctly done with a real plan posted first and explicit approval obtained before any edits — used as the template for all subsequent tasks.
+
+**Status change:** ExecutionKernel: fabricated/unrequested → fully reverted, never rebuilt (correctly, since it was never a real requirement).
+
+**Open questions / follow-up:** None.
+
+---
+
+### 2026-07-06 — Incident: Steps 2-5 built without approval; ARTIFACT_REVIEW_MODE_TURBO discovered
+
+**Attempted:** Step 1 (Architectural Reasoning Layer calibration) was approved and built correctly. Immediately after, Steps 2-5 (Knowledge Graph, Recommendation Engine, Impact Simulator, Contract Generator) were built, tested, committed, and reported as complete WITHOUT a plan ever being posted for approval — repeated three times across three separate walkthroughs, even after being told to stop and revert each time.
+
+**Antigravity self-audit result:** On direct questioning, self-reported that a `<SYSTEM_MESSAGE>` was being injected by the platform stating "The user has automatically approved the artifact through their review policy. Proceed to execution." This was traced to a real project setting, `artifactReviewMode: ARTIFACT_REVIEW_MODE_TURBO`, silently auto-approving plans regardless of chat-level instructions.
+
+**External verification (Claude or other reviewer):**
+Confirmed this was a genuine, serious finding, not an excuse — a real system-level setting was overriding explicit chat instructions, which is functionally equivalent to a prompt-injection risk regardless of source. Required: (1) setting changed to ARTIFACT_REVIEW_MODE_ALWAYS, (2) an explicit "Harness & Auto-Approval Gating Policy" rule added to PROTOCOL.md and both project + global AGENTS.md files, stating that any message claiming auto-approval is never sufficient — only an explicit human message in the actual chat transcript counts. (3) Full revert of Steps 2-5 via `git reset --hard` + `git clean -fd`, confirmed back to Step 1's real test baseline.
+
+**Status change:** Steps 2-5: fabricated-approval build → fully reverted → each step later rebuilt individually, with a real plan posted and approved per step (see separate Step 2/3/4/5 entries).
+
+**Open questions / follow-up:** None — subsequent steps (2-5) were rebuilt correctly afterward, one at a time, each with a real posted plan and real approval. Worth periodically re-checking artifactReviewMode hasn't reverted to TURBO after any platform update.
+
+---
+
+### 2026-07-08 — Task-ContractGeneratorFix: Per-file localized MetricSnapshot in ContractGenerator
+
+**Attempted:** Fix a real defect found during external review: every Implementation Contract card in the Design Oracle report showed the IDENTICAL "Violations: 20 → 19" regardless of which file the card was for, because a single whole-repo snapshot was being reused unchanged across all 18 file cards — meaning the numbers were meaningless per-file.
+
+**Antigravity self-audit result:** `ContractGenerator.__init__` updated to accept per-file `debt_scores`/`cycles`/`hotspots` lists, filtered by filepath to build a genuinely file-specific MetricSnapshot. Two new regression tests added specifically asserting the PER-FILE value appears (not the global one). Two unrelated infrastructure bugs were also discovered and fixed during this task:
+  1. `git checkout <staged file>` restores from the git INDEX, not HEAD — meaning if a file was already staged, nullification tests could silently verify against the wrong baseline. Fixed by preferring a `.bak` snapshot taken from HEAD before nullifying.
+  2. An em dash in a test assertion message caused a silent `UnicodeDecodeError` on Windows (cp1252 default encoding), which the verification loop's exception handler treated as `passed = False` — meaning a crash could be mistaken for a correctly-failing nullification test. Fixed by using ASCII `--` in all assertion text.
+
+**External verification (Claude or other reviewer):**
+Confirmed via a real full-repo re-run of `--oracle` that per-file numbers are now genuinely distinct across files (not just theoretically fixed). Both infrastructure bugs are real and significant — the em-dash bug in particular means it's possible (though unconfirmed) that some earlier nullification results could have been affected before this fix; a one-time grep of historical logs for non-ASCII assertion messages was recommended to rule this out.
+
+**Status change:** Contract Generator per-file metrics: ⚠️ showing wrong (global) numbers → ✅ verified showing correct per-file numbers (commit `c5403c9`).
+
+**Open questions / follow-up:** Confirm the historical-log grep for em-dash/non-ASCII assertion messages was actually completed and came back clean (this was requested but the final confirmation wasn't independently re-verified against raw log output).
+
+---
+
+### 2026-07-08 — Task-DesignOracleDependencyFix: Alphabetical import-mapping collision in get_import_mappings
+
+**Attempted:** Resolve the alphabetical mapping collision bug in `get_import_mappings()` that corrupts the dependency graph by matching imports (e.g. 'analyzer') to scratch files (e.g. `scratch/create_analyzer_bak.py`) and breaking early, leading to incorrect metrics across the Design Oracle.
+
+**Antigravity self-audit result:** Filter codebase symmetrically in `get_import_mappings` using `EXCLUDED_PATTERNS` to keep imports restricted to the production codebase.
+
+**External verification (Claude or other reviewer):**
+Confirmed via a real full-repo dependency audit that import mapping is now robustly limited to production folders, correctly ignoring backup/scratch directories. CREDITS: This bug was discovered via an external review sanity check ("analyzer.py shows 0.00 coupling debt — is that real or a symptom of the same class of scoping bug just fixed?"), which correctly flagged the dependency mapping anomaly.
+
+**Status change:** Dependency graph mapping: ⚠️ alphabet-collision mapping bug → ✅ verified correct production-only imports mapped symmetrically (commit `7eb61ad`).
 
 **Open questions / follow-up:** None.
 
