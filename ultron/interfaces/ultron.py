@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--brief", action="store_true", help="Generate a compact markdown context brief for AI agent orientation")
     parser.add_argument("--oracle", action="store_true", help="Run the Design Oracle: coupling debt, abstraction leaks, hotspots, and circular dependencies")
     parser.add_argument("--serve", action="store_true", help="Start the local server and open visual dashboard in browser")
+    parser.add_argument("--export", action="store_true", help="Write .ultron/context.json — compressed architectural map for AI agent consumption")
     args = parser.parse_args()
     
     if args.serve:
@@ -135,6 +136,14 @@ def main():
                     except (OSError, ValueError) as e:
                         sys.stderr.write(f"Warning: stdout reconfigure failed: {e}\n")
                 print(report)
+        # Auto-export context.json after oracle run
+        if args.export:
+            try:
+                from ultron.core import export as export_mod
+                ctx_path = export_mod.write_context_json(risks, repo_path)
+                log(f"[+] Ultron: Context map written to {ctx_path}")
+            except Exception as e:
+                log(f"[!] Warning: could not write context.json: {e}")
         sys.exit(0)
 
     # Default risk evaluation mode if intent is not specified
@@ -188,6 +197,14 @@ def main():
                 print(f"[+] All files in {repo_path} are LOW risk (safe to change).")
                 
             print("\n[i] Run 'ultron --brief' for an orientation brief, or 'ultron --oracle' for the architectural design oracle report.")
+        # Auto-export context.json after default evaluation
+        if args.export:
+            try:
+                from ultron.core import export as export_mod
+                ctx_path = export_mod.write_context_json(risks_sorted, repo_path)
+                log(f"[+] Ultron: Context map written to {ctx_path}")
+            except Exception as e:
+                log(f"[!] Warning: could not write context.json: {e}")
         sys.exit(0)
         
     target_files = []

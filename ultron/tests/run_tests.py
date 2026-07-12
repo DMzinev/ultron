@@ -2659,8 +2659,125 @@ class TestEvidenceEngine(unittest.TestCase):
             engine._compute_median(None)
 
 
+# ---------------------------------------------------------------------------
+# Golden snapshot — guards classification model stability
+# ---------------------------------------------------------------------------
+
+class TestArchitecturalRoleSnapshot(unittest.TestCase):
+    """
+    Asserts that real Ultron files receive the expected architectural role.
+
+    If a rule change silently reclassifies a file, this test catches it.
+    Add a row per file you want to pin. Do not remove rows without good reason.
+    """
+
+    # (rel_path, abs_path_suffix, expected_role_value)
+    SNAPSHOT = [
+        ("ultron/core/models.py",           "ultron/core/models.py",           "CORE_ENGINE"),
+        ("ultron/core/risk/scoring.py",      "ultron/core/risk/scoring.py",     "CORE_ENGINE"),
+        ("ultron/core/__init__.py",          "ultron/core/__init__.py",         "PACKAGE_INITIALIZER"),
+        ("ultron/interfaces/server.py",      "ultron/interfaces/server.py",     "SERVER"),
+        ("ultron/interfaces/ultron.py",      "ultron/interfaces/ultron.py",     "CLI"),
+        ("ultron/interfaces/mcp_server.py",  "ultron/interfaces/mcp_server.py", "MCP_TOOL"),
+        ("ultron/tests/run_tests.py",        "ultron/tests/run_tests.py",       "TEST"),
+        ("ultron/experimental/design_oracle.py", "ultron/experimental/design_oracle.py", "EXPERIMENTAL"),
+    ]
+
+    def test_role_snapshot(self):
+        from ultron.core.risk.scoring import determine_architectural_role
+        _root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        for rel_path, abs_suffix, expected in self.SNAPSHOT:
+            abs_path = os.path.join(_root, abs_suffix.replace("/", os.sep))
+            role = determine_architectural_role(rel_path, abs_path)
+            self.assertEqual(
+                role.value, expected,
+                msg=f"{rel_path}: expected {expected}, got {role.value}"
+            )
+
+
+# ---------------------------------------------------------------------------
+# Export module tests
+# ---------------------------------------------------------------------------
+
+class TestExportContextJson(unittest.TestCase):
+
+    def test_write_context_json_creates_file(self):
+        import tempfile, json
+        from ultron.core.export import write_context_json
+        from ultron.core.models import AnalysisPacket, ArchitecturalRole, ChangeStrategy
+
+        packet = AnalysisPacket(
+            file_path="ultron/core/models.py",
+            impact_score=5.0,
+            coupling_score=3.0,
+            mk_r=1.0,
+            delta_cest=0.0,
+            confidence=0.9,
+            level="MEDIUM",
+            complexity=4,
+            architectural_role=ArchitecturalRole.CORE_ENGINE,
+            change_strategy=ChangeStrategy.LOCAL_REFACTOR,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            out = write_context_json([packet], tmp)
+            self.assertTrue(os.path.isfile(out))
+            with open(out, encoding="utf-8") as fh:
+                data = json.load(fh)
+
+        # Structure checks
+        self.assertIn("generated", data)
+        self.assertIn("summary", data)
+        self.assertIn("files", data)
+        self.assertEqual(len(data["files"]), 1)
+        f = data["files"][0]
+        self.assertEqual(f["path"], "ultron/core/models.py")
+        self.assertEqual(f["level"], "MEDIUM")
+        self.assertEqual(f["role"], "CORE_ENGINE")
+        self.assertEqual(f["strategy"], "LOCAL_REFACTOR")
+        self.assertIsInstance(f["impact_score"], float)
+
+    def test_write_context_json_empty_risks(self):
+        import tempfile, json
+        from ultron.core.export import write_context_json
+        with tempfile.TemporaryDirectory() as tmp:
+            out = write_context_json([], tmp)
+            with open(out, encoding="utf-8") as fh:
+                data = json.load(fh)
+        self.assertEqual(data["files"], [])
+        self.assertEqual(data["summary"], {"high": 0, "medium": 0, "low": 0})
+
+    def test_write_context_json_serialization_roundtrip(self):
+        """Verify to_dict and context.json agree on role/strategy values."""
+        import tempfile, json
+        from ultron.core.export import write_context_json
+        from ultron.core.models import AnalysisPacket, ArchitecturalRole, ChangeStrategy
+
+        packet = AnalysisPacket(
+            file_path="ultron/interfaces/server.py",
+            impact_score=12.0,
+            coupling_score=8.0,
+            mk_r=1.0,
+            delta_cest=0.0,
+            confidence=0.7,
+            level="HIGH",
+            complexity=6,
+            architectural_role=ArchitecturalRole.SERVER,
+            change_strategy=ChangeStrategy.REQUIRES_COMPATIBILITY_REVIEW,
+        )
+        d = packet.to_dict()
+        self.assertEqual(d["architectural_role"], "SERVER")
+        self.assertEqual(d["change_strategy"], "REQUIRES_COMPATIBILITY_REVIEW")
+        self.assertEqual(d["change_strategy_display"], "Compatibility review required")
+        self.assertEqual(d["boundary_type"], "Web Server")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = write_context_json([packet], tmp)
+            with open(out, encoding="utf-8") as fh:
+                data = json.load(fh)
+        self.assertEqual(data["files"][0]["role"], "SERVER")
+        self.assertEqual(data["files"][0]["strategy"], "REQUIRES_COMPATIBILITY_REVIEW")
+
 
 if __name__ == "__main__":
     print("[+] Running Ultron Core Tests...")
     unittest.main()
-
