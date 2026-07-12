@@ -246,6 +246,43 @@ body {
     to { transform: translateY(0); opacity: 1; }
 }
 
+/* Architecture Summary Bar */
+.summary-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+    animation: slideDown 0.25s ease-out;
+}
+
+.summary-bar.hidden {
+    display: none;
+}
+
+.summary-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.summary-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+}
+
+.summary-value {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
 /* View/Tabpanes management */
 .main-layout {
     width: 100%;
@@ -875,4 +912,150 @@ body {
     color: var(--text-primary);
     line-height: 1.4;
 }
+
+/* DEPENDENCY GRAPH STYLES */
+.graph-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 1.5rem;
+    align-items: start;
+    margin-top: 1rem;
+}
+
+.graph-fullpane {
+    position: relative;
+    width: 100%;
+    height: calc(100vh - 160px);
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.graph-toolbar {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    z-index: 10;
+}
+
+.graph-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.graph-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.legend-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.legend-dot.high {
+    background-color: var(--color-high);
+    box-shadow: 0 0 6px var(--color-high);
+}
+
+.legend-dot.medium {
+    background-color: var(--color-medium);
+    box-shadow: 0 0 6px var(--color-medium);
+}
+
+.legend-dot.low {
+    background-color: var(--color-low);
+    box-shadow: 0 0 6px var(--color-low);
+}
+
+.graph-loading, .graph-error {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 1rem 2rem;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    z-index: 5;
+    font-size: 0.9rem;
+}
+
+.graph-loading {
+    color: var(--text-secondary);
+}
+
+.graph-error {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+#arch-graph-svg {
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+}
+
+#arch-graph-svg:active {
+    cursor: grabbing;
+}
+
+.graph-node {
+    cursor: pointer;
+    transition: stroke 0.15s, stroke-width 0.15s;
+}
+
+.graph-node:hover {
+    stroke: #ffffff;
+    stroke-width: 2px !important;
+}
+
+.graph-node.active-node {
+    stroke: var(--primary-color);
+    stroke-width: 3px !important;
+}
+
+.graph-link {
+    fill: none;
+    stroke: rgba(148, 163, 184, 0.15);
+    stroke-width: 1.5px;
+    transition: stroke 0.15s, stroke-width 0.15s;
+}
+
+.graph-link.active-link {
+    stroke: rgba(96, 165, 250, 0.7);
+    stroke-width: 2.5px;
+}
+
+.graph-link-arrow {
+    fill: rgba(148, 163, 184, 0.15);
+}
+
+.graph-link-arrow.active-arrow {
+    fill: rgba(96, 165, 250, 0.7);
+}
+
+.graph-label {
+    font-size: 10px;
+    fill: var(--text-secondary);
+    pointer-events: none;
+    font-family: ui-monospace, SFMono-Regular, JetBrains Mono, Consolas, monospace;
+}
+
 

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ultron - Architecture Health & Simulator</title>
     <link rel="stylesheet" href="heatmap.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
     <div class="dashboard-container">
@@ -18,6 +19,7 @@
             <div class="tab-nav">
                 <button id="tab-btn-heatmap" class="tab-btn active" data-tab="view-heatmap">🔥 Risk Heatmap</button>
                 <button id="tab-btn-health" class="tab-btn" data-tab="view-health">📊 Health Analytics</button>
+                <button id="tab-btn-graph" class="tab-btn" data-tab="view-graph">🕸️ Arch Graph</button>
                 <button id="tab-btn-simulator" class="tab-btn" data-tab="view-simulator">⚡ Impact Simulator</button>
             </div>
 
@@ -38,6 +40,26 @@
                 <p id="error-message" class="error-message"></p>
             </div>
             <button id="close-error-btn" class="close-btn">&times;</button>
+        </div>
+
+        <!-- Architecture Summary Bar -->
+        <div id="summary-bar" class="summary-bar hidden">
+            <div class="summary-card">
+                <span class="summary-label">Total Files</span>
+                <span class="summary-value" id="summary-total-files">0</span>
+            </div>
+            <div class="summary-card">
+                <span class="summary-label">High Risk Modules</span>
+                <span class="summary-value text-high" id="summary-high-files">0</span>
+            </div>
+            <div class="summary-card">
+                <span class="summary-label">Architectural Pressure</span>
+                <span class="summary-value" id="summary-arch-pressure" style="color: #60a5fa;">0%</span>
+            </div>
+            <div class="summary-card">
+                <span class="summary-label">Primary Risk Focus</span>
+                <span class="summary-value" id="summary-top-role" style="color: #a78bfa; font-size: 1.1rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">N/A</span>
+            </div>
         </div>
 
         <!-- MAIN LAYOUT VIEWS -->
@@ -167,6 +189,38 @@
                             <div id="simulation-content" class="simulation-content">
                                 <div class="empty-state-small">Select a refactoring contract to simulate projected deltas.</div>
                             </div>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+
+            <!-- VIEW 4: DEPENDENCY GRAPH -->
+            <div id="view-graph" class="tab-pane">
+                <div class="graph-grid">
+                    <div class="graph-fullpane">
+                        <div class="graph-toolbar">
+                            <span class="graph-title">Architectural Dependency Graph</span>
+                            <div class="graph-legend">
+                                <span class="legend-dot high"></span><span>HIGH</span>
+                                <span class="legend-dot medium"></span><span>MEDIUM</span>
+                                <span class="legend-dot low"></span><span>LOW</span>
+                                <span style="margin-left:1rem;color:#94a3b8;font-size:0.75rem;">Node size = complexity · Edges = import coupling</span>
+                            </div>
+                            <button id="graph-refresh-btn" class="btn btn-secondary btn-small">↺ Refresh</button>
+                        </div>
+                        <div id="graph-loading" class="graph-loading hidden">Analyzing dependencies…</div>
+                        <div id="graph-error" class="graph-error hidden"></div>
+                        <svg id="arch-graph-svg"></svg>
+                    </div>
+                    
+                    <!-- Graph Details Panel (slides out/updates on node click) -->
+                    <aside id="graph-detail-panel" class="detail-panel closed">
+                        <div class="panel-close-bar">
+                            <h3>Node Details</h3>
+                            <button id="close-graph-detail-btn" class="close-detail-btn">&times;</button>
+                        </div>
+                        <div id="graph-detail-content" class="detail-content">
+                            <div class="empty-state-small">Select a node in the graph to inspect details.</div>
                         </div>
                     </aside>
                 </div>

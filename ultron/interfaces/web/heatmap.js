@@ -16,6 +16,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // Tab Elements
     const tabBtns = document.querySelectorAll(".tab-btn");
     const tabPanes = document.querySelectorAll(".tab-pane");
+
+    // Graph Elements
+    const graphDetailPanel = document.getElementById("graph-detail-panel");
+    const graphDetailContent = document.getElementById("graph-detail-content");
+    const closeGraphDetailBtn = document.getElementById("close-graph-detail-btn");
+    const graphLoading = document.getElementById("graph-loading");
+    const graphError = document.getElementById("graph-error");
+    const archGraphSvg = document.getElementById("arch-graph-svg");
+    const graphRefreshBtn = document.getElementById("graph-refresh-btn");
     
     // Health Elements
     const healthProgressBar = document.getElementById("health-progress-bar");
@@ -52,6 +61,14 @@ document.addEventListener("DOMContentLoaded", () => {
     closeDetailBtn.addEventListener("click", closeFileDetail);
     expandAllBtn.addEventListener("click", () => toggleAll(true));
     collapseAllBtn.addEventListener("click", () => toggleAll(false));
+    if (closeGraphDetailBtn) {
+        closeGraphDetailBtn.addEventListener("click", () => {
+            graphDetailPanel.classList.add("closed");
+        });
+    }
+    if (graphRefreshBtn) {
+        graphRefreshBtn.addEventListener("click", () => loadDependencyGraph());
+    }
 
     // Tab Navigation switching
     tabBtns.forEach(btn => {
@@ -63,6 +80,10 @@ document.addEventListener("DOMContentLoaded", () => {
             
             btn.classList.add("active");
             document.getElementById(targetTab).classList.add("active");
+
+            if (targetTab === "view-graph") {
+                loadDependencyGraph();
+            }
         });
     });
 
@@ -299,6 +320,35 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
+        // Calculate medians
+        let repomedianComplexity = 0;
+        let repomedianCoupling = 0;
+        if (globalScanData && globalScanData.hotspots && globalScanData.hotspots.length > 0) {
+            const complexities = globalScanData.hotspots.map(h => h.complexity).filter(c => typeof c === "number").sort((a,b)=>a-b);
+            const couplings = globalScanData.hotspots.map(h => h.coupling_debt).filter(c => typeof c === "number").sort((a,b)=>a-b);
+            if (complexities.length > 0) repomedianComplexity = complexities[Math.floor(complexities.length / 2)];
+            if (couplings.length > 0) repomedianCoupling = couplings[Math.floor(couplings.length / 2)];
+        }
+
+        let whyHtml = '';
+        if (riskData.level === "HIGH" || riskData.level === "MEDIUM") {
+            whyHtml = `
+                <div class="why-card" style="margin-top: 0.75rem; padding: 0.8rem; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 6px;">
+                    <div style="font-weight: 700; color: #fca5a5; margin-bottom: 0.25rem; font-size: 0.8rem; display: flex; align-items: center; gap: 0.25rem;">
+                        <span>⚠️</span> Why ${riskData.level}?
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4;">
+                        This module has a high risk tier because its metrics exceed repository norms:
+                        <ul style="margin: 0.25rem 0 0 1rem; padding: 0;">
+                            <li>Complexity: <strong>${complexity}</strong> (median: ${repomedianComplexity})</li>
+                            <li>Coupling: <strong>${coupling}</strong> (median: ${repomedianCoupling})</li>
+                            <li>Change Velocity: <strong>${fixes}</strong> bug-fix commit(s)</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+
         // Find violation cards if any
         let violationsHtml = '<div class="empty-state-small" style="padding: 1rem 0;">No active architectural violations.</div>';
         if (globalScanData && globalScanData.violations) {
@@ -349,6 +399,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     <span class="stat-value">${fixes}</span>
                 </div>
             </div>
+            
+            ${whyHtml}
             
             <div class="sim-block-title" style="margin-top: 0.5rem;">Plain-English Summary</div>
             <div style="font-size: 0.85rem; line-height: 1.4; color: var(--text-secondary); background: rgba(255,255,255,0.02); padding: 0.8rem; border-radius: 6px; border: 1px solid var(--border-color);">
@@ -647,5 +699,361 @@ document.addEventListener("DOMContentLoaded", () => {
         statHighFiles.textContent = high;
         statMediumFiles.textContent = medium;
         statLowFiles.textContent = low;
+
+        const summaryBar = document.getElementById("summary-bar");
+        const summaryTotal = document.getElementById("summary-total-files");
+        const summaryHigh = document.getElementById("summary-high-files");
+        const summaryPressure = document.getElementById("summary-arch-pressure");
+        const summaryTopRole = document.getElementById("summary-top-role");
+
+        if (summaryBar) {
+            if (total > 0) {
+                summaryBar.classList.remove("hidden");
+                if (summaryTotal) summaryTotal.textContent = total;
+                if (summaryHigh) summaryHigh.textContent = high;
+
+                // Calculate architectural pressure
+                let pressure = 0;
+                if (globalScanData && globalScanData.hotspots && globalScanData.hotspots.length > 0) {
+                    const couplings = globalScanData.hotspots.map(h => h.coupling_debt).filter(c => typeof c === "number").sort((a,b)=>a-b);
+                    if (couplings.length > 0) {
+                        const medianCoupling = couplings[Math.floor(couplings.length / 2)];
+                        const aboveMedianCount = globalScanData.hotspots.filter(h => h.coupling_debt > medianCoupling).length;
+                        pressure = Math.round((aboveMedianCount / globalScanData.hotspots.length) * 100);
+                    }
+                }
+                if (summaryPressure) summaryPressure.textContent = `${pressure}%`;
+
+                // Calculate primary risk focus role
+                let topRole = "Internal";
+                const roleScores = {};
+                for (const filepath in fileRiskDetails) {
+                    const riskData = fileRiskDetails[filepath];
+                    if (riskData) {
+                        const role = riskData.boundary_type || "Internal";
+                        const score = riskData.impact_score || 0;
+                        roleScores[role] = (roleScores[role] || 0) + score;
+                    }
+                }
+                let maxScore = -1;
+                for (const role in roleScores) {
+                    if (roleScores[role] > maxScore) {
+                        maxScore = roleScores[role];
+                        topRole = role;
+                    }
+                }
+                if (summaryTopRole) summaryTopRole.textContent = topRole;
+            } else {
+                summaryBar.classList.add("hidden");
+            }
+        }
+    }
+
+    // DEPENDENCY GRAPH RENDERING WITH D3.JS
+    let d3Simulation = null;
+
+    async function loadDependencyGraph() {
+        const repoPath = repoPathInput.value.trim();
+        if (!repoPath) {
+            if (graphError) {
+                graphError.textContent = "Please enter a repository path first.";
+                graphError.classList.remove("hidden");
+            }
+            return;
+        }
+
+        if (graphError) {
+            graphError.classList.add("hidden");
+            graphError.textContent = "";
+        }
+        if (graphLoading) {
+            graphLoading.classList.remove("hidden");
+        }
+        
+        // Clear previous SVG contents
+        if (archGraphSvg) {
+            d3.select("#arch-graph-svg").selectAll("*").remove();
+        }
+        if (d3Simulation) d3Simulation.stop();
+
+        try {
+            const response = await fetch("/api/dependency-graph", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ repo: repoPath })
+            });
+
+            if (!response.ok) {
+                throw new Error(await getErrorMessage(response));
+            }
+
+            const data = await response.json();
+            if (graphLoading) {
+                graphLoading.classList.add("hidden");
+            }
+
+            if (data.success) {
+                renderDependencyGraph(data);
+            } else {
+                throw new Error(data.error || "Failed to load dependency graph.");
+            }
+        } catch (err) {
+            if (graphLoading) {
+                graphLoading.classList.add("hidden");
+            }
+            if (graphError) {
+                graphError.textContent = `Error: ${err.message}`;
+                graphError.classList.remove("hidden");
+            }
+        }
+    }
+
+    function renderDependencyGraph(data) {
+        if (!archGraphSvg) return;
+        const svg = d3.select("#arch-graph-svg");
+        const containerWidth = archGraphSvg.clientWidth || 800;
+        const containerHeight = archGraphSvg.clientHeight || 600;
+        
+        // Add zoom and pan behavior
+        const g = svg.append("g");
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 4])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+        
+        svg.call(zoom);
+
+        // Arrow markers for links
+        svg.append("defs").selectAll("marker")
+            .data(["default", "active"])
+            .enter().append("marker")
+            .attr("id", d => `arrow-${d}`)
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 20)
+            .attr("refY", 0)
+            .attr("markerWidth", 6)
+            .attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("class", d => d === "active" ? "graph-link-arrow active-arrow" : "graph-link-arrow");
+
+        const nodes = data.nodes || [];
+        const links = data.links || [];
+
+        // Force simulation
+        d3Simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(d => d.id).distance(120))
+            .force("charge", d3.forceManyBody().strength(-150))
+            .force("center", d3.forceCenter(containerWidth / 2, containerHeight / 2))
+            .force("collision", d3.forceCollide().radius(d => Math.max(15, 6 + Math.sqrt(d.complexity || 1) * 3)));
+
+        // Links
+        const link = g.append("g")
+            .selectAll("line")
+            .data(links)
+            .enter().append("line")
+            .attr("class", "graph-link")
+            .attr("marker-end", "url(#arrow-default)");
+
+        // Nodes
+        const node = g.append("g")
+            .selectAll("g")
+            .data(nodes)
+            .enter().append("g")
+            .attr("class", "graph-node-group")
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended));
+
+        // Node circles
+        node.append("circle")
+            .attr("r", d => Math.max(8, 4 + Math.sqrt(d.complexity || 1) * 2))
+            .attr("class", d => `graph-node level-${(d.level || "LOW").toLowerCase()}`)
+            .style("fill", d => {
+                const lvl = (d.level || "LOW").toUpperCase();
+                if (lvl === "HIGH") return "var(--color-high, #ef4444)";
+                if (lvl === "MEDIUM") return "var(--color-medium, #f59e0b)";
+                return "var(--color-low, #10b981)";
+            })
+            .style("stroke", "var(--border-color)")
+            .style("stroke-width", "1px")
+            .on("click", (event, d) => {
+                event.stopPropagation();
+                // Reset styling
+                d3.selectAll(".graph-node").classed("active-node", false);
+                d3.selectAll(".graph-link").classed("active-link", false);
+                d3.selectAll(".graph-link-arrow").classed("active-arrow", false);
+                
+                // Highlight active node
+                d3.select(event.currentTarget).classed("active-node", true);
+                
+                // Highlight connected edges
+                link.classed("active-link", l => {
+                    const isConnected = l.source.id === d.id || l.target.id === d.id;
+                    return isConnected;
+                });
+                
+                openGraphFileDetail(d.id, d);
+            })
+            .on("mouseenter", (event, d) => {
+                const mockRisk = {
+                    level: d.level,
+                    impact_score: d.impact_score,
+                    boundary_type: d.role_display,
+                    change_strategy_display: d.strategy_display,
+                    summary: `Complexity: ${d.complexity}, Coupling: ${d.coupling}. Strategy: ${d.strategy_display}`
+                };
+                showTooltip(event, d.label, mockRisk);
+            })
+            .on("mousemove", moveTooltip)
+            .on("mouseleave", hideTooltip);
+
+        // Labels
+        node.append("text")
+            .attr("dx", d => Math.max(10, 6 + Math.sqrt(d.complexity || 1) * 2))
+            .attr("dy", ".35em")
+            .attr("class", "graph-label")
+            .text(d => d.label);
+
+        // Simulation update ticks
+        d3Simulation.on("tick", () => {
+            link
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            node
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+        });
+
+        // Click outside node closes detail panel and clears highlight
+        svg.on("click", () => {
+            d3.selectAll(".graph-node").classed("active-node", false);
+            d3.selectAll(".graph-link").classed("active-link", false);
+            if (graphDetailPanel) {
+                graphDetailPanel.classList.add("closed");
+            }
+        });
+
+        function dragstarted(event, d) {
+            if (!event.active) d3Simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) d3Simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+    }
+
+    function openGraphFileDetail(filepath, nodeData) {
+        if (!nodeData || !graphDetailPanel || !graphDetailContent) return;
+        graphDetailPanel.classList.remove("closed");
+        
+        let complexity = nodeData.complexity;
+        let coupling = nodeData.coupling;
+        let fixes = "0";
+        if (globalScanData && globalScanData.hotspots) {
+            const hot = globalScanData.hotspots.find(h => h.file === filepath);
+            if (hot) {
+                complexity = hot.complexity;
+                coupling = hot.coupling_debt;
+                fixes = hot.bug_fix_count;
+            }
+        }
+
+        // Calculate medians
+        let repomedianComplexity = 0;
+        let repomedianCoupling = 0;
+        if (globalScanData && globalScanData.hotspots && globalScanData.hotspots.length > 0) {
+            const complexities = globalScanData.hotspots.map(h => h.complexity).filter(c => typeof c === "number").sort((a,b)=>a-b);
+            const couplings = globalScanData.hotspots.map(h => h.coupling_debt).filter(c => typeof c === "number").sort((a,b)=>a-b);
+            if (complexities.length > 0) repomedianComplexity = complexities[Math.floor(complexities.length / 2)];
+            if (couplings.length > 0) repomedianCoupling = couplings[Math.floor(couplings.length / 2)];
+        }
+
+        let whyHtml = '';
+        if (nodeData.level === "HIGH" || nodeData.level === "MEDIUM") {
+            whyHtml = `
+                <div class="why-card" style="margin-top: 0.75rem; padding: 0.8rem; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 6px;">
+                    <div style="font-weight: 700; color: #fca5a5; margin-bottom: 0.25rem; font-size: 0.8rem; display: flex; align-items: center; gap: 0.25rem;">
+                        <span>⚠️</span> Why ${nodeData.level}?
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4;">
+                        This module has a high risk tier because its metrics exceed repository norms:
+                        <ul style="margin: 0.25rem 0 0 1rem; padding: 0;">
+                            <li>Complexity: <strong>${complexity}</strong> (median: ${repomedianComplexity})</li>
+                            <li>Coupling: <strong>${coupling}</strong> (median: ${repomedianCoupling})</li>
+                            <li>Change Velocity: <strong>${fixes}</strong> bug-fix commit(s)</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+
+        let violationsHtml = '<div class="empty-state-small" style="padding: 1rem 0;">No active architectural violations.</div>';
+        if (globalScanData && globalScanData.violations) {
+            const fileViolations = globalScanData.violations.filter(v => v.filepath === filepath);
+            if (fileViolations.length > 0) {
+                violationsHtml = fileViolations.map(v => `
+                    <div class="sim-rec-item" style="border-left: 3px solid #ef4444; margin-bottom: 0.5rem; padding: 0.5rem; background: rgba(255,255,255,0.01); border-radius: 4px;">
+                        <div class="sim-rec-title" style="color: #fca5a5; font-size: 0.8rem; font-weight: 600;">${v.principle}</div>
+                        <div class="sim-rec-desc" style="font-size: 0.75rem; color: var(--text-secondary);">${v.observation}</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.25rem;">
+                            <strong>Reason:</strong> ${v.reason}
+                        </div>
+                    </div>
+                `).join("");
+            }
+        }
+
+        graphDetailContent.innerHTML = `
+            <div class="detail-file-title" style="font-size: 1rem; font-weight: 700; word-break: break-all; margin-bottom: 0.75rem;">${filepath}</div>
+            
+            <div class="stats-card" style="padding: 1rem; border-radius: 8px; display: flex; flex-direction: column; gap: 0.5rem; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); margin-bottom: 1rem;">
+                <div class="stat-row" style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                    <span class="stat-label" style="color: var(--text-muted);">Risk Level:</span>
+                    <span class="stat-value text-${nodeData.level.toLowerCase()}" style="font-weight: 700;">${nodeData.level}</span>
+                </div>
+                <div class="stat-row" style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                    <span class="stat-label" style="color: var(--text-muted);">Architectural Role:</span>
+                    <span class="stat-value" style="color: #a78bfa; font-weight: 600;">${nodeData.role_display || "Internal"}</span>
+                </div>
+                <div class="stat-row" style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                    <span class="stat-label" style="color: var(--text-muted);">Change Strategy:</span>
+                    <span class="stat-value" style="color: #60a5fa; font-weight: 600;">${nodeData.strategy_display || "Safe internal edits"}</span>
+                </div>
+                <div class="stat-row" style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                    <span class="stat-label" style="color: var(--text-muted);">Impact Score:</span>
+                    <span class="stat-value">${(nodeData.impact_score || 0).toFixed(2)}</span>
+                </div>
+                <div class="stat-row" style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                    <span class="stat-label" style="color: var(--text-muted);">Complexity:</span>
+                    <span class="stat-value">${complexity}</span>
+                </div>
+                <div class="stat-row" style="display: flex; justify-content: space-between; font-size: 0.8rem;">
+                    <span class="stat-label" style="color: var(--text-muted);">Coupling:</span>
+                    <span class="stat-value">${coupling}</span>
+                </div>
+            </div>
+            
+            ${whyHtml}
+            
+            <div class="sim-block-title" style="margin-top: 1rem; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">Smell Warnings</div>
+            <div class="sim-recs-list">
+                ${violationsHtml}
+            </div>
+        `;
     }
 });

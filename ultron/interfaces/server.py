@@ -332,6 +332,8 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                             "architectural_role": arch_role_val,
                             "change_strategy": strat_val,
                             "change_strategy_display": strat_display,
+                            "complexity": getattr(r, "complexity", 1),
+                            "coupling": int(getattr(r, "coupling_score", 0)),
                         }
             except Exception as eval_err:
                 print(f"Risk evaluation failed: {eval_err}", file=sys.stderr)
@@ -417,6 +419,8 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                                     "architectural_role": rm.get("architectural_role", "INTERNAL"),
                                     "change_strategy": rm.get("change_strategy", "SAFE_EDIT"),
                                     "change_strategy_display": rm.get("change_strategy_display", "Safe internal edits"),
+                                    "complexity": rm.get("complexity", 1),
+                                    "coupling": rm.get("coupling", 0),
                                 }
                             elif item.endswith(".py"):
                                 file_risk = {
@@ -759,13 +763,50 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
     def handle_dependency_graph(self):
         try:
             data = self.get_post_data()
+            if not isinstance(data, dict):
+                self.send_json_response(400, {"error": "Invalid payload"})
+                return
             repo_path = os.path.abspath(data.get("repo", ""))
-            
+            if not os.path.isdir(repo_path):
+                self.send_json_response(400, {"error": f"Not a directory: {repo_path}"})
+                return
+
             codebase = analyzer.analyze_directory(repo_path)
-            graph = analyzer.build_dependency_graph(codebase)
+            target_files = [k for k in codebase.keys() if k.endswith(".py")]
+            risks = risk.evaluate_risks(codebase, target_files, repo_path=repo_path)
+            risk_index = {r.file_path: r for r in risks}
+
+            # Compute repo medians for the "Why?" context panel
+            complexities = sorted(r.complexity for r in risks)
+            couplings = sorted(int(r.coupling_score) for r in risks)
+            mid = lambda lst: lst[len(lst) // 2] if lst else 0
+            medians = {"complexity": mid(complexities), "coupling": mid(couplings)}
+
+            raw_graph = analyzer.build_dependency_graph(codebase)
+
+            enriched_nodes = []
+            for node in raw_graph.get("nodes", []):
+                nid = node.get("id", "")
+                r = risk_index.get(nid)
+                arch_role = getattr(r, "architectural_role", None)
+                strat = getattr(r, "change_strategy", None)
+                enriched_nodes.append({
+                    "id": nid,
+                    "label": os.path.basename(nid),
+                    "level": r.level if r else "LOW",
+                    "role": arch_role.value if hasattr(arch_role, "value") else "INTERNAL",
+                    "role_display": arch_role.display_name if hasattr(arch_role, "display_name") else "Internal",
+                    "complexity": r.complexity if r else 1,
+                    "coupling": int(r.coupling_score) if r else 0,
+                    "impact_score": round(r.impact_score, 2) if r else 0.0,
+                    "strategy_display": strat.display_name if hasattr(strat, "display_name") else "Safe internal edits",
+                })
+
             self.send_json_response(200, {
                 "success": True,
-                "graph": graph
+                "nodes": enriched_nodes,
+                "links": raw_graph.get("links", []),
+                "medians": medians,
             })
         except Exception as e:
             self.send_json_response(500, {"error": str(e)})

@@ -1106,3 +1106,29 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:** None.
 
 
+### 2026-07-12 — Task: visual intelligence layer and dependency graph
+
+**Attempted:** Build the visual intelligence layer (dependency graph, risk explanation panel comparing to repository medians, and dynamic summary bar statistics).
+
+**Antigravity self-audit result:**
+- [x] Enriched nodes data with role, strategy, complexity, and coupling in /api/dependency-graph
+- [x] Integrated D3.js force-directed dependency graph in client (zoom, pan, drag, highlight, details link)
+- [x] Upgraded explanation panel to display "Why HIGH/MEDIUM?" card comparing metrics to system medians
+- [x] Added summary-bar component displaying high-level repository stats (Total Files, High Risk Modules, Architectural Pressure, Primary Focus)
+- [x] All 160 tests passed cleanly.
+
+*Verification Loop Result:*
+```text
+Ran 160 tests in 126.615s
+OK
+```
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Visual Risk Heatmap Dashboard: ⚠️ working, not yet validated → ✅ verified interactive visual dependency graph with D3.js, summary bar stats, and comparative risk explanations.
+
+**Open questions / follow-up:** None.
+
+
+
