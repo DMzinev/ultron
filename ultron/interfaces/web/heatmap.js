@@ -325,6 +325,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     <span class="stat-value text-${riskData.level.toLowerCase()}">${riskData.level}</span>
                 </div>
                 <div class="stat-row">
+                    <span class="stat-label">Architectural Role:</span>
+                    <span class="stat-value" style="color: #a78bfa; font-weight: 600;">${riskData.boundary_type || "Internal"}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Change Strategy:</span>
+                    <span class="stat-value" style="color: #60a5fa; font-weight: 600;">${riskData.change_strategy_display || "Safe internal edits"}</span>
+                </div>
+                <div class="stat-row">
                     <span class="stat-label">Impact Score:</span>
                     <span class="stat-value">${riskData.impact_score.toFixed(2)}</span>
                 </div>
@@ -553,12 +561,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Tooltip Position Helpers
     function showTooltip(e, name, riskData) {
+        const boundaryHtml = (riskData.boundary_type && riskData.boundary_type !== "Internal")
+            ? `<div style="font-size: 0.75rem; color: #a78bfa; margin-top: 0.2rem; font-weight: 600;">Role: ${riskData.boundary_type}</div>
+               <div style="font-size: 0.75rem; color: #60a5fa; margin-top: 0.1rem;">Strategy: ${riskData.change_strategy_display || "Safe internal edits"}</div>`
+            : "";
         tooltip.innerHTML = `
             <div class="tooltip-title">${name}</div>
             <div class="tooltip-metric">
                 <span>Risk Level: <strong>${riskData.level}</strong></span>
                 <span>Impact: <strong>${(riskData.impact_score || 0).toFixed(2)}</strong></span>
             </div>
+            ${boundaryHtml}
             <div class="tooltip-desc">${riskData.summary || "No description available."}</div>
         `;
         tooltip.classList.remove("hidden");

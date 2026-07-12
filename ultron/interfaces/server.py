@@ -317,11 +317,21 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                     impact_score = getattr(r, "impact_score", 0.0) or (r.get("impact_score", 0.0) if isinstance(r, dict) else 0.0)
                     level = getattr(r, "level", "LOW") or (r.get("level", "LOW") if isinstance(r, dict) else "LOW")
                     summary = translate.plain_language_summary(r)
+                    boundary_type = getattr(r, "boundary_type", "Internal") or (r.get("boundary_type", "Internal") if isinstance(r, dict) else "Internal")
+                    arch_role = getattr(r, "architectural_role", None)
+                    arch_role_val = arch_role.value if hasattr(arch_role, "value") else str(arch_role or "INTERNAL")
+                    strat = getattr(r, "change_strategy", None)
+                    strat_val = strat.value if hasattr(strat, "value") else str(strat or "SAFE_EDIT")
+                    strat_display = strat.display_name if hasattr(strat, "display_name") else "Safe internal edits"
                     if file_path:
                         risk_map[file_path] = {
                             "level": level,
                             "impact_score": float(impact_score),
-                            "summary": summary
+                            "summary": summary,
+                            "boundary_type": boundary_type,
+                            "architectural_role": arch_role_val,
+                            "change_strategy": strat_val,
+                            "change_strategy_display": strat_display,
                         }
             except Exception as eval_err:
                 print(f"Risk evaluation failed: {eval_err}", file=sys.stderr)
@@ -393,7 +403,8 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                                     "level": "HIGH",
                                     "level_num": 3,
                                     "impact_score": 1.0,
-                                    "summary": "Analysis failed: check server logs for details. Defaulted to HIGH risk."
+                                    "summary": "Analysis failed: check server logs for details. Defaulted to HIGH risk.",
+                                    "boundary_type": "Internal"
                                 }
                             elif rel_path in risk_map:
                                 rm = risk_map[rel_path]
@@ -401,21 +412,27 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                                     "level": rm["level"],
                                     "level_num": LEVEL_MAP.get(rm["level"], 1),
                                     "impact_score": rm["impact_score"],
-                                    "summary": rm["summary"]
+                                    "summary": rm["summary"],
+                                    "boundary_type": rm.get("boundary_type", "Internal"),
+                                    "architectural_role": rm.get("architectural_role", "INTERNAL"),
+                                    "change_strategy": rm.get("change_strategy", "SAFE_EDIT"),
+                                    "change_strategy_display": rm.get("change_strategy_display", "Safe internal edits"),
                                 }
                             elif item.endswith(".py"):
                                 file_risk = {
                                     "level": "LOW",
                                     "level_num": 1,
                                     "impact_score": 0.0,
-                                    "summary": "Analysis unavailable. Defaulted to LOW risk."
+                                    "summary": "Analysis unavailable. Defaulted to LOW risk.",
+                                    "boundary_type": "Internal"
                                 }
                             else:
                                 file_risk = {
                                     "level": "LOW",
                                     "level_num": 1,
                                     "impact_score": 0.0,
-                                    "summary": "Non-Python file. Low structural risk."
+                                    "summary": "Non-Python file. Low structural risk.",
+                                    "boundary_type": "Internal"
                                 }
                                 
                             tree.append({

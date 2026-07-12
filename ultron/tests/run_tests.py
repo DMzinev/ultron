@@ -913,6 +913,11 @@ class TestSample(unittest.TestCase):
             confidence=0.9,
             level="HIGH"
         )
+        # Call to_dict directly to ensure complete coverage in failure space
+        dict_val = packet_high.to_dict()
+        self.assertEqual(dict_val["file"], "ultron/core/risk.py")
+        self.assertEqual(dict_val["boundary_type"], "Internal")
+        
         summary_high = translate.plain_language_summary(packet_high)
         self.assertIn("ultron/core/risk.py - High risk to change.", summary_high)
         self.assertIn("4 other files depend on it directly", summary_high)
@@ -1798,6 +1803,101 @@ class TestRiskDecomposition(unittest.TestCase):
         self.assertTrue(callable(self.risk.load_human_feedback))
         result = self.risk.load_human_feedback()
         self.assertIsInstance(result, dict)
+
+    def test_unbiased_initializer_risk_scoring(self):
+        import tempfile
+        import shutil
+        from ultron.core.risk import scoring
+        
+        temp_dir = tempfile.mkdtemp()
+        try:
+            # Case 1: Empty __init__.py
+            init_1_path = os.path.join(temp_dir, "__init__.py")
+            with open(init_1_path, "w", encoding="utf-8") as f:
+                f.write("")
+            
+            # Case 2: Complex __init__.py
+            os.makedirs(os.path.join(temp_dir, "complex_dir"), exist_ok=True)
+            init_2_path = os.path.join(temp_dir, "complex_dir", "__init__.py")
+            complex_code = "def f(x):\n"
+            for i in range(11):
+                complex_code += f"    if x == {i}: pass\n"
+            with open(init_2_path, "w", encoding="utf-8") as f:
+                f.write(complex_code)
+                
+            # Case 3: Normal empty module
+            module_path = os.path.join(temp_dir, "module.py")
+            with open(module_path, "w", encoding="utf-8") as f:
+                f.write("")
+
+            # Case 4: File with __all__ is a Public Module (explicit public contract)
+            api_path = os.path.join(temp_dir, "api.py")
+            with open(api_path, "w", encoding="utf-8") as f:
+                f.write("__all__ = ['MyClass']\nclass MyClass:\n    def __init__(self):\n        pass\n")
+
+            # Case 5: File with only a constructor (no __all__) is Internal
+            plain_path = os.path.join(temp_dir, "plain.py")
+            with open(plain_path, "w", encoding="utf-8") as f:
+                f.write("class MyClass:\n    def __init__(self):\n        pass\n")
+                
+            # Mock codebase dict
+            codebase = {
+                "__init__.py": {
+                    "definitions": [],
+                    "imports": []
+                },
+                "complex_dir/__init__.py": {
+                    "definitions": [],
+                    "imports": []
+                },
+                "module.py": {
+                    "definitions": [],
+                    "imports": []
+                },
+                "api.py": {
+                    "definitions": [{"name": "MyClass", "type": "class"}],
+                    "imports": []
+                },
+                "plain.py": {
+                    "definitions": [{"name": "MyClass", "type": "class"}],
+                    "imports": []
+                },
+            }
+            
+            # Simulate coupling = 15 for Case 2 by adding many caller entries in codebase
+            for i in range(15):
+                codebase[f"caller_{i}.py"] = {
+                    "definitions": [{"name": f"caller_func_{i}", "type": "function", "calls": ["f"]}],
+                    "imports": ["complex_dir"]
+                }
+            
+            targets = ["__init__.py", "complex_dir/__init__.py", "module.py", "api.py", "plain.py"]
+            results = scoring.evaluate_risks(codebase, targets, repo_path=temp_dir)
+            
+            res_map = {r.file_path: r for r in results}
+            
+            # Assertions: Case 1 empty __init__.py is LOW risk, Package Initializer
+            self.assertEqual(res_map["__init__.py"].level, "LOW")
+            self.assertEqual(res_map["__init__.py"].boundary_type, "Package Initializer")
+            
+            # Assertions: Case 2 complex __init__.py is HIGH risk, Package Initializer
+            self.assertEqual(res_map["complex_dir/__init__.py"].level, "HIGH")
+            self.assertEqual(res_map["complex_dir/__init__.py"].boundary_type, "Package Initializer")
+            
+            # Assertions: Case 3 normal empty module is LOW risk, Internal
+            self.assertEqual(res_map["module.py"].level, "LOW")
+            self.assertEqual(res_map["module.py"].boundary_type, "Internal")
+
+            # Assertions: Case 4 public module (explicit __all__) is LOW risk, Public Module
+            self.assertEqual(res_map["api.py"].level, "LOW")
+            self.assertEqual(res_map["api.py"].boundary_type, "Public Module")
+
+            # Assertions: Case 5 constructor-only file (no __all__) is LOW risk, Internal
+            self.assertEqual(res_map["plain.py"].level, "LOW")
+            self.assertEqual(res_map["plain.py"].boundary_type, "Internal")
+            
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
     # --------------- Functional parity ---------------
     def test_evaluate_risks_returns_list(self):

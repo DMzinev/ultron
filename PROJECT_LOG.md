@@ -1036,3 +1036,73 @@ Confirmed via a real full-repo dependency audit that import mapping is now robus
 
 **Open questions / follow-up:** None.
 
+---
+
+### 2026-07-12 — Task-UnbiasedScoring: Unbiased Risk Classification & Calibrated Context Briefs
+
+**Attempted:** decouple implementation risk from boundary type metadata, update UI/brief formatting, and add 4 new unit tests. Remove the bias where package initializers (`__init__.py`) and constructors (`__init__`) are unconditionally forced to `HIGH` risk, separating implementation risk tier from architectural role metadata.
+
+**Antigravity self-audit result:**
+- [x] decouple implementation risk from boundary type metadata
+- [x] update UI/brief formatting
+- [x] add 4 new unit tests
+
+*Verification Loop Result:*
+```text
+====================================================================
+🛫  PRE-FLIGHT RISK GATE (Ultron self-scan)
+====================================================================
+[*] Pre-flight result: tier=HIGH | task_type=LOGIC_CHANGE | category_b=False
+[*] Running Multi-Reality Signal Fusion Engine recalibration...
+[*] Starting calibration over 109 transactions...
+[+] Recalibration complete.
+[!] PRE-FLIGHT → FULL PATH (tier=HIGH, task_type=LOGIC_CHANGE).
+
+====================================================================
+🛠️  BUILDER (Gemini Pro)
+====================================================================
+I have compiled the AUDIT_PACKAGE contract for Task-UnbiasedScoring.
+Target Files: ultron/core/context_brief.py, ultron/core/models.py, ultron/core/risk/scoring.py, ultron/interfaces/server.py, ultron/interfaces/web/heatmap.js, ultron/tests/run_tests.py
+
+====================================================================
+🔍 AUDITOR (Mechanical Scope & Test Verifier — no API key set)
+====================================================================
+[*] Auditor: Starting independent verification for Task-UnbiasedScoring...
+[+] Verification passed: Valid patch diff found.
+[*] Auditor: Independently verifying changed files scope...
+[+] Verification passed: Actual modified source files match declared scope.
+[*] Running test suite: python ultron/tests/run_tests.py
+[+] Verification passed: Baseline test suite passed.
+[*] Running programmatic Nullification check (O(n) — pre-flight tier HIGH)...
+[+] Nullification passed: Tests failed as expected on nullified code.
+[*] Running UMAGS programmatic AST compliance checks...
+[+] Programmatic AST compliance checks passed.
+[*] Running programmatic Failure Space / Residual Risk analysis...
+  - Untested Paths: None
+  - Missing Boundary Cases: None
+  - Residual Risk Score (R): 0
+[+] Verification passed: Residual Risk Score R=0.
+Verdict: VERIFIED
+
+====================================================================
+🛡️  SENTINEL (Assumption & Entropy Auditor)
+====================================================================
+[*] Sentinel: Gating is currently DORMANT. Skipping checks.
+
+====================================================================
+⚖️  JUDGE (Gemini Pro)
+====================================================================
+[*] Judge: Resolving dispute and verifying merge permits...
+[+] Status change approved. Authorizing merge for Task-UnbiasedScoring.
+Verdict: APPROVED
+====================================================================
+```
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Package initializer risk override: ⚠️ forced HIGH bias quirk → ✅ verified unbiased structural scoring with boundary_type annotation.
+
+**Open questions / follow-up:** None.
+
+

@@ -39,11 +39,18 @@ New ideas that would have previously become UMAGS modules should instead become 
 
 ---
 
-## Ultron development roadmap — five steps
+## Ultron architectural reasoning pipeline — STATUS: COMPLETE (all 5 steps)
 
-This is the active development frontier. Steps are ordered by dependency: each builds on the previous.
+All five steps below were built, verified, and are integrated into the
+`--oracle` CLI output. Note: Steps 2-5 were initially built too fast,
+without individual approval, in a single unauthorized pass — this was
+caught, fully reverted, and a real platform-level cause was found (an
+"auto-approve" setting silently bypassing review). See PROJECT_LOG.md's
+"Steps 2-5 built without approval" entry for the full incident record.
+Each step was then rebuilt correctly, one at a time, with its own
+approved plan. What follows is the final, real, verified pipeline.
 
-### Step 1 — Architectural Reasoning Layer *(next)*
+### Step 1 — Architectural Reasoning Layer: **DONE.**
 
 Extend the Design Oracle output from metric numbers to structured explanations. For every finding, answer four questions:
 
@@ -67,11 +74,11 @@ Principle: Stable Dependencies Principle — stable modules should not depend on
 Consequences: Difficult unit testing, higher regression probability, reduced replaceability.
 ```
 
-**Implementation:** A mapping layer (`reasoning.py`) that takes Oracle metrics and traverses a static Knowledge Graph to produce structured explanations. No LLM inference in the reasoning path — the graph decides, the AI communicates.
+**Implementation:** A mapping layer (`reasoning.py`) that takes Oracle metrics and traverses a static Knowledge Graph to produce structured explanations. No LLM inference in the reasoning path — the graph decides, the AI communicates. Thresholds calibrated against a real distribution (namespace_count > 8 AND complexity > 8, not the originally-proposed >3), after the first version produced 54 violations that were 98% false positives.
 
 ---
 
-### Step 2 — Knowledge Graph
+### Step 2 — Knowledge Graph: **DONE.**
 
 Formalize the relationships between metrics, architectural smells, violated principles, refactoring candidates, and expected metric effects. The full set of relevant smells is small (~15-20) and the mappings are established in software engineering literature.
 
@@ -85,10 +92,11 @@ High fan-out → High Coupling → Stable Dependencies → Introduce Interface �
 ```
 
 **Every node is deterministic. Every edge is explainable.** This is engineering knowledge, not AI inference. The graph is a curated data structure (JSON or Python), not a learned model.
+**Implementation:** `knowledge_graph.py`, 6 canonical smell edges, O(1) lookup.
 
 ---
 
-### Step 3 — Recommendation Engine
+### Step 3 — Recommendation Engine: **DONE.**
 
 Use the Knowledge Graph to generate concrete, rule-based architectural improvement proposals. For each violated principle, produce:
 
@@ -111,10 +119,11 @@ Trade-offs: Additional interfaces, more files, possible migration cost
 ```
 
 Recommendations are ranked by expected metric impact, not by confidence scores. Confidence scores are not produced until real validation data exists.
+**Implementation:** `recommendation_engine.py`, deterministic severity+filepath sorting.
 
 ---
 
-### Step 4 — Impact Simulator
+### Step 4 — Impact Simulator: **DONE.**
 
 Before issuing an implementation contract, compute what the metrics *would* be after the proposed refactoring. This is deterministic: given a specific proposed decomposition boundary, the analyzer can compute the resulting complexity and coupling on the hypothetical post-refactoring structure.
 
@@ -125,10 +134,11 @@ Predicted: Complexity 124, Coupling 12, Circular Deps 0, Fan-out 18
 ```
 
 Two or more candidate decompositions may be simulated in parallel to show trade-offs between boundary choices. The simulator never reports a single answer as the only option when multiple valid boundaries exist.
+**Implementation:** `impact_simulator.py`. Important caveat that must stay attached to this feature permanently: all projected deltas are theoretical best-case numbers assuming every recommendation is applied perfectly and in isolation — NOT a forecast of real outcome. This framing is already correctly baked into the actual rendered report text; keep it there.
 
 ---
 
-### Step 5 — Implementation Contract Generator
+### Step 5 — Implementation Contract Generator: **DONE**, but only after a real bug was found and fixed: the first version showed the IDENTICAL whole-repo violation count on every single file's card (e.g. "Violations: 20 → 19" repeated 18 times). Fixed to show genuinely per-file numbers. See PROJECT_LOG.md's Task-ContractGeneratorFix entry.
 
 Translate an approved recommendation + simulation into an actionable UMAGS-compatible implementation contract: declared target files, expected outcomes, known limitations, test command. This closes the loop from architectural decision → coding agent → UMAGS verification → re-analysis.
 
@@ -161,6 +171,16 @@ Generates a structured markdown snapshot of the codebase for AI agent orientatio
 
 **UMAGS governance loop** (`umags/`)
 Full Builder/Auditor/Judge/Historian loop with budget control, nullification, AST checking. Frozen at Kernel v1.0.
+
+**Architectural Reasoning Pipeline** (`reasoning.py`, `knowledge_graph.py`, `recommendation_engine.py`, `impact_simulator.py`, `contract_generator.py`)
+Full 5-step pipeline wired into `--oracle`. Deterministic, rule-based throughout — no LLM inference in the reasoning path, no confidence scores. Impact Simulator's projections are explicitly labeled best-case/theoretical in the rendered output, not a real forecast.
+
+**Pip distribution** (`pyproject.toml`)
+Ultron packages and installs via `pip install`. Verified: built a real wheel, installed into a fresh virtualenv OUTSIDE the source repo, ran `ultron` / `ultron --brief` / `ultron --oracle` against a separate test repo with real output shown. Zero runtime dependencies except `radon` (pre-existing, now formally declared).
+
+**Visual Risk Heatmap Dashboard** (`interfaces/web/heatmap.*`)
+Browser-served dashboard, auto-opens on server launch, auto-scans the launch directory, color-codes files by risk tier. Built with path traversal protection, safe defaults (parser failures → HIGH, never silently LOW), and zero external network calls (no Google Fonts — system font stack only, per the project's local-only guarantee).
+*STATUS NOTE:* verification is not fully closed — a screenshot was referenced by local file path rather than actually shown for review. Confirm this is genuinely done by pasting a real screenshot before marking this ✅ instead of ⚠️.
 
 ---
 
@@ -218,6 +238,9 @@ Syntactically valid, not in any active pipeline. Blocked on human feedback colle
 **Constitutional Sentinel** (`sentinel.py`)
 Structural entropy scanner, assumption auditor. Dormant by deliberate decision — gating disabled in verification loop to keep UMAGS lightweight. Do not reactivate without explicit instruction.
 
+**Evidence Engine** (`evidence_engine.py`)
+Built (medians, percentiles across codebase metrics), but per a later Ponytail-style dead-code audit, appears to only be imported by its own tests — not actually wired into design_oracle.py's real report generation. Confirm whether integration was simply never finished (worth completing) or whether this was scope that never needed to exist (worth removing) before deciding its fate.
+
 ---
 
 ### 🔇 Silently inert
@@ -243,6 +266,13 @@ These are not planned. The manifest is preserved in `research-notes/` with an ex
 
 ## What the current release is
 
-Static risk scoring with plain-English output, context brief for AI agent orientation, Design Oracle for coupling and hotspot analysis, and MCP server for tool integration. The governance loop (UMAGS) is the development-time infrastructure that verified every change made to get here.
-
-The next release adds the Architectural Reasoning Layer: structured explanations of why each finding matters, which principles are affected, and what the consequences are. No ML. No confidence scores without validation data. Deterministic and explainable throughout.
+A pip-installable local tool (`pip install`, zero network calls) with:
+static risk scoring, plain-English translation, a context brief for AI
+agent orientation, and a full 5-step architectural reasoning pipeline
+(Design Oracle → named principle violations → ranked recommendations →
+simulated best-case impact → per-file implementation contracts) exposed
+via `--oracle`. A browser-served visual risk heatmap dashboard is also
+built (pending final screenshot confirmation). MCP server exposes risk
+scoring and context brief as agent-callable tools. UMAGS is the
+development-time governance loop that verified every change to get here
+— it never ships as part of the package.

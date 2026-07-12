@@ -153,21 +153,31 @@ def compile_brief(repo_path):
     lines.append("")
     
     lines.append("## 2. File Risk Profiles")
-    lines.append("| File | Risk Tier | Impact Score | Complexity | Coupling |")
-    lines.append("| --- | --- | --- | --- | --- |")
+    lines.append("| File | Risk Tier | Role | Change Strategy | Impact Score | Complexity | Coupling |")
+    lines.append("| --- | --- | --- | --- | --- | --- | --- |")
     for r in sorted_risks:
         filepath = get_attr(r, 'file_path', get_attr(r, 'file', ''))
         level = get_attr(r, 'level', 'LOW')
         impact = get_attr(r, 'impact_score', 0.0)
+        # Prefer new enum display; fall back to legacy boundary_type
+        arch_role = get_attr(r, 'architectural_role', None)
+        if hasattr(arch_role, 'display_name'):
+            role_display = arch_role.display_name
+        else:
+            role_display = get_attr(r, 'boundary_type', 'Internal')
+        strategy = get_attr(r, 'change_strategy', None)
+        if hasattr(strategy, 'display_name'):
+            strategy_display = strategy.display_name
+        else:
+            strategy_display = "Safe internal edits"
         
         # Check if git-history or feedback adjustment changed the outcome
         n_fixes = bug_fixes.get(filepath, 0)
         feedback_accurate = feedback.get(filepath, None)
         
-        is_public = filepath.endswith('__init__.py')
         base_high = 10.0
         base_med = 3.0
-        base_level = 'HIGH' if impact >= base_high or is_public else ('MEDIUM' if impact >= base_med else 'LOW')
+        base_level = 'HIGH' if impact >= base_high else ('MEDIUM' if impact >= base_med else 'LOW')
         
         note = ""
         if level != base_level:
@@ -202,7 +212,8 @@ def compile_brief(repo_path):
             
         complexity = get_attr(r, 'complexity', 1)
         coupling = get_attr(r, 'coupling_score', get_attr(r, 'coupling', 0))
-        lines.append(f"| {filepath} | {level}{note} | {impact:.2f} | {complexity} | {coupling} |")
+        lines.append(f"| {filepath} | {level}{note} | {role_display} | {strategy_display} | {impact:.2f} | {complexity} | {coupling} |")
+
     lines.append("")
     
     lines.append("## 3. High-Level Dependency Graph")
