@@ -525,3 +525,4 @@
 {"file": "ultron/core/risk/scoring.py", "rater": "CLI_Test", "rater_tier": "HIGH", "computed_tier": "HIGH", "accurate": true, "rationale": "CLI rationale", "timestamp": "2026-07-12T14:42:31Z", "computed_score": 110.19297930333877}
 {"file": "ultron/core/risk/scoring.py", "rater": "CLI_Test", "rater_tier": "HIGH", "computed_tier": "HIGH", "accurate": true, "rationale": "CLI rationale", "timestamp": "2026-07-12T14:54:28Z", "computed_score": 110.19297930333877}
 {"file": "ultron/core/risk/scoring.py", "rater": "CLI_Test", "rater_tier": "HIGH", "computed_tier": "HIGH", "accurate": true, "rationale": "CLI rationale", "timestamp": "2026-07-12T15:44:46Z", "computed_score": 110.19297930333877}
+{"file": "ultron/core/risk/scoring.py", "rater": "CLI_Test", "rater_tier": "HIGH", "computed_tier": "HIGH", "accurate": true, "rationale": "CLI rationale", "timestamp": "2026-07-12T15:55:48Z", "computed_score": 94.87803462403635}

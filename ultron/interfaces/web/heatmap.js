@@ -749,8 +749,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // DEPENDENCY GRAPH RENDERING WITH D3.JS
-    let d3Simulation = null;
+    // DEPENDENCY GRAPH RENDERING WITH VANILLA SVG
+    let dragNode = null;
+    let dragOffset = { x: 0, y: 0 };
+    let panActive = false;
+    let panStart = { x: 0, y: 0 };
+    let viewBox = { x: 0, y: 0, w: 800, h: 600 };
+    let zoomLevel = 1.0;
 
     async function loadDependencyGraph() {
         const repoPath = repoPathInput.value.trim();
@@ -771,10 +776,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         // Clear previous SVG contents
-        if (archGraphSvg) {
-            d3.select("#arch-graph-svg").selectAll("*").remove();
+        const svg = document.getElementById("arch-graph-svg");
+        if (svg) {
+            svg.innerHTML = "";
         }
-        if (d3Simulation) d3Simulation.stop();
 
         try {
             const response = await fetch("/api/dependency-graph", {
@@ -784,7 +789,8 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             if (!response.ok) {
-                throw new Error(await getErrorMessage(response));
+                const errMsg = await getErrorMessage(response);
+                throw new Error(errMsg);
             }
 
             const data = await response.json();
@@ -809,151 +815,273 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function renderDependencyGraph(data) {
-        if (!archGraphSvg) return;
-        const svg = d3.select("#arch-graph-svg");
-        const containerWidth = archGraphSvg.clientWidth || 800;
-        const containerHeight = archGraphSvg.clientHeight || 600;
+        const svg = document.getElementById("arch-graph-svg");
+        if (!svg) return;
         
-        // Add zoom and pan behavior
-        const g = svg.append("g");
-        const zoom = d3.zoom()
-            .scaleExtent([0.1, 4])
-            .on("zoom", (event) => {
-                g.attr("transform", event.transform);
-            });
-        
-        svg.call(zoom);
-
-        // Arrow markers for links
-        svg.append("defs").selectAll("marker")
-            .data(["default", "active"])
-            .enter().append("marker")
-            .attr("id", d => `arrow-${d}`)
-            .attr("viewBox", "0 -5 10 10")
-            .attr("refX", 20)
-            .attr("refY", 0)
-            .attr("markerWidth", 6)
-            .attr("markerHeight", 6)
-            .attr("orient", "auto")
-            .append("path")
-            .attr("d", "M0,-5L10,0L0,5")
-            .attr("class", d => d === "active" ? "graph-link-arrow active-arrow" : "graph-link-arrow");
+        svg.innerHTML = "";
 
         const nodes = data.nodes || [];
         const links = data.links || [];
+        
+        const containerWidth = svg.clientWidth || 800;
+        const containerHeight = svg.clientHeight || 600;
+        viewBox = { x: 0, y: 0, w: containerWidth, h: containerHeight };
+        updateSvgViewBox();
 
-        // Force simulation
-        d3Simulation = d3.forceSimulation(nodes)
-            .force("link", d3.forceLink(links).id(d => d.id).distance(120))
-            .force("charge", d3.forceManyBody().strength(-150))
-            .force("center", d3.forceCenter(containerWidth / 2, containerHeight / 2))
-            .force("collision", d3.forceCollide().radius(d => Math.max(15, 6 + Math.sqrt(d.complexity || 1) * 3)));
-
-        // Links
-        const link = g.append("g")
-            .selectAll("line")
-            .data(links)
-            .enter().append("line")
-            .attr("class", "graph-link")
-            .attr("marker-end", "url(#arrow-default)");
-
-        // Nodes
-        const node = g.append("g")
-            .selectAll("g")
-            .data(nodes)
-            .enter().append("g")
-            .attr("class", "graph-node-group")
-            .call(d3.drag()
-                .on("start", dragstarted)
-                .on("drag", dragged)
-                .on("end", dragended));
-
-        // Node circles
-        node.append("circle")
-            .attr("r", d => Math.max(8, 4 + Math.sqrt(d.complexity || 1) * 2))
-            .attr("class", d => `graph-node level-${(d.level || "LOW").toLowerCase()}`)
-            .style("fill", d => {
-                const lvl = (d.level || "LOW").toUpperCase();
-                if (lvl === "HIGH") return "var(--color-high, #ef4444)";
-                if (lvl === "MEDIUM") return "var(--color-medium, #f59e0b)";
-                return "var(--color-low, #10b981)";
-            })
-            .style("stroke", "var(--border-color)")
-            .style("stroke-width", "1px")
-            .on("click", (event, d) => {
-                event.stopPropagation();
-                // Reset styling
-                d3.selectAll(".graph-node").classed("active-node", false);
-                d3.selectAll(".graph-link").classed("active-link", false);
-                d3.selectAll(".graph-link-arrow").classed("active-arrow", false);
-                
-                // Highlight active node
-                d3.select(event.currentTarget).classed("active-node", true);
-                
-                // Highlight connected edges
-                link.classed("active-link", l => {
-                    const isConnected = l.source.id === d.id || l.target.id === d.id;
-                    return isConnected;
-                });
-                
-                openGraphFileDetail(d.id, d);
-            })
-            .on("mouseenter", (event, d) => {
-                const mockRisk = {
-                    level: d.level,
-                    impact_score: d.impact_score,
-                    boundary_type: d.role_display,
-                    change_strategy_display: d.strategy_display,
-                    summary: `Complexity: ${d.complexity}, Coupling: ${d.coupling}. Strategy: ${d.strategy_display}`
-                };
-                showTooltip(event, d.label, mockRisk);
-            })
-            .on("mousemove", moveTooltip)
-            .on("mouseleave", hideTooltip);
-
-        // Labels
-        node.append("text")
-            .attr("dx", d => Math.max(10, 6 + Math.sqrt(d.complexity || 1) * 2))
-            .attr("dy", ".35em")
-            .attr("class", "graph-label")
-            .text(d => d.label);
-
-        // Simulation update ticks
-        d3Simulation.on("tick", () => {
-            link
-                .attr("x1", d => d.source.x)
-                .attr("y1", d => d.source.y)
-                .attr("x2", d => d.target.x)
-                .attr("y2", d => d.target.y);
-
-            node
-                .attr("transform", d => `translate(${d.x},${d.y})`);
+        // 1. Arrange nodes in a beautiful circular ring
+        const centerX = containerWidth / 2;
+        const centerY = containerHeight / 2;
+        const radius = Math.min(containerWidth, containerHeight) * 0.35;
+        
+        nodes.forEach((node, i) => {
+            const angle = (i / nodes.length) * 2 * Math.PI;
+            node.x = centerX + radius * Math.cos(angle);
+            node.y = centerY + radius * Math.sin(angle);
+            node.label = node.label || node.id;
         });
 
-        // Click outside node closes detail panel and clears highlight
-        svg.on("click", () => {
-            d3.selectAll(".graph-node").classed("active-node", false);
-            d3.selectAll(".graph-link").classed("active-link", false);
+        // Map node IDs to nodes
+        const nodeMap = {};
+        nodes.forEach(n => { nodeMap[n.id] = n; });
+
+        // Resolve link references to node objects
+        links.forEach(l => {
+            l.sourceObj = typeof l.source === 'object' ? l.source : nodeMap[l.source];
+            l.targetObj = typeof l.target === 'object' ? l.target : nodeMap[l.target];
+        });
+
+        // 2. SVG Markers for Arrowheads
+        const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+        
+        // Default marker
+        const markerDefault = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+        markerDefault.setAttribute("id", "arrow-default");
+        markerDefault.setAttribute("viewBox", "0 -5 10 10");
+        markerDefault.setAttribute("refX", "22");
+        markerDefault.setAttribute("refY", "0");
+        markerDefault.setAttribute("markerWidth", "6");
+        markerDefault.setAttribute("markerHeight", "6");
+        markerDefault.setAttribute("orient", "auto");
+        const pathDefault = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        pathDefault.setAttribute("d", "M0,-5L10,0L0,5");
+        pathDefault.setAttribute("fill", "rgba(148, 163, 184, 0.25)");
+        markerDefault.appendChild(pathDefault);
+        defs.appendChild(markerDefault);
+
+        // Active marker
+        const markerActive = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+        markerActive.setAttribute("id", "arrow-active");
+        markerActive.setAttribute("viewBox", "0 -5 10 10");
+        markerActive.setAttribute("refX", "22");
+        markerActive.setAttribute("refY", "0");
+        markerActive.setAttribute("markerWidth", "6");
+        markerActive.setAttribute("markerHeight", "6");
+        markerActive.setAttribute("orient", "auto");
+        const pathActive = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        pathActive.setAttribute("d", "M0,-5L10,0L0,5");
+        pathActive.setAttribute("fill", "rgba(96, 165, 250, 0.9)");
+        markerActive.appendChild(pathActive);
+        defs.appendChild(markerActive);
+
+        svg.appendChild(defs);
+
+        // 3. Render Link lines
+        const linksGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        linksGroup.setAttribute("id", "links-group");
+        links.forEach((l, idx) => {
+            if (!l.sourceObj || !l.targetObj) return;
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("class", "graph-link");
+            line.setAttribute("id", `link-${idx}`);
+            line.setAttribute("x1", l.sourceObj.x);
+            line.setAttribute("y1", l.sourceObj.y);
+            line.setAttribute("x2", l.targetObj.x);
+            line.setAttribute("y2", l.targetObj.y);
+            line.setAttribute("marker-end", "url(#arrow-default)");
+            l.domElement = line;
+            linksGroup.appendChild(line);
+        });
+        svg.appendChild(linksGroup);
+
+        // 4. Render Node groups
+        const nodesGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        nodesGroup.setAttribute("id", "nodes-group");
+        nodes.forEach(n => {
+            const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            group.setAttribute("class", "graph-node-group");
+            group.setAttribute("id", `node-group-${n.id}`);
+
+            // Circle
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            const r = Math.max(8, 4 + Math.sqrt(n.complexity || 1) * 2);
+            circle.setAttribute("r", r);
+            circle.setAttribute("cx", n.x);
+            circle.setAttribute("cy", n.y);
+            circle.setAttribute("class", `graph-node level-${(n.level || "LOW").toLowerCase()}`);
+            
+            const lvl = (n.level || "LOW").toUpperCase();
+            let fill = "var(--color-low, #10b981)";
+            if (lvl === "HIGH") fill = "var(--color-high, #ef4444)";
+            else if (lvl === "MEDIUM") fill = "var(--color-medium, #f59e0b)";
+            circle.setAttribute("fill", fill);
+            circle.setAttribute("stroke", "var(--border-color)");
+            circle.setAttribute("stroke-width", "1px");
+
+            // Text Label
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", n.x + r + 4);
+            text.setAttribute("y", n.y + 4);
+            text.setAttribute("class", "graph-label");
+            text.textContent = n.label;
+
+            group.appendChild(circle);
+            group.appendChild(text);
+            
+            n.domElement = group;
+            n.circleElement = circle;
+            n.textElement = text;
+
+            // Events
+            circle.addEventListener("click", (event) => {
+                event.stopPropagation();
+                
+                // Clear previous active nodes & links
+                document.querySelectorAll(".graph-node").forEach(c => c.classList.remove("active-node"));
+                document.querySelectorAll(".graph-link").forEach(l => {
+                    l.classList.remove("active-link");
+                    l.setAttribute("marker-end", "url(#arrow-default)");
+                });
+
+                // Highlight clicked node
+                circle.classList.add("active-node");
+
+                // Highlight connected links
+                links.forEach(l => {
+                    if (l.sourceObj === n || l.targetObj === n) {
+                        if (l.domElement) {
+                            l.domElement.classList.add("active-link");
+                            l.domElement.setAttribute("marker-end", "url(#arrow-active)");
+                        }
+                    }
+                });
+
+                openGraphFileDetail(n.id, n);
+            });
+
+            circle.addEventListener("mouseenter", (event) => {
+                const mockRisk = {
+                    level: n.level,
+                    impact_score: n.impact_score,
+                    boundary_type: n.role_display,
+                    change_strategy_display: n.strategy_display,
+                    summary: `Complexity: ${n.complexity}, Coupling: ${n.coupling}. Strategy: ${n.strategy_display}`
+                };
+                showTooltip(event, n.label, mockRisk);
+            });
+
+            circle.addEventListener("mousemove", moveTooltip);
+            circle.addEventListener("mouseleave", hideTooltip);
+
+            // Drag setup
+            circle.addEventListener("mousedown", (event) => {
+                event.stopPropagation();
+                dragNode = n;
+                const pt = svg.createSVGPoint();
+                pt.x = event.clientX;
+                pt.y = event.clientY;
+                const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+                dragOffset = { x: svgP.x - n.x, y: svgP.y - n.y };
+            });
+
+            nodesGroup.appendChild(group);
+        });
+        svg.appendChild(nodesGroup);
+
+        // 5. Global SVG Events for Dragging, Panning & Zooming
+        svg.addEventListener("mousedown", (event) => {
+            if (dragNode) return;
+            panActive = true;
+            panStart = { x: event.clientX, y: event.clientY };
+        });
+
+        svg.addEventListener("mousemove", (event) => {
+            if (dragNode) {
+                // Drag Node
+                const pt = svg.createSVGPoint();
+                pt.x = event.clientX;
+                pt.y = event.clientY;
+                const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+                
+                dragNode.x = svgP.x - dragOffset.x;
+                dragNode.y = svgP.y - dragOffset.y;
+
+                // Update node DOM
+                const r = parseFloat(dragNode.circleElement.getAttribute("r"));
+                dragNode.circleElement.setAttribute("cx", dragNode.x);
+                dragNode.circleElement.setAttribute("cy", dragNode.y);
+                dragNode.textElement.setAttribute("x", dragNode.x + r + 4);
+                dragNode.textElement.setAttribute("y", dragNode.y + 4);
+
+                // Update links connected to node
+                links.forEach(l => {
+                    if (l.sourceObj === dragNode) {
+                        l.domElement.setAttribute("x1", dragNode.x);
+                        l.domElement.setAttribute("y1", dragNode.y);
+                    }
+                    if (l.targetObj === dragNode) {
+                        l.domElement.setAttribute("x2", dragNode.x);
+                        l.domElement.setAttribute("y2", dragNode.y);
+                    }
+                });
+            } else if (panActive) {
+                // Pan viewport
+                const dx = (event.clientX - panStart.x) * zoomLevel;
+                const dy = (event.clientY - panStart.y) * zoomLevel;
+                viewBox.x -= dx;
+                viewBox.y -= dy;
+                panStart = { x: event.clientX, y: event.clientY };
+                updateSvgViewBox();
+            }
+        });
+
+        window.addEventListener("mouseup", () => {
+            dragNode = null;
+            panActive = false;
+        });
+
+        svg.addEventListener("wheel", (event) => {
+            event.preventDefault();
+            const zoomFactor = event.deltaY < 0 ? 0.9 : 1.1;
+            zoomLevel *= zoomFactor;
+            
+            const pt = svg.createSVGPoint();
+            pt.x = event.clientX;
+            pt.y = event.clientY;
+            const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+
+            viewBox.w *= zoomFactor;
+            viewBox.h *= zoomFactor;
+            viewBox.x = svgP.x - (svgP.x - viewBox.x) * zoomFactor;
+            viewBox.y = svgP.y - (svgP.y - viewBox.y) * zoomFactor;
+            updateSvgViewBox();
+        });
+
+        svg.addEventListener("click", () => {
+            document.querySelectorAll(".graph-node").forEach(c => c.classList.remove("active-node"));
+            document.querySelectorAll(".graph-link").forEach(l => {
+                l.classList.remove("active-link");
+                l.setAttribute("marker-end", "url(#arrow-default)");
+            });
             if (graphDetailPanel) {
                 graphDetailPanel.classList.add("closed");
             }
         });
+    }
 
-        function dragstarted(event, d) {
-            if (!event.active) d3Simulation.alphaTarget(0.3).restart();
-            d.fx = d.x;
-            d.fy = d.y;
-        }
-
-        function dragged(event, d) {
-            d.fx = event.x;
-            d.fy = event.y;
-        }
-
-        function dragended(event, d) {
-            if (!event.active) d3Simulation.alphaTarget(0);
-            d.fx = null;
-            d.fy = null;
+    function updateSvgViewBox() {
+        const svg = document.getElementById("arch-graph-svg");
+        if (svg) {
+            svg.setAttribute("viewBox", `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
         }
     }
 

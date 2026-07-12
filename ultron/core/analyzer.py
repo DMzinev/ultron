@@ -57,10 +57,10 @@ def analyze_directory(dirpath, os=os):
     Returns a unified codebase representation.
     """
     codebase = {}
-    for root, _, files in os.walk(dirpath):
-        parts = root.split(os.sep)
-        if any((part.startswith('.') or part in ('venv', 'env', '__pycache__', 'tests') for part in parts)):
-            continue
+    for root, dirs, files in os.walk(dirpath):
+        # Prune dirs in-place to avoid scanning virtualenvs, builds, test files, and scratch dirs
+        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('venv', 'env', 'test_env', '__pycache__', 'tests', 'node_modules', 'scratch', 'dist', 'synapse_project', 'docs', 'ultron_risk_scorer.egg-info')]
+        
         for file in files:
             if file.endswith('.py'):
                 abs_path = os.path.join(root, file)

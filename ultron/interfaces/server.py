@@ -352,7 +352,7 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                     return tree
 
                 for item in items:
-                    if item.startswith('.') or item in ('venv', 'env', '__pycache__', 'tests', 'node_modules'):
+                    if item.startswith('.') or item in ('venv', 'env', 'test_env', '__pycache__', 'tests', 'node_modules', 'scratch', 'dist', 'synapse_project', 'docs', 'ultron_risk_scorer.egg-info'):
                         continue
                     full_path = os.path.join(path, item)
                     if os.path.islink(full_path):
@@ -1255,9 +1255,12 @@ def serve():
         t = threading.Thread(target=open_browser, daemon=True)
         t.start()
     
-    # Simple reuse port setup
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", PORT), UltronAPIHandler) as httpd:
+    # Simple reuse port setup with multi-threading to handle concurrent requests
+    class ThreadingHTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+        daemon_threads = True
+
+    ThreadingHTTPServer.allow_reuse_address = True
+    with ThreadingHTTPServer(("", PORT), UltronAPIHandler) as httpd:
         print(f"[+] Ultron Web Dashboard listening on http://localhost:{PORT}")
         try:
             httpd.serve_forever()
