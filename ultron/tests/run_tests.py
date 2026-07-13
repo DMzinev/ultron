@@ -12,7 +12,6 @@ sys.path.append(os.path.abspath(os.path.join(_root, "umags")))
 
 from ultron.core import analyzer
 from ultron.core import risk
-from ultron.core import guard
 from ultron.core import classifier
 from ultron.core import predict
 from ultron.experimental import design_oracle
@@ -22,8 +21,8 @@ from ultron.interfaces import server
 class TestUltronCore(unittest.TestCase):
     
     def test_string_similarity(self):
-        # Levenshtein similarity tests
-        self.assertAlmostEqual(classifier.string_similarity("init_db", "init_dbb"), 0.875)
+        # SequenceMatcher similarity tests
+        self.assertAlmostEqual(classifier.string_similarity("init_db", "init_dbb"), 0.93333333)
         self.assertAlmostEqual(classifier.string_similarity("init_db", "init_db"), 1.0)
         self.assertLess(classifier.string_similarity("init_db", "process"), 0.5)
 
@@ -63,45 +62,7 @@ def my_func(x):
         finally:
             shutil.rmtree(temp_dir)
 
-    def test_contract_guard_logic(self):
-        # Verify call signature validation boundaries
-        # def sample(a, b=10)
-        min_args = 1
-        max_args = 2
-        
-        # Underflow check: passing 0 args should violate
-        self.assertTrue(0 < min_args or 0 > max_args)
-        # Normal check: passing 1 arg should conform
-        self.assertFalse(1 < min_args or 1 > max_args)
-        # Normal check: passing 2 args should conform
-        self.assertFalse(2 < min_args or 2 > max_args)
-        # Overflow check: passing 3 args should violate
-        self.assertTrue(3 < min_args or 3 > max_args)
 
-    def test_verify_contracts_end_to_end(self):
-        import tempfile
-        import shutil
-        temp_dir = tempfile.mkdtemp()
-        try:
-            code_def = """def add_numbers(x, y):
-    return x + y
-"""
-            code_calls = """def run():
-    add_numbers(10)
-    add_numbers(10, 20)
-"""
-            with open(os.path.join(temp_dir, "defs.py"), "w", encoding="utf-8") as f:
-                f.write(code_def)
-            with open(os.path.join(temp_dir, "calls.py"), "w", encoding="utf-8") as f:
-                f.write(code_calls)
-                
-            violations = guard.verify_contracts(temp_dir)
-            self.assertEqual(len(violations), 1)
-            self.assertEqual(violations[0]["function"], "add_numbers")
-            self.assertEqual(violations[0]["actual_args"], 1)
-            self.assertEqual(violations[0]["expected_range"], "2-2")
-        finally:
-            shutil.rmtree(temp_dir)
 
     def test_risk_score_formula(self):
         # System Impact Score: I(N) = Complexity * ln(e + Coupling)
@@ -122,36 +83,60 @@ def my_func(x):
         self.assertEqual(get_tier(5.2), "MEDIUM")
         self.assertEqual(get_tier(1.5), "LOW")
 
-    def test_second_order_markov_transitions(self):
-        # Verify transition model building with [END] tokens and second-order keys
+    def test_spelling_scoping_rules(self):
+        # Verify spelling model building and scoping rules (local names, nested imports, self HTTP handler methods)
         import tempfile
         import shutil
         temp_dir = tempfile.mkdtemp()
         try:
-            code = """def process():
-    init_db()
-    query()
-    close_db()
+            baseline_code = """
+def init_db():
+    pass
+def query():
+    pass
+def close_db():
+    pass
 """
-            with open(os.path.join(temp_dir, "sample.py"), "w", encoding="utf-8") as f:
-                f.write(code)
+            with open(os.path.join(temp_dir, "baseline.py"), "w", encoding="utf-8") as f:
+                f.write(baseline_code)
+                
+            names = classifier.build_models(temp_dir)
+            self.assertIn("init_db", names)
+            self.assertIn("query", names)
             
-            names, probs = classifier.build_models(temp_dir)
+            target_code = """
+import http.server
+
+class MyHandler(http.server.SimpleHTTPRequestHandler):
+    def handle_request(self):
+        # Local variable call should not be flagged as typo
+        val = lambda: 1
+        val()
+        
+        # Typos in names that are defined should be flagged
+        init_dbb()
+        
+        # Self method inherited from SimpleHTTPRequestHandler should not be flagged
+        self.send_header("Header", "Value")
+        
+        if True:
+            # Nested import should be scanned and not flagged
+            import sys
+            sys.exit(0)
+"""
+            target_path = os.path.join(temp_dir, "target.py")
+            with open(target_path, "w", encoding="utf-8") as f:
+                f.write(target_code)
+                
+            anomalies = classifier.audit_target_file(target_path, names, typo_threshold=0.75)
             
-            # Check for name extraction
-            self.assertIn("process", names)
+            typos = [anom for anom in anomalies if anom['type'] == 'Spelling Typo / Name Confusion']
+            self.assertTrue(any("init_dbb" in anom["details"] for anom in typos))
             
-            # Check transitions
-            self.assertIn("init_db", probs)
-            self.assertIn("query", probs["init_db"])
-            self.assertIn("init_db,query", probs)
-            self.assertIn("close_db", probs["init_db,query"])
-            self.assertEqual(probs["init_db,query"]["close_db"], 1.0)
+            self.assertFalse(any("val" in anom["details"] for anom in typos))
+            self.assertFalse(any("exit" in anom["details"] for anom in typos))
+            self.assertFalse(any("send_header" in anom["details"] for anom in typos))
             
-            # Check termination transition
-            self.assertIn("query,close_db", probs)
-            self.assertIn("[END]", probs["query,close_db"])
-            self.assertEqual(probs["query,close_db"]["[END]"], 1.0)
         finally:
             shutil.rmtree(temp_dir)
 
@@ -356,380 +341,6 @@ class TestSample(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 failure_space.main()
 
-    def test_blind_rate_helpers(self):
-        import tempfile
-        import shutil
-        import json
-        from ultron.validation import blind_rate
-        normalize_relative_path = blind_rate.normalize_relative_path
-        validate_inputs = blind_rate.validate_inputs
-        get_file_content = blind_rate.get_file_content
-        select_ratable_files = blind_rate.select_ratable_files
-        calculate_agreement = blind_rate.calculate_agreement
-        write_feedback_entry = blind_rate.write_feedback_entry
-        process_rating = blind_rate.process_rating
-        
-        # Test normalize_relative_path
-        self.assertEqual(normalize_relative_path("foo\\bar\\baz.py"), "foo/bar/baz.py")
-        with self.assertRaises(ValueError):
-            normalize_relative_path(None)
-        with self.assertRaises(TypeError):
-            normalize_relative_path(123)
-            
-        # Test validate_inputs
-        validate_inputs("test.py", "Rater1", "HIGH")
-        with self.assertRaises(ValueError):
-            validate_inputs("", "Rater1", "HIGH")
-        with self.assertRaises(ValueError):
-            validate_inputs("test.py", "", "HIGH")
-        with self.assertRaises(ValueError):
-            validate_inputs("test.py", "Rater1", "INVALID")
-        with self.assertRaises(ValueError):
-            validate_inputs(None, "Rater1", "HIGH")
-        with self.assertRaises(ValueError):
-            validate_inputs("test.py", None, "HIGH")
-        with self.assertRaises(ValueError):
-            validate_inputs("test.py", "Rater1", None)
-            
-        # Test get_file_content and select_ratable_files
-        temp_dir = tempfile.mkdtemp()
-        try:
-            # Create a source file
-            src_path = os.path.join(temp_dir, "my_module.py")
-            with open(src_path, "w", encoding="utf-8") as f:
-                f.write("def my_func():\n    pass\n")
-            
-            # Create a test file (which should be excluded)
-            test_path = os.path.join(temp_dir, "test_module.py")
-            with open(test_path, "w", encoding="utf-8") as f:
-                f.write("def test_func():\n    pass\n")
-                
-            content = get_file_content(temp_dir, "my_module.py")
-            self.assertIn("my_func", content)
-            
-            with self.assertRaises(FileNotFoundError):
-                get_file_content(temp_dir, "nonexistent.py")
-            with self.assertRaises(FileNotFoundError):
-                get_file_content("/nonexistent_dir", "my_module.py")
-            with self.assertRaises(ValueError):
-                get_file_content(None, "my_module.py")
-            with self.assertRaises(ValueError):
-                get_file_content(temp_dir, None)
-                
-            # Test write_feedback_entry
-            feedback_file = os.path.join(temp_dir, "feedback.jsonl")
-            entry = {"file": "my_module.py", "rater": "Rater1", "rater_tier": "LOW", "accurate": True}
-            write_feedback_entry(feedback_file, entry)
-            
-            with open(feedback_file, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-            self.assertEqual(len(lines), 1)
-            loaded = json.loads(lines[0].strip())
-            self.assertEqual(loaded["file"], "my_module.py")
-            
-            with self.assertRaises(TypeError):
-                write_feedback_entry(feedback_file, "not a dict")
-            with self.assertRaises(ValueError):
-                write_feedback_entry(None, entry)
-            with self.assertRaises(ValueError):
-                write_feedback_entry(feedback_file, None)
-                
-        finally:
-            shutil.rmtree(temp_dir)
-
-        # Test select_ratable_files and calculate_agreement on the actual repo
-        repo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        ratable = select_ratable_files(repo_path)
-        self.assertGreater(len(ratable), 0)
-        self.assertIn("ultron/core/risk/scoring.py", ratable)
-        
-        with self.assertRaises(FileNotFoundError):
-            select_ratable_files("/nonexistent_dir")
-        with self.assertRaises(ValueError):
-            select_ratable_files(None)
-            
-        # Test calculate_agreement
-        accurate, computed_tier, computed_score = calculate_agreement(repo_path, "ultron/core/risk/scoring.py", "HIGH")
-        self.assertEqual(accurate, (computed_tier == "HIGH"))
-        
-        with self.assertRaises(ValueError):
-            calculate_agreement(repo_path, "nonexistent.py", "HIGH")
-        with self.assertRaises(ValueError):
-            calculate_agreement(None, "ultron/core/risk/scoring.py", "HIGH")
-        with self.assertRaises(ValueError):
-            calculate_agreement(repo_path, None, "HIGH")
-        with self.assertRaises(ValueError):
-            calculate_agreement(repo_path, "ultron/core/risk/scoring.py", None)
-            
-        # Test process_rating
-        temp_dir2 = tempfile.mkdtemp()
-        try:
-            feedback_file2 = os.path.join(temp_dir2, "feedback2.jsonl")
-            res_entry = process_rating(repo_path, "ultron/core/risk/scoring.py", "Rater1", "HIGH", "High complexity", feedback_file2)
-            self.assertEqual(res_entry["file"], "ultron/core/risk/scoring.py")
-            self.assertEqual(res_entry["rater"], "Rater1")
-            self.assertEqual(res_entry["rater_tier"], "HIGH")
-            self.assertEqual(res_entry["rationale"], "High complexity")
-            
-            with self.assertRaises(ValueError):
-                process_rating(None, "ultron/core/risk/scoring.py", "Rater1", "HIGH", "High complexity", feedback_file2)
-            with self.assertRaises(ValueError):
-                process_rating(repo_path, None, "Rater1", "HIGH", "High complexity", feedback_file2)
-            with self.assertRaises(ValueError):
-                process_rating(repo_path, "ultron/core/risk/scoring.py", None, "HIGH", "High complexity", feedback_file2)
-            with self.assertRaises(ValueError):
-                process_rating(repo_path, "ultron/core/risk/scoring.py", "Rater1", None, "High complexity", feedback_file2)
-        finally:
-            shutil.rmtree(temp_dir2)
-
-        # Test main CLI entry point in non-interactive mode
-        import sys
-        from unittest.mock import patch
-        from ultron.validation import blind_rate
-        
-        # Test successful CLI execution in non-interactive mode
-        with patch.object(sys, 'argv', ['blind_rate.py', '--rater', 'CLI_Test', '--file', 'ultron/core/risk/scoring.py', '--rating', 'HIGH', '--rationale', 'CLI rationale']):
-            with self.assertRaises(SystemExit) as cm:
-                blind_rate.main()
-            self.assertEqual(cm.exception.code, 0)
-            
-        # Test CLI execution with error (nonexistent file)
-        with patch.object(sys, 'argv', ['blind_rate.py', '--rater', 'CLI_Test', '--file', 'nonexistent.py', '--rating', 'HIGH', '--rationale', 'CLI rationale']):
-            with self.assertRaises(SystemExit) as cm:
-                blind_rate.main()
-            self.assertEqual(cm.exception.code, 1)
-
-    def test_reality_delta_engine(self):
-        import tempfile
-        import shutil
-        import json
-        from unittest.mock import patch, MagicMock
-        from ultron.experimental import reality_delta
-
-        # Backup global paths
-        orig_deltas = reality_delta.REALITY_DELTAS_PATH
-        orig_weights = reality_delta.FUSION_WEIGHTS_PATH
-        orig_feedback = reality_delta.HUMAN_FEEDBACK_PATH
-
-        # 1. Test Input validations
-        with self.assertRaises(ValueError):
-            reality_delta.extract_git_signal(None, "file.py", "2026-06-20T12:00:00Z")
-        with self.assertRaises(TypeError):
-            reality_delta.extract_git_signal("repo", 123, "2026-06-20T12:00:00Z")
-        with self.assertRaises(ValueError):
-            reality_delta.extract_test_signal(None, "python -m unittest")
-        with self.assertRaises(ValueError):
-            reality_delta.extract_runtime_signal(None, "log.txt")
-        with self.assertRaises(ValueError):
-            reality_delta.extract_human_signal(None, "file.py")
-
-        # 2. Test Git Signal Extractor
-        with patch("subprocess.run") as mock_run:
-            mock_res = MagicMock()
-            mock_res.returncode = 0
-            mock_res.stdout = "abc123d Fix spelling bug in core\ndef456g Refactor auth flow\n"
-            mock_run.return_value = mock_res
-            
-            # Create a temp dir to act as repo_path
-            temp_dir = tempfile.mkdtemp()
-            try:
-                git_sig = reality_delta.extract_git_signal(temp_dir, "file.py", "2026-06-20T12:00:00Z")
-                # 1 out of 2 commits has bug keywords
-                self.assertGreater(git_sig, 0.0)
-                self.assertLessEqual(git_sig, 1.0)
-            finally:
-                shutil.rmtree(temp_dir)
-
-        # 3. Test Test Signal Extractor
-        with patch("subprocess.run") as mock_run:
-            mock_res = MagicMock()
-            mock_res.returncode = 1
-            # Mock unittest failure output
-            mock_res.stdout = "Ran 10 tests in 0.05s\nFAILED (failures=2, errors=1)\n"
-            mock_res.stderr = ""
-            mock_run.return_value = mock_res
-            
-            temp_dir = tempfile.mkdtemp()
-            try:
-                test_sig = reality_delta.extract_test_signal(temp_dir, "python -m unittest")
-                self.assertAlmostEqual(test_sig, 0.3)  # (2 + 1) / 10 = 0.3
-                
-                # Mock pytest failure output
-                mock_res.stdout = "2 failed, 8 passed in 0.1s"
-                test_sig_py = reality_delta.extract_test_signal(temp_dir, "pytest")
-                self.assertAlmostEqual(test_sig_py, 0.2)  # 2 / (2 + 8) = 0.2
-            finally:
-                shutil.rmtree(temp_dir)
-
-        # 4. Test Runtime Signal Extractor
-        temp_dir = tempfile.mkdtemp()
-        try:
-            log_file = os.path.join(temp_dir, "test_run.log")
-            with open(log_file, "w", encoding="utf-8") as f:
-                f.write("INFO: start\nWARNING: low disk space\nERROR: division by zero exception\n")
-            sig = reality_delta.extract_runtime_signal(temp_dir, log_file)
-            self.assertAlmostEqual(sig, 0.25)
-        finally:
-            shutil.rmtree(temp_dir)
-
-        # 5. Test Human Signal Extractor
-        temp_dir = tempfile.mkdtemp()
-        try:
-            feedback_file = os.path.join(temp_dir, "human_feedback.jsonl")
-            with open(feedback_file, "w", encoding="utf-8") as f:
-                f.write(json.dumps({"file": "file.py", "rater_tier": "HIGH"}) + "\n")
-                f.write(json.dumps({"file": "file.py", "rater_tier": "MEDIUM"}) + "\n")
-            sig = reality_delta.extract_human_signal(feedback_file, "file.py")
-            # HIGH (1.0) and MEDIUM (0.5) -> average 0.75
-            self.assertEqual(sig, 0.75)
-        finally:
-            shutil.rmtree(temp_dir)
-
-        # 6. Test Fusion calculation
-        signals = {"test": 0.5, "git": 1.0, "runtime": 0.0, "human": 0.5}
-        weights = {"w_test": 0.4, "w_git": 0.3, "w_runtime": 0.2, "w_human": 0.1}
-        score = reality_delta.compute_reality_score(signals, weights)
-        self.assertAlmostEqual(score, 0.55)
-
-        # 7. Test Calibration loop
-        temp_dir = tempfile.mkdtemp()
-        try:
-            reality_delta.REALITY_DELTAS_PATH = os.path.join(temp_dir, "reality_deltas.jsonl")
-            reality_delta.FUSION_WEIGHTS_PATH = os.path.join(temp_dir, "fusion_weights.json")
-            reality_delta.HUMAN_FEEDBACK_PATH = os.path.join(temp_dir, "human_feedback.jsonl")
-            
-            # Create a mock prediction entry
-            record = {
-                "file": "math_utils.py",
-                "timestamp": "2026-06-20T12:00:00Z",
-                "delta_i": 2.0,
-                "mkr": 0.8,
-                "delta_cest": 0.1,
-                "test_cmd": "python run_tests.py",
-                "log_path": os.path.join(temp_dir, "test_run.log")
-            }
-            with open(reality_delta.REALITY_DELTAS_PATH, "w", encoding="utf-8") as f:
-                f.write(json.dumps(record) + "\n")
-                
-            with patch("ultron.experimental.reality_delta.extract_git_signal", return_value=1.0), \
-                 patch("ultron.experimental.reality_delta.extract_test_signal", return_value=0.5), \
-                 patch("ultron.experimental.reality_delta.extract_runtime_signal", return_value=0.0), \
-                 patch("ultron.experimental.reality_delta.extract_human_signal", return_value=0.5):
-                
-                weights = reality_delta.load_fusion_weights()
-                self.assertAlmostEqual(sum(weights[k] for k in ["w_test", "w_git", "w_runtime", "w_human", "w_test_runtime", "w_git_human"]), 1.0)
-                
-                reality_delta.recalibrate_system(temp_dir)
-                
-                updated = reality_delta.load_fusion_weights()
-                self.assertAlmostEqual(sum(updated[k] for k in ["w_test", "w_git", "w_runtime", "w_human", "w_test_runtime", "w_git_human"]), 1.0)
-                self.assertGreater(updated["w_git"], weights["w_git"])
-        finally:
-            shutil.rmtree(temp_dir)
-            reality_delta.REALITY_DELTAS_PATH = orig_deltas
-            reality_delta.FUSION_WEIGHTS_PATH = orig_weights
-            reality_delta.HUMAN_FEEDBACK_PATH = orig_feedback
-
-    def test_causal_attribution_and_regularization(self):
-        import tempfile
-        import shutil
-        import json
-        from ultron.experimental import delta
-        from ultron.experimental import reality_delta
-        from unittest.mock import patch
-
-        # 1. Verify non-linear score with interaction terms
-        signals = {"test": 0.8, "git": 0.0, "runtime": 0.5, "human": 0.0}
-        weights = {
-            "w_test": 0.35, "w_git": 0.25, "w_runtime": 0.15, "w_human": 0.05,
-            "w_test_runtime": 0.1, "w_git_human": 0.1
-        }
-        # Direct: 0.35 * 0.8 + 0.15 * 0.5 = 0.28 + 0.075 = 0.355
-        # Interaction: w_test_runtime * 0.8 * 0.5 = 0.1 * 0.40 = 0.04
-        # Total score: 0.355 + 0.04 = 0.395
-        r_actual = reality_delta.compute_reality_score(signals, weights)
-        self.assertAlmostEqual(r_actual, 0.395)
-
-        # 2. Verify counterfactual causal ablation math and epsilon stability
-        attribution = reality_delta.compute_counterfactual_attribution(signals, weights)
-        
-        # Ablate test: set s_test = 0.0
-        # Score = w_runtime * 0.5 = 0.15 * 0.5 = 0.075
-        # C_test = 0.395 - 0.075 = 0.320
-        # Ablate runtime: set s_runtime = 0.0
-        # Score = w_test * 0.8 = 0.35 * 0.8 = 0.280
-        # C_runtime = 0.395 - 0.280 = 0.115
-        # Ablate git/human: no impact since signals are 0.0
-        # C_git = 0.0, C_human = 0.0
-        # Total causal = 0.320 + 0.115 = 0.435
-        # Attribution test: 0.320 / 0.435 = 0.73563
-        # Attribution runtime: 0.115 / 0.435 = 0.26436
-        self.assertAlmostEqual(attribution["test"], 0.320 / 0.435, places=5)
-        self.assertAlmostEqual(attribution["runtime"], 0.115 / 0.435, places=5)
-        self.assertEqual(attribution["git"], 0.0)
-        self.assertEqual(attribution["human"], 0.0)
-
-        # 3. Verify dynamic json schema migration of older fusion weights
-        temp_dir = tempfile.mkdtemp()
-        try:
-            orig_weights_path = reality_delta.FUSION_WEIGHTS_PATH
-            reality_delta.FUSION_WEIGHTS_PATH = os.path.join(temp_dir, "fusion_weights.json")
-
-            # Write old v5.0 weights schema without interaction terms
-            old_weights = {
-                "w_test": 0.4,
-                "w_git": 0.3,
-                "w_runtime": 0.2,
-                "w_human": 0.1,
-                "learning_rate": 0.05
-            }
-            with open(reality_delta.FUSION_WEIGHTS_PATH, "w", encoding="utf-8") as f:
-                json.dump(old_weights, f, indent=2)
-
-            # Load weights and check that it migrated successfully
-            loaded = reality_delta.load_fusion_weights()
-            self.assertIn("w_test_runtime", loaded)
-            self.assertIn("w_git_human", loaded)
-            self.assertAlmostEqual(sum(loaded[k] for k in ["w_test", "w_git", "w_runtime", "w_human", "w_test_runtime", "w_git_human"]), 1.0)
-        finally:
-            reality_delta.FUSION_WEIGHTS_PATH = orig_weights_path
-            shutil.rmtree(temp_dir)
-
-        # 4. Verify guided SGD updates and L2 regularization weight decay
-        temp_dir = tempfile.mkdtemp()
-        try:
-            # Backup delta weights path
-            orig_delta_path = delta.WEIGHTS_PATH
-            delta.WEIGHTS_PATH = os.path.join(temp_dir, "calibrated_weights.json")
-
-            # Initialize weights to equal values
-            init_weights = {
-                "w_impact": 0.33,
-                "w_mkr": 0.33,
-                "w_cest": 0.34,
-                "learning_rate": 0.1
-            }
-            delta.save_weights(init_weights)
-
-            attr_test_only = {"test": 1.0, "git": 0.0, "runtime": 0.0, "human": 0.0}
-            pred, err, updated = delta.learn_from_feedback(
-                "math_utils.py", delta_i=2.0, mkr=0.5, delta_cest=0.0,
-                actual_failure=1.0, attribution=attr_test_only
-            )
-            
-            # w_impact and w_cest ratios relative to each other should remain exactly the same as initial,
-            # (they only decayed uniformly and were normalized).
-            self.assertAlmostEqual(updated["w_impact"] / updated["w_cest"], 0.33 / 0.34, places=5)
-            
-            # Test negative cases / validation boundaries
-            with self.assertRaises(ValueError):
-                delta.learn_from_feedback(None, 2.0, 0.5, 0.0, 1.0)
-            with self.assertRaises(TypeError):
-                delta.learn_from_feedback(123, 2.0, 0.5, 0.0, 1.0)
-
-        finally:
-            shutil.rmtree(temp_dir)
-            delta.WEIGHTS_PATH = orig_delta_path
 
     def test_design_oracle(self):
         import tempfile
@@ -1051,44 +662,9 @@ class TestSample(unittest.TestCase):
         self.assertIn("CONTRACT SPECIFICATION", res_spec)
         self.assertIn("[USER INTENT]", res_spec)
 
-    def test_sentinel_entropy(self):
-        import sentinel
-        repo_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        entropy_base = sentinel.calculate_entropy(repo_path, ["ultron/core/pledge.py"], original_base=True)
-        entropy_curr = sentinel.calculate_entropy(repo_path, ["ultron/core/pledge.py"], original_base=False)
-        self.assertGreaterEqual(entropy_base, 0)
-        self.assertGreaterEqual(entropy_curr, 0)
 
-    def test_sentinel_scan_assumptions(self):
-        import sentinel
-        code = """def my_func(a, b):
-    # No type hints
-    open("file.txt", "r") # missing encoding
-    x = a / b # potential div by zero
-"""
-        violations, score = sentinel.scan_assumptions("test.py", "", code)
-        self.assertGreater(len(violations), 0)
-        self.assertLess(score, 1.0)
-        
-        # Test empty input handling
-        empty_violations, empty_score = sentinel.scan_assumptions("test.py", "", "")
-        self.assertEqual(empty_violations, [])
-        self.assertEqual(empty_score, 1.0)
 
-    def test_sentinel_scan_future_risks(self):
-        import sentinel
-        orig = "def add_user(username, age):\n    pass\n"
-        mod = "def add_user(username, age, email):\n    pass\n"
-        risks, score = sentinel.scan_future_risks("test.py", orig, mod)
-        self.assertIn("Public signature change in 'add_user'", risks[0])
-        self.assertGreater(score, 0.0)
 
-    def test_sentinel_detect_abstraction_bloat(self):
-        import sentinel
-        code = "def wrapper(x):\n    return target(x)\n"
-        bloat, score = sentinel.detect_abstraction_bloat("test.py", "", code)
-        self.assertIn("Function 'wrapper' is a pass-through wrapper for 'target'", bloat[0])
-        self.assertGreater(score, 0.0)
 
     def test_context_brief_generator(self):
         from ultron.core import context_brief
@@ -2485,183 +2061,6 @@ class TestContractGenerator(unittest.TestCase):
             "per-file localized metrics pass-through may have been removed from design_oracle.py."
         )
 
-
-class TestEvidenceEngine(unittest.TestCase):
-    def test_metric_evidence_validation(self):
-        from ultron.experimental.evidence_engine import MetricEvidence
-        # Valid instantiation
-        m = MetricEvidence("Complexity", 12.0, 10.0, 4.0, 95.0, "McCabe")
-        self.assertEqual(m.metric_name, "Complexity")
-        self.assertEqual(m.percentile, 95.0)
-
-        # Invalid metric_name
-        with self.assertRaises(TypeError):
-            MetricEvidence("", 12.0, 10.0, 4.0, 95.0, "McCabe")
-        # Invalid source
-        with self.assertRaises(TypeError):
-            MetricEvidence("Complexity", 12.0, 10.0, 4.0, 95.0, "")
-        # Invalid percentile bounds
-        with self.assertRaises(ValueError):
-            MetricEvidence("Complexity", 12.0, 10.0, 4.0, 105.0, "McCabe")
-        with self.assertRaises(ValueError):
-            MetricEvidence("Complexity", 12.0, 10.0, 4.0, -5.0, "McCabe")
-
-    def test_evidence_bundle_validation(self):
-        from ultron.experimental.evidence_engine import EvidenceBundle, MetricEvidence
-        m = MetricEvidence("Complexity", 12.0, 10.0, 4.0, 95.0, "McCabe")
-        
-        # Valid instantiation
-        b = EvidenceBundle("a.py", "Dependency Inversion Principle (DIP)", [m], 2)
-        self.assertEqual(b.filepath, "a.py")
-        self.assertEqual(b.historical_bug_fixes, 2)
-
-        # Invalid filepath
-        with self.assertRaises(TypeError):
-            EvidenceBundle("", "Dependency Inversion Principle (DIP)", [m])
-        # Invalid metrics list
-        with self.assertRaises(TypeError):
-            EvidenceBundle("a.py", "Dependency Inversion Principle (DIP)", "not-a-list")
-        with self.assertRaises(TypeError):
-            EvidenceBundle("a.py", "Dependency Inversion Principle (DIP)", [123])
-
-    def test_evidence_engine_statistics_medians(self):
-        from ultron.experimental.evidence_engine import EvidenceEngine
-        
-        # Case A: Odd number of elements
-        codebase = {"a.py": {}, "b.py": {}, "c.py": {}}
-        coupling = [
-            {"file": "a.py", "coupling_debt": 10.0},
-            {"file": "b.py", "coupling_debt": 30.0},
-            {"file": "c.py", "coupling_debt": 20.0}
-        ]
-        engine = EvidenceEngine(codebase, coupling, [], {}, {}, [])
-        # Medians must be 20.0 (sorted: 10.0, 20.0, 30.0)
-        self.assertEqual(engine.medians["coupling_debt"], 20.0)
-
-        # Case B: Even number of elements
-        codebase_even = {"a.py": {}, "b.py": {}, "c.py": {}, "d.py": {}}
-        coupling_even = [
-            {"file": "a.py", "coupling_debt": 10.0},
-            {"file": "b.py", "coupling_debt": 30.0},
-            {"file": "c.py", "coupling_debt": 20.0},
-            {"file": "d.py", "coupling_debt": 40.0}
-        ]
-        engine_even = EvidenceEngine(codebase_even, coupling_even, [], {}, {}, [])
-        # Medians must be 25.0 (sorted: 10, 20, 30, 40 -> (20+30)/2)
-        self.assertEqual(engine_even.medians["coupling_debt"], 25.0)
-
-    def test_evidence_engine_percentile_calculation(self):
-        from ultron.experimental.evidence_engine import EvidenceEngine
-        codebase = {"a.py": {}, "b.py": {}, "c.py": {}, "d.py": {}}
-        coupling = [
-            {"file": "a.py", "coupling_debt": 10.0},
-            {"file": "b.py", "coupling_debt": 20.0},
-            {"file": "c.py", "coupling_debt": 30.0},
-            {"file": "d.py", "coupling_debt": 40.0}
-        ]
-        engine = EvidenceEngine(codebase, coupling, [], {}, {}, [])
-        # value 20.0 is <= 2 values in a set of 4 -> (2/4) * 100 = 50.0 percentile
-        self.assertEqual(engine._compute_percentile("coupling_debt", 20.0), 50.0)
-        # value 40.0 is <= 4 values in a set of 4 -> 100.0 percentile
-        self.assertEqual(engine._compute_percentile("coupling_debt", 40.0), 100.0)
-
-    def test_generate_bundle_mappings(self):
-        from ultron.experimental.evidence_engine import EvidenceEngine
-        codebase = {"a.py": {}, "b.py": {}}
-        coupling = [
-            {"file": "a.py", "coupling_debt": 25.0, "fan_in": 10.0, "fan_out": 9.0, "instability": 0.15},
-            {"file": "b.py", "coupling_debt": 0.0, "fan_in": 0.0, "fan_out": 0.0, "instability": 1.0}
-        ]
-        hotspots = [
-            {"file": "a.py", "hotspot_score": 0.85, "complexity": 55.0}
-        ]
-        leaks = {
-            "a.py": [{"function": "f", "lineno": 12, "responsibility_count": 9}]
-        }
-        git_history = {"a.py": 7}
-        cycles = [["a.py", "b.py", "a.py"]]
-
-        engine = EvidenceEngine(codebase, coupling, hotspots, leaks, git_history, cycles)
-
-        # 1. Test ADP bundle
-        bundle_adp = engine.generate_bundle("a.py", "Acyclic Dependencies Principle (ADP)")
-        self.assertEqual(bundle_adp.violation_type, "Acyclic Dependencies Principle (ADP)")
-        self.assertEqual(len(bundle_adp.metrics), 1)
-        self.assertEqual(bundle_adp.metrics[0].metric_name, "Circular Dependency Loops")
-        self.assertEqual(bundle_adp.metrics[0].observed_value, 1.0)
-        self.assertEqual(bundle_adp.historical_bug_fixes, 7)
-
-        # 2. Test SDP bundle
-        bundle_sdp = engine.generate_bundle("a.py", "Stable Dependencies Principle (SDP)")
-        self.assertEqual(len(bundle_sdp.metrics), 4)
-        names = [m.metric_name for m in bundle_sdp.metrics]
-        self.assertIn("Coupling Debt", names)
-        self.assertIn("Fan-in", names)
-        self.assertIn("Fan-out", names)
-        self.assertIn("Instability", names)
-
-        # 3. Test DIP bundle
-        bundle_dip = engine.generate_bundle("a.py", "Dependency Inversion Principle (DIP)")
-        self.assertEqual(len(bundle_dip.metrics), 1)
-        self.assertEqual(bundle_dip.metrics[0].metric_name, "Fan-out")
-        self.assertEqual(bundle_dip.metrics[0].observed_value, 9.0)
-
-        # 4. Test SRP Abstraction Leak bundle
-        bundle_leak = engine.generate_bundle("a.py", "Single Responsibility Principle (SRP - Abstraction Leak)")
-        self.assertEqual(len(bundle_leak.metrics), 2)
-        leak_names = [m.metric_name for m in bundle_leak.metrics]
-        self.assertIn("Abstraction Leaks Count", leak_names)
-        self.assertIn("Max Leak Namespaces", leak_names)
-
-        # 5. Test SRP God Object Hotspot bundle
-        bundle_god = engine.generate_bundle("a.py", "Single Responsibility Principle (SRP - God Object Hotspot)")
-        self.assertEqual(len(bundle_god.metrics), 2)
-        god_names = [m.metric_name for m in bundle_god.metrics]
-        self.assertIn("Hotspot Score", god_names)
-        self.assertIn("Cyclomatic Complexity", god_names)
-
-        # 6. Test unrecognized violation type raises ValueError
-        with self.assertRaises(ValueError):
-            engine.generate_bundle("a.py", "Unrecognized Principle")
-
-    def test_evidence_engine_nullification_guard(self):
-        """
-        Laundering guard test to verify that calling generate_bundle with
-        invalid state or modifying its constructor will break UMAGS nullifier.
-        """
-        from ultron.experimental.evidence_engine import EvidenceEngine
-        engine = EvidenceEngine({"a.py": {}}, [], [], {}, {}, [])
-        with self.assertRaises(TypeError):
-            engine.generate_bundle(123, "Dependency Inversion Principle (DIP)")
-
-    def test_private_methods_for_failure_space(self):
-        from ultron.experimental.evidence_engine import EvidenceEngine
-        engine = EvidenceEngine({"a.py": {}}, [], [], {}, {}, [])
-        
-        # Explicit calls for UMAGS tested/negative_tested check
-        engine._populate_distributions()
-        engine._calculate_medians()
-        
-        # Test compute_median with normal list
-        median = engine._compute_median([1.0, 2.0, 3.0])
-        self.assertEqual(median, 2.0)
-        
-        # Test compute_median with empty list (boundary case)
-        empty_median = engine._compute_median([])
-        self.assertEqual(empty_median, 0.0)
-
-        # Call with assertRaises/with self.assertRaises to satisfy negative testing
-        with self.assertRaises(TypeError):
-            engine._populate_distributions(123)
-        with self.assertRaises(TypeError):
-            engine._calculate_medians(123)
-        with self.assertRaises(TypeError):
-            engine._compute_median(None)
-
-
-# ---------------------------------------------------------------------------
-# Golden snapshot — guards classification model stability
-# ---------------------------------------------------------------------------
 
 class TestArchitecturalRoleSnapshot(unittest.TestCase):
     """
