@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultron // Repo Root Settings</title>
+    <meta name="description" content="Configure the Ultron repository root path for the desktop launcher.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base:        #0a0b10;
+            --bg-card:        rgba(26, 29, 40, 0.65);
+            --border-color:   rgba(255, 255, 255, 0.08);
+            --border-hover:   rgba(102, 252, 241, 0.25);
+            --text-primary:   #f0f2f5;
+            --text-secondary: #9aa0a6;
+            --neon-cyan:      #66fcf1;
+            --neon-teal:      #45a29e;
+            --neon-purple:    #9d4edd;
+            --risk-low:       #00ff87;
+            --risk-high:      #ff007f;
+            --font-outfit:    'Outfit', sans-serif;
+            --font-mono:      'JetBrains Mono', monospace;
+            --transition:     0.3s;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-outfit);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated background glow — matches index.css */
+        .glow-bg {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle,
+                rgba(157, 78, 221, 0.12) 0%,
+                rgba(102, 252, 241, 0.04) 50%,
+                rgba(0, 0, 0, 0) 100%);
+            top: -100px;
+            right: -100px;
+            pointer-events: none;
+            z-index: 0;
+            animation: glowPulse 6s ease-in-out infinite alternate;
+        }
+        @keyframes glowPulse {
+            from { opacity: 0.7; transform: scale(1);   }
+            to   { opacity: 1.0; transform: scale(1.08); }
+        }
+
+        /* Card */
+        .card {
+            position: relative;
+            z-index: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 40px 48px;
+            width: min(520px, 92vw);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5),
+                        0 0 0 1px rgba(102, 252, 241, 0.04);
+            animation: fadeIn 0.4s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0);    }
+        }
+
+        /* Logo row */
+        .logo-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+        .logo-icon {
+            width: 28px;
+            height: 28px;
+            color: var(--neon-cyan);
+            flex-shrink: 0;
+        }
+        .logo-text {
+            font-size: 1.1rem;
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 12px rgba(102, 252, 241, 0.4);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-primary);
+        }
+        .subtitle {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+
+        /* Form */
+        label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .input-wrap {
+            position: relative;
+            margin-bottom: 24px;
+        }
+        input[type="text"] {
+            width: 100%;
+            background: rgba(10, 11, 16, 0.7);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--text-primary);
+            outline: none;
+            transition: border-color var(--transition), box-shadow var(--transition);
+        }
+        input[type="text"]:focus {
+            border-color: var(--border-hover);
+            box-shadow: 0 0 0 3px rgba(102, 252, 241, 0.08);
+        }
+
+        .hint {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 6px;
+            opacity: 0.8;
+        }
+
+        /* Button */
+        button#submit-btn {
+            width: 100%;
+            padding: 13px 24px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, var(--neon-teal), var(--neon-cyan));
+            color: #0a0b10;
+            font-family: var(--font-outfit);
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            transition: opacity var(--transition), transform var(--transition),
+                        box-shadow var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+        button#submit-btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+            opacity: 0;
+            transition: opacity var(--transition);
+        }
+        button#submit-btn:hover:not(:disabled) {
+            opacity: 0.92;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(102, 252, 241, 0.3);
+        }
+        button#submit-btn:hover::after  { opacity: 1; }
+        button#submit-btn:active:not(:disabled) { transform: translateY(0); }
+        button#submit-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        /* Status message */
+        #status {
+            margin-top: 20px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-family: var(--font-mono);
+            display: none;
+            animation: fadeIn 0.25s ease-out;
+        }
+        #status.success {
+            display: block;
+            background: rgba(0, 255, 135, 0.08);
+            border: 1px solid rgba(0, 255, 135, 0.25);
+            color: var(--risk-low);
+        }
+        #status.error {
+            display: block;
+            background: rgba(255, 0, 127, 0.08);
+            border: 1px solid rgba(255, 0, 127, 0.25);
+            color: var(--risk-high);
+        }
+        #status.loading {
+            display: block;
+            background: rgba(102, 252, 241, 0.06);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        /* Divider */
+        .divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 28px 0;
+        }
+
+        .footer-note {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            opacity: 0.6;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="glow-bg"></div>
+
+    <div class="card">
+        <!-- Logo -->
+        <div class="logo-row">
+            <svg class="logo-icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+            <span class="logo-text">ULTRON</span>
+        </div>
+
+        <h1>Repository Root</h1>
+        <p class="subtitle">
+            Set the root directory of your project. Ultron uses this path
+            for all analysis, audits, and risk scoring.
+        </p>
+
+        <form id="picker-form" novalidate>
+            <label for="repo-path">Repository path</label>
+            <div class="input-wrap">
+                <input
+                    type="text"
+                    id="repo-path"
+                    name="repo-path"
+                    placeholder="e.g. C:\Users\You\my-project"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Repository root path"
+                >
+                <p class="hint">
+                    Paste the full absolute path to your project directory.
+                </p>
+            </div>
+
+            <button type="submit" id="submit-btn" disabled>
+                Use this path
+            </button>
+        </form>
+
+        <div id="status" role="status" aria-live="polite"></div>
+
+        <div class="divider"></div>
+        <p class="footer-note">
+            Stored in <code>ultron/.ultron/config.json</code> &mdash;
+            editable at any time from the tray icon &rarr; Settings.
+        </p>
+    </div>
+
+    <script>
+        'use strict';
+
+        const form       = document.getElementById('picker-form');
+        const input      = document.getElementById('repo-path');
+        const submitBtn  = document.getElementById('submit-btn');
+        const statusEl   = document.getElementById('status');
+
+        // Enable button only when there is non-whitespace input
+        input.addEventListener('input', () => {
+            submitBtn.disabled = !input.value.trim();
+        });
+
+        function showStatus(type, message) {
+            statusEl.className = type;
+            statusEl.textContent = message;
+        }
+
+        // On load: fetch current repo root and pre-fill
+        (async function loadCurrent() {
+            showStatus('loading', 'Loading current path…');
+            try {
+                const res  = await fetch('/api/get-repo-root');
+                const data = await res.json();
+                if (data.repo_root) {
+                    input.value    = data.repo_root;
+                    submitBtn.disabled = false;
+                    showStatus('success', '\u2713 Current path loaded.');
+                } else {
+                    statusEl.style.display = 'none';
+                }
+            } catch (err) {
+                statusEl.style.display = 'none';
+                console.warn('Could not load current repo root:', err);
+            }
+        })();
+
+        // Submit handler
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const path = input.value.trim();
+            if (!path) return;
+
+            submitBtn.disabled = true;
+            showStatus('loading', 'Saving\u2026');
+
+            try {
+                const res  = await fetch('/api/set-repo-root', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ path }),
+                });
+                const data = await res.json();
+
+                if (res.ok && data.status === 'ok') {
+                    showStatus('success',
+                        '\u2713 Saved: ' + data.repo_root);
+                } else {
+                    showStatus('error',
+                        '\u2717 ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                showStatus('error', '\u2717 Network error: ' + err.message);
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
