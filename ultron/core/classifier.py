@@ -1,65 +1,17 @@
-MAGIC_VALUE_1 = 2
 import ast
 import os
 import sys
-
-def levenshtein_distance(s1, s2):
-    """
-    Computes the edit distance between s1 and s2.
-    """
-    if len(s1) < len(s2):
-        return levenshtein_distance(s2, s1)
-    if len(s2) == 0:
-        return len(s1)
-    previous_row = range(len(s2) + 1)
-    for i, c1 in enumerate(s1):
-        current_row = [i + 1]
-        for j, c2 in enumerate(s2):
-            insertions = previous_row[j + 1] + 1
-            deletions = current_row[j] + 1
-            substitutions = previous_row[j] + (c1 != c2)
-            current_row.append(min(insertions, deletions, substitutions))
-        previous_row = current_row
-    return previous_row[-1]
+import difflib
 
 def string_similarity(s1, s2):
     """
-    Returns normalized string similarity in [0, 1].
+    Returns normalized string similarity in [0, 1] using difflib.SequenceMatcher.
     """
-    if not s1 and (not s2):
+    if not s1 and not s2:
         return 1.0
-    max_len = max(len(s1), len(s2))
-    if max_len == 0:
-        return 1.0
-    dist = levenshtein_distance(s1, s2)
-    return 1.0 - dist / max_len
-
-class CallSequenceVisitor(ast.NodeVisitor):
-
-    def __init__(self):
-        self.sequences = []
-        self.current_sequence = []
-
-    def visit_FunctionDef(self, node):
-        old_seq = self.current_sequence
-        self.current_sequence = []
-        self.generic_visit(node)
-        if len(self.current_sequence) > 1:
-            self.sequences.append(self.current_sequence)
-        self.current_sequence = old_seq
-
-    def visit_AsyncFunctionDef(self, node):
-        self.visit_FunctionDef(node)
-
-    def visit_Call(self, node):
-        name = None
-        if isinstance(node.func, ast.Name):
-            name = node.func.id
-        elif isinstance(node.func, ast.Attribute):
-            name = node.func.attr
-        if name:
-            self.current_sequence.append((name, node.lineno))
-        self.generic_visit(node)
+    if not s1 or not s2:
+        return 0.0
+    return difflib.SequenceMatcher(None, s1, s2).ratio()
 
 def get_attribute_chain(node):
     """
@@ -80,17 +32,13 @@ def get_attribute_chain(node):
 
 def build_models(dirpath, exclude_file=None, os=os):
     """
-    Scans the repository and trains the models:
-    - defined_names: set of all function, class, and variable names.
-    - transition_probs: transition probability matrix for call sequences.
+    Scans the repository and returns the set of all defined names
+    (function, class, variable, method, and import names).
     """
     defined_names = set()
-    transitions = {}
     exclude_path = os.path.abspath(exclude_file) if exclude_file else None
-    for root, _, files in os.walk(dirpath):
-        parts = root.split(os.sep)
-        if any((part.startswith('.') or part in ('venv', 'env', '__pycache__', 'tests') for part in parts)):
-            continue
+    for root, dirs, files in os.walk(dirpath):
+        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('venv', 'env', 'test_env', '__pycache__', 'tests', 'node_modules', 'scratch', 'dist', 'synapse_project', 'docs', 'ultron_risk_scorer.egg-info')]
         for file in files:
             if file.endswith('.py'):
                 filepath = os.path.join(root, file)
@@ -100,60 +48,23 @@ def build_models(dirpath, exclude_file=None, os=os):
                     with open(filepath, 'r', encoding='utf-8-sig') as f:
                         tree = ast.parse(f.read())
                     
-                    # Top-level names (globals, functions, classes, imports)
-                    for node in tree.body:
+                    for node in ast.walk(tree):
                         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                             defined_names.add(node.name)
-                            if isinstance(node, ast.ClassDef):
-                                # Also collect method names defined inside the class
-                                for subnode in node.body:
-                                    if isinstance(subnode, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                                        defined_names.add(subnode.name)
-                        elif isinstance(node, ast.Assign):
-                            for target in node.targets:
-                                if isinstance(target, ast.Name):
-                                    defined_names.add(target.id)
-                                elif isinstance(target, ast.Tuple):
-                                    for elt in target.elts:
-                                        if isinstance(elt, ast.Name):
-                                            defined_names.add(elt.id)
-                        elif isinstance(node, ast.Import):
+                        elif isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Param)):
+                            defined_names.add(node.id)
+                        elif isinstance(node, ast.arg):
+                            defined_names.add(node.arg)
+                        elif isinstance(node, (ast.Import, ast.ImportFrom)):
                             for alias in node.names:
-                                defined_names.add(alias.name.split('.')[0])
-                        elif isinstance(node, ast.ImportFrom):
-                            if node.names:
-                                for alias in node.names:
-                                    defined_names.add(alias.name)
-                    
-                    seq_visitor = CallSequenceVisitor()
-                    seq_visitor.visit(tree)
-                    for seq in seq_visitor.sequences:
-                        if not seq:
-                            continue
-                        seq_with_end = seq + [('[END]', seq[-1][1])]
-                        for i in range(len(seq_with_end) - 1):
-                            prev = seq_with_end[i][0]
-                            curr = seq_with_end[i + 1][0]
-                            transitions.setdefault(prev, {}).setdefault(curr, 0)
-                            transitions[prev][curr] += 1
-                        for i in range(len(seq_with_end) - MAGIC_VALUE_1):
-                            prev_prev = seq_with_end[i][0]
-                            prev = seq_with_end[i + 1][0]
-                            curr = seq_with_end[i + 2][0]
-                            key = f'{prev_prev},{prev}'
-                            transitions.setdefault(key, {}).setdefault(curr, 0)
-                            transitions[key][curr] += 1
+                                defined_names.add((alias.asname or alias.name).split('.')[0])
                 except Exception:
                     pass
-    transition_probs = {}
-    for prev, currs in transitions.items():
-        total = sum(currs.values())
-        transition_probs[prev] = {curr: count / total for curr, count in currs.items()}
-    return (defined_names, transition_probs)
+    return defined_names
 
-def audit_target_file(filepath, defined_names, transition_probs, typo_threshold=0.75, prob_threshold=0.0, os=os):
+def audit_target_file(filepath, defined_names, transition_probs=None, typo_threshold=0.75, prob_threshold=0.0, os=os):
     """
-    Audits a single python file for spelling typos and sequence anomalies.
+    Audits a single python file for spelling typos / name confusion anomalies.
     """
     import importlib
     anomalies = []
@@ -171,29 +82,57 @@ def audit_target_file(filepath, defined_names, transition_probs, typo_threshold=
             except Exception:
                 pass
 
-        # Parse local imports and top-level definitions in target file
+        # Introspect common standard library classes to include their public methods
+        import io
+        import argparse
+        import ast as pyast
+        import re
+        import unittest
+        import logging
+        import threading
+        import datetime
+
+        common_stdlib_types = [
+            io.StringIO, io.BytesIO, io.TextIOWrapper, io.BufferedReader, io.BufferedWriter,
+            argparse.ArgumentParser, pyast.NodeVisitor, pyast.NodeTransformer,
+            unittest.TestCase, logging.Logger, threading.Thread, threading.Lock,
+            datetime.datetime, datetime.date, datetime.time, datetime.timedelta
+        ]
+        
+        try:
+            compiled_re = re.compile("")
+            common_stdlib_types.append(type(compiled_re))
+            match_obj = compiled_re.match("")
+            if match_obj:
+                common_stdlib_types.append(type(match_obj))
+        except Exception:
+            pass
+
+        for t in common_stdlib_types:
+            try:
+                for attr in dir(t):
+                    if not attr.startswith('_'):
+                        builtin_methods.add(attr)
+            except Exception:
+                pass
+
+        # Parse local imports, local variables, and parameters inside target file using AST walk
         local_names = set()
         local_imports = {}
 
-        # Safely determine stdlib modules (available in Python 3.10+)
-        stdlib_names = getattr(sys, 'stdlib_module_names', frozenset())
-
-        for node in tree.body:
+        # Collect function-local variable names, parameters, loop variables, etc.
+        for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 local_names.add(node.name)
-                if isinstance(node, ast.ClassDef):
-                    for subnode in node.body:
-                        if isinstance(subnode, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                            local_names.add(subnode.name)
-            elif isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if isinstance(target, ast.Name):
-                        local_names.add(target.id)
-                    elif isinstance(target, ast.Tuple):
-                        for elt in target.elts:
-                            if isinstance(elt, ast.Name):
-                                local_names.add(elt.id)
-            elif isinstance(node, ast.Import):
+            elif isinstance(node, ast.arg):
+                local_names.add(node.arg)
+            elif isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Param)):
+                local_names.add(node.id)
+
+        # Walk nested blocks for imports
+        stdlib_names = getattr(sys, 'stdlib_module_names', frozenset())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
                 for alias in node.names:
                     name = alias.name
                     asname = alias.asname or name
@@ -211,7 +150,6 @@ def audit_target_file(filepath, defined_names, transition_probs, typo_threshold=
             elif isinstance(node, ast.ImportFrom):
                 module_name = node.module
                 if node.level > 0 or not module_name:
-                    # Relative import or empty module name: do not dynamically import, mark as placeholder
                     for alias in node.names:
                         asname = alias.asname or alias.name
                         local_names.add(asname)
@@ -227,7 +165,6 @@ def audit_target_file(filepath, defined_names, transition_probs, typo_threshold=
                                 local_names.add(asname)
                                 
                                 if name == '*':
-                                    # Handle wildcard import of stdlib module
                                     if hasattr(mod, '__all__'):
                                         for n in mod.__all__:
                                             local_names.add(n)
@@ -244,7 +181,6 @@ def audit_target_file(filepath, defined_names, transition_probs, typo_threshold=
                                     except Exception:
                                         local_imports[asname] = 'PLACEHOLDER'
                         except Exception:
-                            # Fallback
                             for alias in node.names:
                                 asname = alias.asname or alias.name
                                 local_names.add(asname)
@@ -254,6 +190,40 @@ def audit_target_file(filepath, defined_names, transition_probs, typo_threshold=
                             asname = alias.asname or alias.name
                             local_names.add(asname)
                             local_imports[asname] = 'PLACEHOLDER'
+
+        # Collect class ranges and their base classes for self-reference validation
+        class_ranges = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef):
+                start_line = node.lineno
+                end_line = start_line
+                for child in ast.walk(node):
+                    if hasattr(child, 'lineno'):
+                        end_line = max(end_line, child.lineno)
+                bases = []
+                for base in node.bases:
+                    if isinstance(base, ast.Name):
+                        bases.append(base.id)
+                    elif isinstance(base, ast.Attribute):
+                        bases.append(base.attr)
+                class_ranges.append({
+                    'start': start_line,
+                    'end': end_line,
+                    'bases': bases
+                })
+
+        # Load standard methods for standard library HTTP/SocketServer handler classes
+        stdlib_handler_methods = set()
+        try:
+            import http.server
+            for attr in dir(http.server.SimpleHTTPRequestHandler):
+                if not attr.startswith('_'):
+                    stdlib_handler_methods.add(attr)
+            for attr in dir(http.server.BaseHTTPRequestHandler):
+                if not attr.startswith('_'):
+                    stdlib_handler_methods.add(attr)
+        except Exception:
+            pass
 
         def is_valid_attribute_chain(base_name, attrs):
             if base_name not in local_imports:
@@ -322,6 +292,17 @@ def audit_target_file(filepath, defined_names, transition_probs, typo_threshold=
                 if attr_name.startswith('_'):
                     continue
                 
+                # Check for inherited self methods in standard library handlers
+                if base_name == 'self':
+                    class_bases = []
+                    for r in class_ranges:
+                        if r['start'] <= lineno <= r['end']:
+                            class_bases = r['bases']
+                            break
+                    if class_bases and any(b in ('SimpleHTTPRequestHandler', 'BaseHTTPRequestHandler', 'HTTPRequestHandler') or 'Handler' in b or 'HTTP' in b for b in class_bases):
+                        if attr_name in stdlib_handler_methods:
+                            continue
+
                 best_match = None
                 best_sim = 0.0
                 search_pool = set(defined_names).union(builtin_methods)
@@ -338,36 +319,11 @@ def audit_target_file(filepath, defined_names, transition_probs, typo_threshold=
                         'line': lineno,
                         'details': f"Called attribute '{attr_name}' is not defined in codebase or standard built-ins. Did you mean '{best_match}'? (spelling similarity: {best_sim:.2%})"
                     })
-
-        seq_visitor = CallSequenceVisitor()
-        seq_visitor.visit(tree)
-        for seq in seq_visitor.sequences:
-            if not seq:
-                continue
-            seq_with_end = seq + [('[END]', seq[-1][1])]
-            if len(seq_with_end) >= 2:
-                prev_name, prev_line = seq_with_end[0]
-                curr_name, curr_line = seq_with_end[1]
-                prob = 0.0
-                if prev_name in transition_probs and curr_name in transition_probs[prev_name]:
-                    prob = transition_probs[prev_name][curr_name]
-                if (prev_name in transition_probs or prev_name in defined_names) and prob <= prob_threshold:
-                    anomalies.append({'type': 'Markov Causal Flow Anomaly', 'file': os.path.basename(filepath), 'line': curr_line, 'details': f"Transition '{prev_name} -> {curr_name}' has {prob:.2%} occurrence probability in baseline codebase (at or below threshold {prob_threshold:.2%}). Highly improbable execution path."})
-            for i in range(len(seq_with_end) - 2):
-                prev_prev_name, prev_prev_line = seq_with_end[i]
-                prev_name, prev_line = seq_with_end[i + 1]
-                curr_name, curr_line = seq_with_end[i + 2]
-                key = f'{prev_prev_name},{prev_name}'
-                prob = 0.0
-                if key in transition_probs and curr_name in transition_probs[key]:
-                    prob = transition_probs[key][curr_name]
-                if (key in transition_probs or prev_name in defined_names) and prob <= prob_threshold:
-                    anom_line = prev_line if curr_name == '[END]' else curr_line
-                    anomalies.append({'type': 'Markov Causal Flow Anomaly', 'file': os.path.basename(filepath), 'line': anom_line, 'details': f"Transition '{prev_prev_name} -> {prev_name} -> {curr_name}' has {prob:.2%} occurrence probability in baseline codebase (at or below threshold {prob_threshold:.2%}). Highly improbable execution path."})
     except Exception as e:
         import traceback
         anomalies.append({'type': 'Parse Error', 'file': os.path.basename(filepath), 'line': 1, 'details': f"{e}\n{traceback.format_exc()}"})
     return anomalies
+
 if __name__ == '__main__':
     if len(sys.argv) < 3:
         print('Usage: python classifier.py <repo_path> <target_file>')
@@ -375,9 +331,9 @@ if __name__ == '__main__':
     repo = sys.argv[1]
     target = sys.argv[2]
     print(f'[+] Classifier: Training models on {repo}...')
-    names, probs = build_models(repo)
+    names = build_models(repo)
     print(f'[+] Classifier: Auditing target file {target}...')
-    anomalies = audit_target_file(target, names, probs)
+    anomalies = audit_target_file(target, names)
     if anomalies:
         print(f'[-] WARNING: Found {len(anomalies)} statistical anomaly(s)!')
         for anom in anomalies:

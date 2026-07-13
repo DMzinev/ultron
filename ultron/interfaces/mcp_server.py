@@ -35,7 +35,7 @@ TOOLS = [
     },
     {
         "name": "audit_file_anomalies",
-        "description": "Audits a modified file for statistical anomalies (spelling typos / name confusion and Markovian call sequence flows).",
+        "description": "Audits a modified file for statistical spelling typos / name confusion anomalies.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -51,11 +51,6 @@ TOOLS = [
                     "type": "number",
                     "description": "Normalized string similarity threshold (0.0 to 1.0) for typo detection (default: 0.75).",
                     "default": 0.75
-                },
-                "prob_threshold": {
-                    "type": "number",
-                    "description": "Markov transition probability threshold (0.0 to 1.0) for call sequence anomaly detection (default: 0.0).",
-                    "default": 0.0
                 }
             },
             "required": ["repo", "target_file"]
@@ -166,13 +161,11 @@ def handle_audit_file_anomalies(args):
     typo_threshold = float(args.get("typo_threshold", 0.75))
     prob_threshold = float(args.get("prob_threshold", 0.0))
     
-    names, probs = classifier.build_models(repo_path, exclude_file=target_file)
+    names = classifier.build_models(repo_path, exclude_file=target_file)
     anomalies = classifier.audit_target_file(
         target_file, 
         names, 
-        probs, 
-        typo_threshold=typo_threshold, 
-        prob_threshold=prob_threshold
+        typo_threshold=typo_threshold
     )
     
     return json.dumps({

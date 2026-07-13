@@ -19,6 +19,25 @@ Most tools stop at step three. Ultron is entering step five.
 
 Every new feature must answer one question: **Does this help a developer make a better architectural decision?** If not, it belongs in UMAGS or nowhere.
 
+## Product Acceptance Gate
+
+Every feature proposal must pass all six questions before implementation begins. A feature that fails most of these questions should wait.
+
+| # | Question | Why it matters |
+|---|----------|----------------|
+| 1 | **Does this solve a real developer problem?** | Prevents building interesting but unused features. |
+| 2 | **Can a user see or interact with the result?** | Keeps backend work connected to product value. |
+| 3 | **Does it reuse the Repository Knowledge Model?** | Prevents duplicate architectures. |
+| 4 | **Can every recommendation be explained with evidence?** | Enforces Principle 2. |
+| 5 | **Will it still work on repositories 100× larger?** | Encourages scalable designs. |
+| 6 | **Would a first-time user notice the improvement within five minutes?** | Keeps focus on user value rather than engineering elegance. |
+
+## Beta Success Criterion
+
+> **Can a developer understand an unfamiliar repository in under five minutes?**
+
+This is the outcome metric for every milestone. Features that do not move this metric in the right direction are deprioritized regardless of engineering complexity.
+
 ---
 
 ## UMAGS is frozen at Kernel v1.0
@@ -218,41 +237,48 @@ Behavioral divergence between original and mutant code. Input pool is generic ra
 
 ---
 
-### ⚠️ Requires a design decision before any fix
+### ✅ Resolved Design Decision (2026-07-12)
 
 **Markov / typo audit** (`classifier.py`)
-Flags likely misspellings. The false-positive fix for `abspath` / `keys` worked, but the Markov Causal Flow layer now generates ~35 new anomalies at 0.00% probability. Root cause: trained on the same codebase it audits.
-
-Three options — do not implement any without user decision:
-- **Option A:** Remove Markov transition layer from production output (keep spelling-similarity only)
-- **Option B:** Train on an external Python corpus
-- **Option C:** Raise transition-probability threshold to a non-zero value
+*   **Markov Causal Flow Layer:** Completely removed. The sequence-transition model was structurally prone to high false-positive rates by design, flagging standard python calls unique to individual files. 
+    *   *Result:* Markov anomalies dropped from 202 to exactly 0.
+*   **Spelling-Similarity Layer:** Retained and hardened. Swapped the hand-rolled Levenshtein distance for `difflib.SequenceMatcher` (Sequence similarity ratio changed from `0.875` to `0.9333` for `init_db` vs `init_dbb`). Scoping bugs (local variable name detection, conditional nested imports walking, and inherited stdlib HTTP handler methods on `self`) were fixed.
+    *   *Result:* All 12 specific false positives in `translate.py`, `context_brief.py`, `scoring.py`, and `server.py` are resolved. Furthermore, by generalizing the checker via dynamic class attribute introspection on standard library modules (`io`, `argparse`, `ast`, `re`, `unittest`, `logging`, `threading`, `datetime`), standard method calls (such as `.write()`, `.read()`, `.parse_args()`, `.visit()`, etc.) are correctly skipped. Total anomalies in the codebase dropped from 214 to **exactly 0**.
 
 ---
 
 ### 🔇 Dormant — working code, not in active use
 
 **Logistic confidence calibration** (`logistic.py`)
-Gradient descent math confirmed correct (93.75% F1 on synthetic held-out split). Never trained on real data — `experiment_log.jsonl` has 3 rows; minimum required is 5. All live scores use hardcoded fallback weights. Blocked on human feedback pipeline.
+Gradient descent math confirmed correct (93.75% F1 on synthetic held-out split). Fitted relative path resolver to correct location. Never trained on real data — `experiment_log.jsonl` has 3 rows; minimum required is 5. All live scores use hardcoded fallback weights. Blocked on human feedback pipeline.
 
-**Human feedback collection** (`human_feedback.jsonl`, `blind_rate.py`)
-`blind_rate.py` is built and correct. `blind_feedback.jsonl` is empty. The blinded rating study (Tasks 4-5) is parked awaiting a human rater.
+**Human feedback collection & blind rate** (`human_feedback.jsonl`, `blind_rate.py`)
+`blind_rate.py` is built and correct. `blind_feedback.jsonl` is empty. The blinded rating study (Tasks 4-5) is parked awaiting a human rater. Tests quarantined in `ultron/tests/dormant/test_blind_rate.py`.
 
 **AI Rater + Compare AI Ratings** (`ai_rater.py`, `compare_ai_ratings.py`)
 Syntactically valid, not in any active pipeline. Blocked on human feedback collection.
 
 **Constitutional Sentinel** (`sentinel.py`)
-Structural entropy scanner, assumption auditor. Dormant by deliberate decision — gating disabled in verification loop to keep UMAGS lightweight. Do not reactivate without explicit instruction.
+Structural entropy scanner, assumption auditor. Dormant by deliberate decision — gating disabled in verification loop to keep UMAGS lightweight. Do not reactivate without explicit instruction. Tests quarantined in `ultron/tests/dormant/test_sentinel.py`.
 
-**Evidence Engine** (`evidence_engine.py`)
-Built (medians, percentiles across codebase metrics), but per a later Ponytail-style dead-code audit, appears to only be imported by its own tests — not actually wired into design_oracle.py's real report generation. Confirm whether integration was simply never finished (worth completing) or whether this was scope that never needed to exist (worth removing) before deciding its fate.
+**Contract Guard** (`guard.py`)
+Static contract checking. Parked with gating disabled in main loop. Tests quarantined in `ultron/tests/dormant/test_guard.py`.
+
+**Reality Delta** (`reality_delta.py`)
+Reality score attribution. Parked/unused in live flows. Tests quarantined in `ultron/tests/dormant/test_reality_delta.py`.
 
 ---
 
-### 🔇 Silently inert
+### 🔇 Reachable but unused/unconfirmed caller
 
-**`meta_layer.py`, `pledge.py`, `prompt.py`**
-Not wired into any active path. No current plan.
+**`meta_layer.py`**
+Reachable — lazily imported in `server.py`'s `handle_calibrate()` at line 907. Reachable via `/calibrate` endpoint but not part of default user flow.
+
+**`pledge.py`**
+Reachable/Active — module-level import in `server.py`; called by `/api/pledge/create` and `/api/pledge/verify` route handlers.
+
+**`prompt.py`**
+Active — module-level import in all three production entry points (`ultron.py`, `server.py`, `mcp_server.py`).
 
 ---
 

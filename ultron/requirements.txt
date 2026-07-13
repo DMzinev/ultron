@@ -1,3 +1,0 @@
-# Ultron requires python 3.8+ and standard libraries.
-# Optional complexity evaluation:
-radon>=6.0.0

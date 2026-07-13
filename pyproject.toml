@@ -26,4 +26,12 @@ ultron = "ultron.interfaces.ultron:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["ultron*"]
-exclude = ["umags*", "synapse_project*"]
+exclude = [
+    "ultron.tests*",
+    "ultron.validation*",
+    "umags*",
+    "synapse_project*"
+]
+
+[tool.setuptools.package-data]
+"ultron.interfaces" = ["web/*.html", "web/*.css", "web/*.js"]

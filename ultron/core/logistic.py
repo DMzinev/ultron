@@ -45,7 +45,7 @@ def train_confidence_classifier():
     Fits logistic regression parameters using batch gradient descent on ledger outcomes.
     Reads data from meta/experiment_log.jsonl.
     """
-    log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meta", "experiment_log.jsonl")
+    log_path = os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "meta", "experiment_log.jsonl"))
     if not os.path.exists(log_path):
         return load_logistic_weights()
         

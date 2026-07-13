@@ -3,6 +3,7 @@ import sys
 import json
 import subprocess
 import time
+import traceback
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 _root = os.path.abspath(os.path.join(_dir, "..", ".."))
@@ -64,16 +65,19 @@ def run_controlled_experiment():
     print("[Meta-Ultron] Setting up and running controlled experiment...")
     # Execute Ultron CLI against our sandboxed anomaly target
     cwd = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    env = os.environ.copy()
+    env["PYTHONPATH"] = cwd
     res = subprocess.run(
         [
-            sys.executable, "ultron/interfaces/ultron.py",
+            sys.executable, "-m", "ultron.interfaces.ultron",
             "--repo", "scratch/test_anomaly_dir",
             "--check-anomaly", "scratch/test_anomaly_dir/target_anomaly.py",
             "--json"
         ],
         capture_output=True,
         text=True,
-        cwd=cwd
+        cwd=cwd,
+        env=env
     )
     
     # We expect return code 2 (anomalies detected)
@@ -85,16 +89,15 @@ def run_controlled_experiment():
         
         # Verify anomalies caught
         typo_caught = any(anom["type"] == "Spelling Typo / Name Confusion" for anom in anomalies)
-        markov_caught = any(anom["type"] == "Markov Causal Flow Anomaly" for anom in anomalies)
         
-        success = (res.returncode == 2) and typo_caught and markov_caught
+        success = (res.returncode == 2) and typo_caught
         
         if success:
-            print("[Meta-Ultron] [+] Experiment SUCCESS: Both spelling and transition anomalies detected.")
+            print("[Meta-Ultron] [+] Experiment SUCCESS: Spelling typo anomaly detected.")
             for anom in anomalies:
                 print(f"   * Caught [{anom['type']}] on line {anom.get('line')}: {anom['details']}")
         else:
-            print("[Meta-Ultron] [-] Experiment FAILED: Expected anomalies were not detected correctly.", file=sys.stderr)
+            print("[Meta-Ultron] [-] Experiment FAILED: Spelling typo anomaly was not detected correctly.", file=sys.stderr)
             
         # Update ledger
         ledger = read_ledger()
@@ -126,7 +129,8 @@ def show_status():
         print(f"  [{hyp['id']}] {hyp['text']} -> {hyp['status']}")
     print("\nRecent Experiment History:")
     for run in ledger["experiment_history"][-3:]:
-        print(f"  * [{run['timestamp']}] {run['experiment_type']}: {run['result']}")
+        result_val = run.get('result') or f"Optimal T_typo: {run.get('optimal_typo_threshold', 'N/A')}"
+        print(f"  * [{run['timestamp']}] {run['experiment_type']}: {result_val}")
     print("====================================================")
 
 def log_calibration_experiment(predicted_risk, actual_failures, prediction_error, precision, recall, f1):
@@ -214,8 +218,8 @@ def run_threshold_calibration(repo_path):
             "f1_score": f1
         })
         
-    # 4. Define sequence probability threshold
-    best_prob_t = 0.01
+    # 4. Define sequence probability threshold (deprecated)
+    best_prob_t = 0.0
     
     # 5. Log calibration to evolution ledger
     ledger = read_ledger()

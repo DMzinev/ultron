@@ -29,6 +29,8 @@ LAST_ANALYSIS = {
 
 PORT = 8000
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
+CONFIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".ultron")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -45,6 +47,10 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         # Route to static files
         parsed_path = self.path.split('?')[0]
+        # API routes — must be handled before the static-file/traversal block
+        if parsed_path == "/api/get-repo-root":
+            self.handle_get_repo_root()
+            return
         if parsed_path == "/" or parsed_path == "":
             file_path = os.path.join(WEB_DIR, "index.html")
         else:
@@ -133,6 +139,8 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_report()
         elif self.path == "/api/design-oracle":
             self.handle_design_oracle()
+        elif self.path == "/api/set-repo-root":
+            self.handle_set_repo_root()
         else:
             self.send_response(404)
             self.send_header("Content-Type", "application/json")
@@ -211,13 +219,11 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             typo_threshold = float(data.get("typo_threshold", 0.75))
             prob_threshold = float(data.get("prob_threshold", 0.0))
             
-            names, probs = classifier.build_models(repo_path, exclude_file=target_file)
+            names = classifier.build_models(repo_path, exclude_file=target_file)
             anomalies = classifier.audit_target_file(
                 target_file, 
                 names, 
-                probs, 
-                typo_threshold=typo_threshold, 
-                prob_threshold=prob_threshold
+                typo_threshold=typo_threshold
             )
             
             # Clean up temporary sandbox file
@@ -275,6 +281,43 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             })
         except Exception as e:
             self.send_json_response(500, {"error": str(e)})
+
+    def handle_get_repo_root(self):
+        try:
+            if not os.path.exists(CONFIG_FILE):
+                self.send_json_response(200, {"repo_root": None})
+                return
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            self.send_json_response(200, {"repo_root": cfg.get("repo_root")})
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
+
+    def handle_set_repo_root(self):
+        try:
+            data = self.get_post_data()
+            path = data.get("path", "")
+            if not isinstance(path, str) or not path.strip():
+                self.send_json_response(400, {"error": "Missing or invalid 'path' parameter."})
+                return
+            abs_path = os.path.abspath(path.strip())
+            # Reject bare drive roots (e.g. "C:\") — would expose the whole drive
+            drive, tail = os.path.splitdrive(abs_path)
+            if tail in ("\\", "/", ""):
+                self.send_json_response(400, {"error": "Path must not be a bare drive root."})
+                return
+            if not os.path.isdir(abs_path):
+                self.send_json_response(400, {"error": f"Path '{abs_path}' is not a valid directory."})
+                return
+            os.makedirs(CONFIG_DIR, exist_ok=True)
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump({"repo_root": abs_path}, f, indent=2)
+            self.send_json_response(200, {"status": "ok", "repo_root": abs_path})
+        except Exception as e:
+            self.send_json_response(500, {
+                "error": str(e),
+                "traceback": traceback.format_exc()
+            })
 
     def handle_file_tree(self):
         try:
