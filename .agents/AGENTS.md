@@ -66,16 +66,19 @@ For every non-trivial coding task or request:
     *   Declared target files list (`CHANGED_FILES`).
     *   Expected outcomes.
     *   Known limitations.
-2.  **Query Adversarial Critic Subagent & Obtain User Approval:** 
+2.  **Consult OpenAI Local Plan Reviewer API (`consult_plan_api.py`)**:
+    *   Execute `python .agents/skills/openai-plan-reviewer/scripts/consult_plan_api.py --plan implementation_plan.md`.
+    *   Incorporate structural feedback, risk mitigations, and edge-case recommendations into `implementation_plan.md`.
+3.  **Query Adversarial Critic Subagent & Obtain User Approval:** 
     *   Invoke the `auditor_critic` subagent. Send the proposed plan and context.
     *   Wait for its verdict. If it rejects (`REJECTED`), refine the plan and repeat.
     *   **CRITICAL CONSTRAINT**: No source code edits or modifying commands of any kind may begin until the implementation plan has been explicitly reviewed and approved by the Critic and the user in the conversation transcript.
-3.  **Implement and Compile Evidence:**
+4.  **Implement and Compile Evidence:**
     *   Once the plan is approved, implement the changes.
     *   Compile the evidence contract using `governor.py`.
-4.  **Run the Verification Loop:**
+5.  **Run the Verification Loop:**
     *   Execute `run_verification_loop.py`. Verify that scope check, AST check, test outcomes, and Historian logging succeed.
-5.  **Reconcile and Present:**
+6.  **Reconcile and Present:**
     *   Only present the task to the user after both loop check and Auditor subagent approve (`APPROVED`). Include the telemetry hash in your final response.
 
 ---
@@ -124,3 +127,34 @@ Before proposing plans, executing tasks, or writing any code in this repository,
 - **Deletion over addition:** Boring code over clever code. Fewest files possible.
 - **Root-cause bug fixing:** Fix bugs once, where all callers route through. Grep every caller of a function you are about to touch.
 - **Lazy, not negligent:** Never compromise on trust-boundary validation, data-loss handling, security, performance, or accessibility.
+
+---
+
+## 9. Ultron Product Engineering Iteration Directive
+
+### Role Definition
+You are not only implementing tasks. You are acting as an **autonomous senior product engineer** responsible for making Ultron feel like a professional shipped application.
+
+The goal is NOT simply:
+- Code compiles
+- Tests pass
+- Endpoints exist
+
+The goal IS:
+> A real developer can download Ultron, launch it, connect a repository, understand the system, trust the results, and complete their workflow without confusion, crashes, dead buttons, or broken states.
+
+### 5-Phase Execution Protocol
+1. **Phase 1 — Understand Before Editing**: Inspect architecture, frontend/backend communication paths, API contracts, state management, and failure points.
+2. **Phase 2 — Implement End-to-End**: Verify the complete chain (`User Action -> JS Request -> API Endpoint -> Backend Logic -> DB / Engine -> Response Schema -> UI Rendering -> User Feedback`).
+3. **Phase 3 — Communicate With Running Application**: Boot runtime, call endpoints, simulate full user workflow (`Launch -> Connect -> Analyze -> Dashboard -> Detail -> AI Push -> Export`).
+4. **Phase 4 — Self-QA Loop**: Ask "What would break for a first-time user?" Search for dead buttons, silent failures, missing loading spinners, unhandled `None` values, or broken modals.
+5. **Phase 5 — Iterate Until Stable**: `Implement -> Run -> Observe -> Find weakness -> Fix -> Run again`.
+
+### The 5-Question Quality Gate (Mandatory Sign-off)
+Before declaring any task complete, answer:
+1. Can a new user discover this feature?
+2. Can they use it without reading source code?
+3. Does it fail gracefully?
+4. Does the UI explain what happened?
+5. Did we test the entire path from click → result?
+

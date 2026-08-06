@@ -1,17 +1,35 @@
+# Python bytecode and caches
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.bak
-*.bak
+*.so
+.cache/
+
+# Local databases and RKM state
+.ultron/
+*.db
+*.sqlite
+
+# Environments and IDEs
+.venv/
+env/
+venv/
 .idea/
 .vscode/
+.ds_store
+
+# Build & packaging
+dist/
+build/
+*.egg-info/
+
+# Backup & temporary verification artifacts
+*.bak
+.bak
+*.tmp_verification
 .agents/
 .synapse/
 ultron/meta/audit_package.yaml
 ultron/meta/audit_telemetry.jsonl
-
-# Verification loop backup files
-*.bak
-*.tmp_verification
 umags/.cache/

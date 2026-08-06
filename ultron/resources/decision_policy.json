@@ -1,0 +1,23 @@
+{
+  "version": "1.0.0",
+  "description": "Consolidated policy configuration for Decision Intelligence v1",
+  "weights": {
+    "complexity": 0.45,
+    "coupling": 0.3,
+    "coverage": 0.25
+  },
+  "scaling": {
+    "complexity_multiplier": 4.0,
+    "coupling_multiplier": 10.0
+  },
+  "thresholds": {
+    "CRITICAL": 75.0,
+    "HIGH": 50.0,
+    "MEDIUM": 25.0
+  },
+  "criticality": {
+    "CRITICAL_PATH": 1.2,
+    "DEFAULT": 1.0,
+    "EXPERIMENTAL": 0.8
+  }
+}

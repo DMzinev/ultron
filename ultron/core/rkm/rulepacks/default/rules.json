@@ -1,0 +1,55 @@
+{
+  "rule_pack_id": "default",
+  "rules": [
+    {
+      "id": "complexity_limit",
+      "name": "Complexity Limit",
+      "description": "Files must not exceed maximum cyclomatic complexity limit.",
+      "predicate_type": "complexity_limit",
+      "version": "1.0.0",
+      "enabled": 1,
+      "severity": "warning",
+      "predicate_config": {
+        "max": 15
+      }
+    },
+    {
+      "id": "coupling_limit",
+      "name": "Coupling Limit",
+      "description": "Files must not exceed maximum coupling threshold.",
+      "predicate_type": "coupling_limit",
+      "version": "1.0.0",
+      "enabled": 1,
+      "severity": "warning",
+      "predicate_config": {
+        "max": 10
+      }
+    },
+    {
+      "id": "layer_restriction",
+      "name": "Layer Restriction",
+      "description": "Interface files must not directly depend on core engine implementation files.",
+      "predicate_type": "layer_restriction",
+      "version": "1.0.0",
+      "enabled": 1,
+      "severity": "error",
+      "predicate_config": {
+        "source_pattern": "ultron/interfaces/*",
+        "target_pattern": "ultron/core/*"
+      }
+    },
+    {
+      "id": "storage_restriction",
+      "name": "Storage Access Restriction",
+      "description": "Interface files must not directly access sqlite or persistence store modules.",
+      "predicate_type": "layer_restriction",
+      "version": "1.0.0",
+      "enabled": 1,
+      "severity": "error",
+      "predicate_config": {
+        "source_pattern": "ultron/interfaces/*",
+        "target_pattern": "ultron/core/rkm/store*"
+      }
+    }
+  ]
+}

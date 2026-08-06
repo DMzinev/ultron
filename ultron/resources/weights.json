@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "description": "Risk signal weights and multipliers",
+  "weights": {
+    "complexity_weight": 0.45,
+    "coupling_weight": 0.3,
+    "coverage_weight": 0.25
+  },
+  "scaling": {
+    "complexity_multiplier": 4.0,
+    "coupling_multiplier": 10.0
+  }
+}

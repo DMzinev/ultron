@@ -1,84 +1,119 @@
-# Ultron — AI-Assisted Software Architecture Platform
+# Ultron — Cognitive Software Architecture & Pre-Execution Intelligence Platform
 
-Tells you which files in a Python codebase are risky to change, and why, before you touch them. Generates structured context for AI agents working on the codebase.
+![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Security](https://img.shields.io/badge/privacy-100%25%20Local%20%2F%20Zero%20Network-blueviolet.svg)
+![RKM Engine](https://img.shields.io/badge/RKM-v1.3.0-orange.svg)
+![MCP Support](https://img.shields.io/badge/MCP-Stdio%20Middleware-cyan.svg)
 
----
-
-## Core Guarantees & Differentiators
-
-*   **Zero Network Calls / 100% Local:** Ultron runs completely on your local machine. No code or metadata ever leaves your system, ensuring absolute security, data privacy, and zero execution cost.
-*   **Explainable & Traceable:** Every warning and recommendation follows a deterministic trail from static analysis measurements to software design principles. No speculative AI hallucinations.
-
----
-
-## Working Today (Fully Operational)
-
-*   **Static Risk Scoring:** Computes a file-level risk score using the formula: $I(N) = \text{Complexity} \times \ln(e + \text{Coupling})$, scaled by git bug-fix history.
-*   **Plain-Language Summary:** Translates raw numerical scores into simple, jargon-free sentences (e.g. *"High risk to change. 14 other files depend on it directly..."*).
-*   **Codebase Context Brief (`--brief`):** Outputs a structured markdown codebase overview (directory trees, highest-risk files, architectural summaries) designed to serve as an orientation payload for AI coding agents.
-*   **Design Oracle (`--oracle`):** Analyzes coupling debt, circular dependencies, abstraction leaks, and hotspot rankings across the codebase.
-*   **5-Step Architectural Reasoning Pipeline:**
-    1.  **Reasoning Layer:** Maps raw metric anomalies to software engineering principles (ADP, SDP, DIP, SRP).
-    2.  **Knowledge Graph:** Traverses a curated graph of relationships between smells, candidate refactorings, and expected metric changes.
-    3.  **Recommendation Engine:** Generates and ranks concrete, deterministic refactoring strategies.
-    4.  **Impact Simulator:** Calculates projected complexity and coupling metrics post-refactoring.
-    5.  **Contract Generator:** Renders sorted, per-file markdown contracts.
-*   **MCP Server Integration:** Exposes risk metrics and codebase briefs as Model Context Protocol (MCP) endpoints for IDEs and AI agent tool integrations.
+**Ultron** tells you which files and modules in a Python codebase are risky to change — and *why* — before you edit them. It combines static McCabe complexity, coupling topology, Repository Knowledge Model (RKM) memory, and plain-language summaries into a futuristic Web SPA and Model Context Protocol (MCP) server for developer and AI agent workflows.
 
 ---
 
-## Known Limitations & Validation Status
+## 🌟 Core Guarantees & Features
 
-*   **Scoring Thresholds:** The absolute risk tier thresholds (10.0 for HIGH, 3.0 for MEDIUM) are calibrated heuristics. They have not been validated against external, large-scale defect data.
-*   **Best-Case Projections:** The simulated metrics in the contract cards represent theoretical, best-case projections assuming each recommended refactoring is fully and correctly applied, rather than an empirical guarantee of the final codebase state.
+*   **Zero Network Calls / 100% Local Privacy:** Ultron runs completely on your local machine. No source code or metadata leaves your system.
+*   **Explainable & Traceable:** Every warning and refactoring opportunity follows a deterministic trail from AST measurements to software design principles (ADP, SDP, DIP, SRP). Zero speculative AI hallucinations.
+*   **Futuristic Dark Web SPA Portal (`http://localhost:8000/`):**
+    *   **Creator Mode**: Visual heatmaps, plain-English impact explanations, and safe-zone modification guides.
+    *   **Engineer Mode**: Deep static metrics datagrid, McCabe complexity breakdown, coupling ranks, and RKM Policy Engine recommendations.
+*   **High-Scale Visual Topology Explorer**:
+    *   **Viewport Pan & Zoom**: Smooth mousewheel zoom, canvas drag-pan, and fit-screen controls.
+    *   **Dynamic Force Repulsion & Collision Avoidance**: Node repulsion (`max(2500, N * 90)`) and collision radius spacing prevent overlapping text labels on large repositories.
+    *   **Interactive Node Filters**: Filter graph nodes by Risk Level (`High`, `Medium`, `Low`) or Node Type (`Files`, `Functions`).
+    *   **Hover Dependency Highlight**: Hovering over any node highlights direct import/caller links while dimming unrelated code.
+*   **AI Context Briefs & MCP Integration**:
+    *   One-click AI Context Brief generator for Claude, ChatGPT/Codex, and Gemini/Antigravity orientation payloads.
+    *   Native stdio JSON-RPC MCP server (`get_context_brief`, `evaluate_repository`, `explain_violation`).
+*   **Closed-Loop Self-Optimization**:
+    *   Ultron analyzes its own codebase (`./ultron`), identifies complexity hotspots, guides refactoring, and empirically measures health score improvements.
 
 ---
 
-## UMAGS Development Governance
-
-The code in this repository was built and verified using an internal **Unified Multi-Agent Governance Loop (UMAGS)**. 
-*   *Please Note:* UMAGS is a development-time safety framework (enforcing scope checks, programmatic code nullification tests, and AST checks) that operates locally to verify code correctness before merge. It is not shipped and does not run as part of the runtime Ultron package.
-
----
-
-## Quick Start
+## 🚀 Quick Start
 
 ### Installation
 
-Clone the repository and install requirements:
+Clone the repository and install standard requirements:
 ```bash
+git clone https://github.com/your-username/ultron.git
+cd ultron
 pip install -r requirements.txt
 ```
 
-### Usage
+### Launching the Web Portal SPA
 
-**Score specific files before changing them:**
+Start the single-command launcher (scans repository, boots server on port 8000, and opens default browser):
 ```bash
-python ultron/interfaces/ultron.py --repo . --files path/to/file.py --intent "describe what you want to change" --detail
+python start.py
+```
+> **Windows Batch Alternative**: Double-click `start.bat` or run `start.bat` in Command Prompt.
+
+---
+
+## 🛠️ Command-Line & MCP Workflows
+
+### 1. Analyze Specific Files
+```bash
+python ultron/interfaces/ultron.py --repo . --files ultron/core/analyzer.py --intent "refactor analyzer loop" --detail
 ```
 
-**Generate a codebase context brief (for AI agent orientation):**
+### 2. Generate Codebase Context Brief for AI Coding Agents
 ```bash
 python ultron/interfaces/ultron.py --repo . --brief
 ```
 
-**Run the Design Oracle (coupling debt, circular dependencies, reasoning reports, and contract generation):**
+### 3. Run the Design Oracle (Coupling Debt & Refactoring Contracts)
 ```bash
 python ultron/interfaces/ultron.py --repo . --oracle
 ```
 
-**Start the MCP server:**
+### 4. Start the MCP Server Middleware
 ```bash
-python start_ultron.py
+python -m ultron.interfaces.mcp_server
 ```
 
 ---
 
-## Directory Map
+## 🧪 Testing & Verification
 
-*   `ultron/core/` — core risk scoring, complexity, coupling metrics, and CLI translations
-*   `ultron/experimental/` — reasoning pipeline, knowledge graph, recommendation engine, impact simulator, and contract generator
-*   `ultron/interfaces/` — CLI entry point and MCP server
-*   `ultron/tests/` — unit test suite
-*   `docs/architecture/` — architectural reference documents (`SYSTEM_MAP.md` and `UMAGS.md`)
-*   `umags/` — verification loop scripts, AST checkers, and nullifier harnesses
+Run the master unit and integration test suite:
+```bash
+python -m unittest discover ultron/tests "test_*.py" -v
+```
+
+Verify frontend JavaScript syntax:
+```bash
+node -c ultron/interfaces/web/index.js
+```
+
+Run the UMAGS Governance Verification Loop:
+```bash
+python umags/run_verification_loop.py
+```
+
+---
+
+## 📁 Repository Map
+
+```
+ultron/
+├── core/                   # AST analyzer, complexity, coupling, RKM SQLite memory & policy engine
+├── interfaces/
+│   ├── web/                # Glassmorphic SPA (index.html, index.js, index.css)
+│   ├── server.py           # HTTP REST server router & API handlers
+│   ├── ultron.py           # CLI entry point
+│   ├── mcp_server.py       # Model Context Protocol stdio middleware
+│   └── api/                # Modular API endpoints
+├── release/                # Automated release audit & invariant policy evaluator
+├── tests/                  # Master test suite (89 unit/integration/chaos tests)
+├── start.py                # Zero-config single-file entry launcher
+├── requirements.txt        # Root Python dependencies
+└── pyproject.toml          # Package build configuration
+```
+
+---
+
+## 📜 License
+
+Licensed under the [MIT License](LICENSE).

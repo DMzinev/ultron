@@ -1131,4 +1131,221 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:** None.
 
 
+### 2026-07-13 — Task-MilestoneBFoundation: Persistent RKM Memory Foundation
+
+**Attempted:** Implement the persistent Repository Knowledge Model (RKM) memory layer, SQLite schema migrations, adapters, pipeline orchestration, CLI integration, and full verification test suites (EXECUTION_PLAN.md / implementation_plan.md).
+
+**Antigravity self-audit result:**
+- [x] RKM Schema Contract defined v1.0.0 dataclasses in `schema.py`
+- [x] Initial SQLite DDL schema with 11 tables and idempotent migration wrapper in `store.py`
+- [x] Read Query interface (`QueryRepository`) implemented in `query.py`
+- [x] Decoupling adapter layer implemented in `adapters.py` protecting the frozen engine
+- [x] Pipeline Orchestration (`discovery.py`, `persistence.py`, `orchestrator.py`) connected to CLI
+- [x] Complete integration test suites (`test_rkm_contract.py`, `test_rkm_restart.py`, `test_diagnostic_chain.py`, `test_engine_compatibility.py`) passing successfully (151 tests ran, OK)
+- [x] UMAGS Gating loop verification completed successfully with `Verdict: APPROVED`
+
+*Verification Loop Output:*
+```text
+Ran 151 tests in 205.520s
+OK
+```
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** RKM Persistent Memory Layer: 🔇 none → ✅ verified stable foundation under RKM v1.0.0 schema, query, and adapter layers.
+
+**Open questions / follow-up:** None.
+
+
+### 2026-07-14 — Task-MilestoneCPrep: Milestone C Preparation Additions
+
+
+**Attempted:** Upgrade the Repository Knowledge Model (RKM) from a simple persistence layer into a version-controlled temporal history database. Integrate cache gating, JSON snapshot exporter/importer, temporal queries, and CLI integration.
+
+**Antigravity self-audit result:**
+- [x] RKM Schema Contract defined v1.1.0 dataclasses (added `ProvenanceRecord`, `RunComparison`) in `schema.py`
+- [x] DDL upgrade migration script (`002_rkm_v1.1.0_upgrade.sql`) created
+- [x] Version check and compatibility validation added to `store.py`
+- [x] Read Query interface (`QueryRepository`) upgraded with `get_analysis_history`, `compare_runs`, and `get_file_history` in `query.py`
+- [x] Incremental analysis cache-gating implemented in `orchestrator.py`
+- [x] Snapshot import/export utilities implemented in `snapshot.py`
+- [x] CLI arguments (`--force`, `--snapshot-export`, `--snapshot-import`, and placeholders for history/compare/timeline) implemented in `ultron.py`
+- [x] Programmatic AST compliance and Failure Space (R=0) successfully verified
+
+*Verification Loop Output:*
+```text
+Ran 160 tests in 102.486s
+OK
+```
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** RKM Persistent Memory Layer: ✅ verified stable foundation under RKM v1.0.0 schema → ✅ upgraded to version-controlled temporal history database under RKM v1.1.0 schema, query, and snapshot layers.
+
+**Open questions / follow-up:** None.
+
+
+### 2026-07-15 — Task-MilestoneD: RKM Platform Hardening
+
+**Attempted:** Establish database-level invariants and clean metadata structures to harden the Repository Knowledge Model (RKM) as a reliable Intermediate Representation (IR) substrate. This includes manifest singleton tables, trigger-based immutability, topologically sorted migrations, soft deletions, SHA-256 checksum verification and NULL backfilling, stage caching, and event logging with correlation IDs.
+
+**Antigravity self-audit result:**
+- [x] Singleton `rkm_manifest` table implemented in DDL `003` and dataclass shape defined in `schema.py`
+- [x] Triggers preventing direct `UPDATE` or `DELETE` on all 9 observation tables added
+- [x] Soft deletion implemented via archiving runs and default query isolation filtering
+- [x] Topologically sorted DFS-based migration dependency resolver and SHA-256 CRLF-normalized checksum validation implemented
+- [x] NULL checksums automatically backfilled on store startup
+- [x] Stage caching persisted to `rkm_stage_cache` and cache gating integrated into pipeline
+- [x] Event logging with correlation IDs implemented
+- [x] AST semantic hashing (whitespace/comment insensitive) with syntax error fallback implemented
+- [x] All 167 tests passed successfully (including full `TestRkmHardening` suite)
+- [x] UMAGS Auditor Critic audited and APPROVED verdict obtained
+
+*Verification Loop Output:*
+```text
+Ran 167 tests in 97.070s
+OK
+```
+
+**UMAGS Auditor Critic Category B Checklist (verbatim):**
+1. Calibration / Precision / Recall / F1 Claims:
+   - No calibration, precision, recall, or F1 claims are made in the implementation or verification of this milestone.
+2. Human Feedback / Rating Claims:
+   - No human feedback or rating claims are made in the implementation or verification of this milestone.
+3. External Data Dependencies:
+   - SQLite databases exist only as dynamically created local files during test executions and production analysis runs.
+   - No pre-existing database files (`.db`) were found stored inside the workspace.
+   - Verified that the migration runner populates exactly 3 records in the `rkm_migrations` table during setup:
+     - `001_initial_schema.sql` (Initial Schema)
+     - `002_rkm_v1.1.0_upgrade.sql` (Upgrade version)
+     - `003_manifest_event_hardening.sql` (Hardening features)
+     - Verification: Assertion `self.assertEqual(len(migrations_1), 3)` inside `TestRKMContract` confirms this.
+4. Mutation Testing / Fuzzing Claims:
+   - No mutation testing or fuzzing claims are made or verified in this milestone.
+5. Silent Failure Check:
+   - Empty/missing version strings raise `ValueError` in `store.parse_version`.
+   - Empty/None path strings raise `TypeError`/`ValueError` in `query._validate_path`.
+   - Missing repository path or empty repository with no files to analyze raises `ValueError` in `discovery.discover`.
+   - Corrupt JSON snapshot imports raise `ValueError` in `snapshot.import_snapshot`.
+6. Causal / Probabilistic Claims:
+   - No causal or probabilistic claims are made or verified in this database hardening milestone.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** RKM platform hardening: 🔇 none → ✅ fully verified singleton manifest, triggers, soft deletions, stage caching, topologically sorted migrations, and event logs.
+
+**Open questions / follow-up:** None.
+
+
+### 2026-07-15 — Task-MilestoneE: Declarative Constraint Engine
+
+**Attempted:** Implement a data-driven, declarative Constraint Engine on top of the hardened Repository Knowledge Model (RKM) IR. This decouples structural analysis from policy constraints by establishing first-class RkmRule, RkmEvaluation, and RkmViolation entities, running stateless plugin constraint logic, and persisting evaluations and violations during pipeline run.
+
+**Antigravity self-audit result:**
+- [x] Defined RkmRule, RkmEvaluation, and RkmViolation dataclasses in `schema.py`
+- [x] Created database schema migration script `004_constraint_violations.sql`
+- [x] Implemented get/save methods for rules, rule instances, evaluations, and violations in `store.py`
+- [x] Decoupled rule definitions from rule instances, representing predicate_config as a typed dict
+- [x] Defined EvaluationStatus state machine (PENDING, RUNNING, PASSED, FAILED, ERROR, SKIPPED)
+- [x] Designed the evidence model so a violation can link multiple observations
+- [x] Implemented stateless constraint plugins and ConstraintEngine in `engine.py`
+- [x] Integrated rule packs and rule seeding during initialization in `persistence.py`
+- [x] Integrated evaluation loop inside pipeline runs in `orchestrator.py`
+- [x] Updated downstream context brief generator to read from violations in `context_brief.py`
+- [x] Verified with 172 tests (all passed successfully, OK)
+
+*Verification Loop Output:*
+```text
+Ran 172 tests in 103.606s
+OK
+```
+
+**UMAGS Auditor Critic Category B Checklist (verbatim):**
+1. Calibration / Precision / Recall / F1 Claims:
+   - No calibration, precision, recall, or F1 claims are made in the implementation or verification of this milestone.
+2. Human Feedback / Rating Claims:
+   - No human feedback or rating claims are made in the implementation or verification of this milestone.
+3. External Data Dependencies:
+   - SQLite databases exist only as dynamically created local files during test executions and production analysis runs.
+   - No pre-existing database files (`.db`) were found stored inside the workspace.
+   - Verified that the migration runner populates exactly 4 records in the `rkm_migrations` table during setup:
+     - `001_initial_schema.sql`
+     - `002_rkm_v1.1.0_upgrade.sql`
+     - `003_manifest_event_hardening.sql`
+     - `004_constraint_violations.sql`
+     - Verification: Assertion `self.assertEqual(len(migrations_1), 4)` inside `TestRKMContract` confirms this.
+4. Mutation Testing / Fuzzing Claims:
+   - No mutation testing or fuzzing claims are made or verified in this milestone.
+5. Silent Failure Check:
+   - Empty/missing version strings raise `ValueError` in `store.parse_version`.
+   - Empty/None path strings raise `TypeError`/`ValueError` in `query._validate_path`.
+   - Missing repository path or empty repository with no files to analyze raises `ValueError` in `discovery.discover`.
+   - Corrupt JSON snapshot imports raise `ValueError` in `snapshot.import_snapshot`.
+6. Causal / Probabilistic Claims:
+   - No causal or probabilistic claims are made or verified in this database hardening milestone.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** RKM Declarative Constraint Engine: 🔇 none → ✅ fully verified rules, rule instances, evaluations, violations, stateless plugins, and constraint engine integration.
+
+**Open questions / follow-up:** None.
+
+
+### 2026-07-20 — Task-MilestoneF: Interactive Repository Intelligence
+
+**Attempted:** Transition the RKM from an internal database to a public platform contract. Implement database-level versioning and schema migrations, a stable public API, dynamic evolution calculations (deltas, trends, hotspots, impact paths), a dashboard backend with thread-based jobs and cancellation, and an interactive UI frontend.
+
+**Antigravity self-audit result:**
+- [x] SQLite RKM schema migrations to version 1.3.0 (`005_evolution_engine.sql`)
+- [x] RkmEntityHistory and evolution dataclasses added to `schema.py`
+- [x] Transactional store save/get with deduplication in `store.py`
+- [x] Dynamic run comparison, trend calculations, hotspots, and impact analysis in `engine.py`
+- [x] Decoupled timeline contexts in `timeline.py`
+- [x] Stable public API wrappers in `api.py`
+- [x] CLI commands (init, analyze, check, explain, history, report, dashboard) in `ultron.py`
+- [x] Thread-based analysis pipeline and `/api/v1` routes in `server.py`
+- [x] Visual dashboard UI updates in `index.html`, `index.js`, and `index.css`
+- [x] Unit test suite in `test_evolution.py` registered in `run_tests.py`
+
+*Verification Loop Output:*
+```text
+Ran 176 tests in 173.212s
+OK
+```
+
+**UMAGS Auditor Critic Category B Checklist (verbatim):**
+1. Calibration / Precision / Recall / F1 Claims:
+   - No calibration, precision, recall, or F1 claims are made in this milestone.
+2. Human Feedback / Rating Claims:
+   - No human feedback or rating claims are made in this milestone.
+3. External Data Dependencies:
+   - SQLite databases exist only as dynamically created local files during test executions and production analysis runs.
+   - Verified that the migration runner populates exactly 5 records in the `rkm_migrations` table during setup:
+     - `001_initial_schema.sql`
+     - `002_rkm_v1.1.0_upgrade.sql`
+     - `003_manifest_event_hardening.sql`
+     - `004_constraint_violations.sql`
+     - `005_evolution_engine.sql`
+     - Verification: Assertion `self.assertEqual(len(migrations_1), 5)` inside `TestRKMContract` confirms this.
+4. Mutation Testing / Fuzzing Claims:
+   - No mutation testing or fuzzing claims are made or verified in this milestone.
+5. Silent Failure Check:
+   - Invalid run IDs or missing path parameters raise appropriate `ValueError`/`KeyError` exceptions in the API, engine, and store methods.
+6. Causal / Probabilistic Claims:
+   - No causal or probabilistic claims are made or verified in this database hardening milestone.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** RKM Persistent Memory Layer & Declarative Constraint Engine: ✅ verified foundation under RKM v1.2.0 schema → ✅ upgraded to Interactive Repository Intelligence under RKM v1.3.0 schema with public API, evolution engine, CLI commands, visual dashboard, and 6-layer observation pipeline architecture (ADR-011).
+
+**Open questions / follow-up:** None.
+
+
+
+
 

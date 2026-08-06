@@ -112,7 +112,7 @@ def run_tests(repo_path, cmd, force_refresh=False):
                 return returncode == 0, stdout, stderr
             except (OSError, ValueError, RuntimeError) as _cache_err:
                 print(f"[*] Budget Governor: cache lookup failed ({_cache_err}) — falling through to direct execution.")
-        res = subprocess.run(parts, capture_output=True, text=True, cwd=repo_path, timeout=TEST_TIMEOUT_SECONDS)
+        res = subprocess.run(parts, capture_output=True, encoding="utf-8", errors="replace", cwd=repo_path, timeout=TEST_TIMEOUT_SECONDS)
         return res.returncode == 0, res.stdout, res.stderr
     except Exception as e:
         return False, "", str(e)

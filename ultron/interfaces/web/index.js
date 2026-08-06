@@ -1,4 +1,98 @@
-document.addEventListener("DOMContentLoaded", () => {
+    let codebaseData = null;
+    let hotspotsCache = { repo: "", data: null };
+
+    // -------------------------------------------------------------
+    // Environment Health Diagnostic Check
+    // -------------------------------------------------------------
+    const envHealthDot = document.getElementById("env-health-dot");
+    const envHealthLabel = document.getElementById("env-health-label");
+    const envHealthBadge = document.getElementById("env-health-badge");
+    const systemStatusDot = document.getElementById("system-status-dot");
+    const systemStatusText = document.getElementById("system-status-text");
+
+    async function initEnvironmentHealthCheck() {
+        try {
+            const res = await fetch("/api/v1/health");
+            const data = await res.json();
+            if (data.status === "healthy") {
+                const dbOk = data.rkm_database?.exists;
+                const modulesOk = data.modules?.design_oracle && data.modules?.delta_engine;
+                
+                let color = "#38bdf8";
+                let text = "Server Online";
+
+                if (dbOk && modulesOk) {
+                    color = "#34d399";
+                    text = "Operational (RKM)";
+                } else if (dbOk) {
+                    color = "#fbbf24";
+                    text = "RKM Online";
+                }
+
+                if (envHealthDot) envHealthDot.style.background = color;
+                if (envHealthLabel) {
+                    envHealthLabel.style.color = color;
+                    envHealthLabel.textContent = text;
+                }
+
+                if (systemStatusDot) systemStatusDot.style.background = color;
+                if (systemStatusText) {
+                    systemStatusText.style.color = color;
+                    systemStatusText.textContent = text;
+                }
+
+                if (envHealthBadge) {
+                    envHealthBadge.title = `Python ${data.environment?.python_version} (${data.environment?.platform})\nDB: ${dbOk ? 'Ready' : 'Not Init'}\nModules: Oracle=${data.modules?.design_oracle ? 'Yes':'No'}, Delta=${data.modules?.delta_engine ? 'Yes':'No'}`;
+                }
+            } else {
+                if (envHealthDot) envHealthDot.style.background = "#ef4444";
+                if (envHealthLabel) {
+                    envHealthLabel.style.color = "#ef4444";
+                    envHealthLabel.textContent = "Unhealthy";
+                }
+                if (systemStatusDot) systemStatusDot.style.background = "#ef4444";
+                if (systemStatusText) {
+                    systemStatusText.style.color = "#ef4444";
+                    systemStatusText.textContent = "Unhealthy";
+                }
+            }
+        } catch (err) {
+            if (envHealthDot) envHealthDot.style.background = "#ef4444";
+            if (envHealthLabel) {
+                envHealthLabel.style.color = "#ef4444";
+                envHealthLabel.textContent = "Offline";
+            }
+            if (systemStatusDot) systemStatusDot.style.background = "#ef4444";
+            if (systemStatusText) {
+                systemStatusText.style.color = "#ef4444";
+                systemStatusText.textContent = "Offline";
+            }
+        }
+    }
+    initEnvironmentHealthCheck();
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function setButtonText(btn, text) {
+        if (!btn) return;
+        const spans = btn.querySelectorAll("span");
+        if (spans.length > 0) {
+            spans.forEach(span => {
+                span.textContent = text;
+            });
+        } else {
+            btn.textContent = text;
+        }
+    }
+
     // -------------------------------------------------------------
     // Tab Navigation Logic
     // -------------------------------------------------------------
@@ -10,10 +104,22 @@ document.addEventListener("DOMContentLoaded", () => {
             const targetTab = btn.getAttribute("data-tab");
             
             navButtons.forEach(b => b.classList.remove("active"));
-            tabs.forEach(t => t.classList.remove("active"));
+            tabs.forEach(t => {
+                t.classList.remove("active");
+                t.style.display = "none";
+            });
             
             btn.classList.add("active");
-            document.getElementById(targetTab).classList.add("active");
+            const activeTabEl = document.getElementById(targetTab);
+            if (activeTabEl) {
+                activeTabEl.classList.add("active");
+                activeTabEl.style.display = "flex";
+                
+                // Re-render SVG Graph if Dependency Graph tab activated
+                if (targetTab === "graph-tab" && codebaseData && codebaseData.risks) {
+                    renderSVGGraph(codebaseData.risks);
+                }
+            }
         });
     });
 
@@ -28,13 +134,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (modeToggle.checked) {
             // Engineer Mode active
             document.body.className = "mode-engineer";
-            labelEngineer.classList.add("active");
-            labelCreator.classList.remove("active");
+            if (labelEngineer) labelEngineer.classList.add("active");
+            if (labelCreator) labelCreator.classList.remove("active");
         } else {
             // Creator Mode active
             document.body.className = "mode-creator";
-            labelCreator.classList.add("active");
-            labelEngineer.classList.remove("active");
+            if (labelCreator) labelCreator.classList.add("active");
+            if (labelEngineer) labelEngineer.classList.remove("active");
         }
         
         // Re-render dashboard if data exists
@@ -43,8 +149,28 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    modeToggle.addEventListener("change", applyMode);
-    applyMode(); // run once on boot
+    if (labelCreator) {
+        labelCreator.addEventListener("click", () => {
+            if (modeToggle.checked) {
+                modeToggle.checked = false;
+                applyMode();
+            }
+        });
+    }
+
+    if (labelEngineer) {
+        labelEngineer.addEventListener("click", () => {
+            if (!modeToggle.checked) {
+                modeToggle.checked = true;
+                applyMode();
+            }
+        });
+    }
+
+    if (modeToggle) {
+        modeToggle.addEventListener("change", applyMode);
+        applyMode(); // run once on boot
+    }
 
     // -------------------------------------------------------------
     // Sliders UI logic
@@ -80,17 +206,63 @@ document.addEventListener("DOMContentLoaded", () => {
     const loadRepoBtn = document.getElementById("btn-load-repo");
     
     // Core State
-    let codebaseData = null;
+    // (codebaseData declared at top of DOMContentLoaded to prevent TDZ ReferenceError)
+
+    const btnBrowseFolder = document.getElementById("btn-browse-folder");
+    if (btnBrowseFolder) {
+        btnBrowseFolder.addEventListener("click", async () => {
+            btnBrowseFolder.disabled = true;
+            try {
+                const initial_dir = repoInput.value.trim() || ".";
+                const response = await fetch("/api/browse-folder", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: jsonStringify({ initial_dir })
+                });
+                const data = await response.json();
+                if (data.path) {
+                    repoInput.value = data.path;
+                    showToast("Folder selected!");
+                    loadRepoBtn.click();
+                } else if (data.fallback) {
+                    showToast("Native folder picker unavailable. Please type path manually.");
+                }
+            } catch (err) {
+                console.error("Browse folder error:", err);
+                showToast("Failed to open folder picker.");
+            } finally {
+                btnBrowseFolder.disabled = false;
+            }
+        });
+    }
+
+    const repoErrorBanner = document.getElementById("repo-error-banner");
+    const repoErrorMessage = document.getElementById("repo-error-message");
 
     loadRepoBtn.addEventListener("click", async () => {
+        hotspotsCache = { repo: "", data: null }; // invalidate cache on new load or re-analysis
         const repo = repoInput.value.trim();
         if (!repo) {
-            alert("Please specify a valid repository path.");
+            if (repoErrorBanner) {
+                repoErrorBanner.classList.remove("hidden");
+                repoErrorMessage.textContent = "Please specify a valid repository path or click 'Browse...'.";
+            }
             return;
         }
 
         loadRepoBtn.disabled = true;
-        loadRepoBtn.querySelector("span").textContent = "Connecting...";
+        setButtonText(loadRepoBtn, "Connecting...");
+        if (repoErrorBanner) repoErrorBanner.classList.add("hidden");
+
+        // Show loading indicator immediately — hide only on success, failure, or cancel
+        const progressCard = document.getElementById("analysis-progress-card");
+        const progressStepText = document.getElementById("progress-step-text");
+        const progressBarFill = document.getElementById("progress-bar-fill");
+        if (progressCard) {
+            progressCard.classList.remove("hidden");
+            if (progressStepText) progressStepText.textContent = "Connecting to repository...";
+            if (progressBarFill) progressBarFill.style.width = "15%";
+        }
 
         try {
             const response = await fetch("/api/analyze", {
@@ -101,8 +273,14 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await response.json();
             
             if (data.error) {
-                alert(`Error: ${data.error}`);
+                if (repoErrorBanner) {
+                    repoErrorBanner.classList.remove("hidden");
+                    repoErrorMessage.textContent = data.error;
+                } else {
+                    showToast(`Error: ${data.error}`);
+                }
             } else {
+                if (repoErrorBanner) repoErrorBanner.classList.add("hidden");
                 codebaseData = data;
                 renderDashboard(data);
                 loadFileTree(); // Load visual directory tree
@@ -110,16 +288,89 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch (err) {
             console.error(err);
-            alert(`Failed to connect to API server: ${err.message}`);
+            if (repoErrorBanner) {
+                repoErrorBanner.classList.remove("hidden");
+                repoErrorMessage.textContent = `Failed to connect to API server: ${err.message}`;
+            } else {
+                showToast(`Connection error: ${err.message}`);
+            }
         } finally {
             loadRepoBtn.disabled = false;
-            loadRepoBtn.querySelector("span").textContent = "Connect Project";
+            setButtonText(loadRepoBtn, "Connect Project");
+            // Hide progress card on resolution
+            if (progressCard) progressCard.classList.add("hidden");
         }
     });
 
     function jsonStringify(obj) {
         return JSON.stringify(obj);
     }
+
+    function setActionsEnabled(enabled) {
+        const actionBtnIds = ["btn-run-audit", "btn-calibrate", "btn-detail-ai-explain", "btn-generate-prompt", "btn-auto-push-ai"];
+        actionBtnIds.forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) {
+                btn.disabled = !enabled;
+                btn.title = enabled ? "" : "Connect a project folder to unlock this action.";
+                if (!enabled) {
+                    btn.style.opacity = "0.5";
+                    btn.style.cursor = "not-allowed";
+                } else {
+                    btn.style.opacity = "1.0";
+                    btn.style.cursor = "pointer";
+                }
+            }
+        });
+    }
+
+    function renderExecutiveHeroBanner(data) {
+        const heroScore = document.getElementById("hero-health-score");
+        const heroStatus = document.getElementById("hero-health-status");
+        const heroRisk1File = document.getElementById("hero-top-risk-1-file");
+        const heroRisk1Score = document.getElementById("hero-top-risk-1-score");
+        const heroRisk2File = document.getElementById("hero-top-risk-2-file");
+        const heroRisk2Score = document.getElementById("hero-top-risk-2-score");
+
+        if (!data || !data.risks) return;
+
+        const risks = [...data.risks].sort((a, b) => (b.impact_score || b.complexity) - (a.impact_score || a.complexity));
+        const highCount = risks.filter(r => r.level === "HIGH").length;
+        const healthScore = Math.max(40, Math.round(100 - (highCount * 8)));
+
+        if (heroScore) heroScore.textContent = `${healthScore} / 100`;
+        if (heroStatus) {
+            if (healthScore >= 80) {
+                heroStatus.textContent = "✓ Repository Healthy";
+                heroStatus.style.color = "#4ade80";
+            } else if (healthScore >= 60) {
+                heroStatus.textContent = "⚠️ Moderate Structural Risk";
+                heroStatus.style.color = "#f59e0b";
+            } else {
+                heroStatus.textContent = "🔴 Critical Refactoring Required";
+                heroStatus.style.color = "#f43f5e";
+            }
+        }
+
+        if (risks.length > 0 && heroRisk1File) {
+            heroRisk1File.textContent = risks[0].file;
+            if (heroRisk1Score) heroRisk1Score.textContent = `Complexity: ${risks[0].complexity} (${risks[0].level} Priority)`;
+        } else if (heroRisk1File) {
+            heroRisk1File.textContent = "No risks detected";
+            if (heroRisk1Score) heroRisk1Score.textContent = "Clean codebase";
+        }
+
+        if (risks.length > 1 && heroRisk2File) {
+            heroRisk2File.textContent = risks[1].file;
+            if (heroRisk2Score) heroRisk2Score.textContent = `Complexity: ${risks[1].complexity} (${risks[1].level} Priority)`;
+        } else if (heroRisk2File) {
+            heroRisk2File.textContent = "None";
+            if (heroRisk2Score) heroRisk2Score.textContent = "Single file analyzed";
+        }
+    }
+
+    // Set initial button state to locked until project is connected
+    setActionsEnabled(false);
 
     function renderDashboard(data) {
         // Update stats counters
@@ -135,11 +386,20 @@ document.addEventListener("DOMContentLoaded", () => {
             highRiskEl.classList.remove("risk-alert");
         }
 
+        // Dynamically compute and render Executive Hero Banner from real AST data
+        renderExecutiveHeroBanner(data);
+
+        // Unlock action buttons & interactive controls
+        setActionsEnabled(true);
+
         // Draw Interactive SVG Graph
         renderSVGGraph(data.risks);
 
         // Render Engineer Mode Table
         renderRiskTable(data.risks);
+
+        // Fetch Top Architectural Recommendations
+        fetchRecommendations();
 
         // Render Creator Mode Heatmap
         renderHeatmapGrid(data.risks);
@@ -251,9 +511,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // 2. Render Risk datagrid (Engineer Mode)
     function renderRiskTable(risks) {
         const tbody = document.getElementById("file-risk-tbody");
+        if (!tbody) return;
         tbody.innerHTML = "";
 
-        if (risks.length === 0) {
+        if (!risks || risks.length === 0) {
             tbody.innerHTML = `<tr><td colspan="7" class="table-empty">No modules found.</td></tr>`;
             return;
         }
@@ -264,6 +525,10 @@ document.addEventListener("DOMContentLoaded", () => {
             const tdFile = document.createElement("td");
             tdFile.className = "file-name";
             tdFile.textContent = risk.file;
+            tdFile.style.cursor = "pointer";
+            tdFile.style.textDecoration = "underline";
+            tdFile.title = "Click to open Entity Profile and Machine-to-Human translation";
+            tdFile.addEventListener("click", () => window.openEntityDetail(risk.file));
             tr.appendChild(tdFile);
 
             const tdComp = document.createElement("td");
@@ -276,13 +541,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const tdScore = document.createElement("td");
             tdScore.style.fontFamily = "var(--font-mono)";
-            tdScore.textContent = risk.impact_score.toFixed(2);
+            tdScore.textContent = (risk.impact_score || 0).toFixed(2);
             tr.appendChild(tdScore);
 
             const tdBadge = document.createElement("td");
             const badge = document.createElement("span");
-            badge.className = `badge ${risk.level.toLowerCase()}`;
-            badge.textContent = risk.level;
+            badge.className = `badge ${(risk.level || "MEDIUM").toLowerCase()}`;
+            badge.textContent = risk.level || "MEDIUM";
             tdBadge.appendChild(badge);
             tr.appendChild(tdBadge);
 
@@ -308,8 +573,10 @@ document.addEventListener("DOMContentLoaded", () => {
             btnTarget.className = "action-link";
             btnTarget.textContent = "Target";
             btnTarget.addEventListener("click", () => {
-                document.getElementById("prompt-files").value = risk.file;
-                document.getElementById("nav-prompt").click();
+                const promptFiles = document.getElementById("prompt-files");
+                if (promptFiles) promptFiles.value = risk.file;
+                const navPrompt = document.getElementById("nav-prompt");
+                if (navPrompt) navPrompt.click();
             });
             tdActions.appendChild(btnTarget);
 
@@ -322,7 +589,6 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             tdActions.appendChild(btnAudit);
 
-            // Thumbs Up / Down feedback buttons
             const btnAccurate = document.createElement("button");
             btnAccurate.className = "action-link btn-feedback";
             btnAccurate.innerHTML = "👍";
@@ -362,16 +628,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 btn.style.opacity = "1.0";
                 btn.style.transform = "scale(1.2)";
                 const row = btn.closest("tr");
-                const feedbackBtns = row.querySelectorAll(".btn-feedback");
-                feedbackBtns.forEach(b => {
-                    if (b !== btn) {
-                        b.style.opacity = "0.4";
-                        b.style.transform = "none";
-                    }
-                });
-                
-                // Trigger re-analysis to immediately scale thresholds
-                const btnAnalyze = document.getElementById("btn-analyze-repo");
+                if (row) {
+                    const feedbackBtns = row.querySelectorAll(".btn-feedback");
+                    feedbackBtns.forEach(b => {
+                        if (b !== btn) {
+                            b.style.opacity = "0.4";
+                            b.style.transform = "none";
+                        }
+                    });
+                }
+                const btnAnalyze = document.getElementById("btn-load-repo");
                 if (btnAnalyze) {
                     btnAnalyze.click();
                 }
@@ -398,19 +664,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById("report-pledge-counts").textContent = `${data.pledges.active} / ${data.pledges.total}`;
                 
                 const tbody = document.getElementById("report-calibration-tbody");
-                tbody.innerHTML = "";
-                if (data.calibration.points.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="3" class="table-empty">No calibration samples.</td></tr>`;
-                } else {
-                    data.calibration.points.forEach(pt => {
-                        const tr = document.createElement("tr");
-                        tr.innerHTML = `
-                            <td>${pt.bin}</td>
-                            <td>${pt.count}</td>
-                            <td>${Math.round(pt.actual_rate * 100)}%</td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
+                if (tbody) {
+                    tbody.innerHTML = "";
+                    if (data.calibration.points.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="3" class="table-empty">No calibration samples.</td></tr>`;
+                    } else {
+                        data.calibration.points.forEach(pt => {
+                            const tr = document.createElement("tr");
+                            tr.innerHTML = `
+                                <td>${pt.bin}</td>
+                                <td>${pt.count}</td>
+                                <td>${Math.round(pt.actual_rate * 100)}%</td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
                 }
             }
         } catch (err) {
@@ -421,6 +689,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // 3. Render Heatmap grid (Creator Mode)
     function renderHeatmapGrid(risks) {
         const grid = document.getElementById("creator-heatmap-grid");
+        if (!grid) return;
         grid.innerHTML = "";
 
         if (risks.length === 0) {
@@ -431,6 +700,9 @@ document.addEventListener("DOMContentLoaded", () => {
         risks.forEach(risk => {
             const card = document.createElement("div");
             card.className = `heatmap-card ${risk.level.toLowerCase()} glass`;
+            card.style.cursor = "pointer";
+            card.title = "Click to open Entity Profile and Machine-to-Human translation";
+            card.addEventListener("click", () => window.openEntityDetail(risk.file));
 
             const nameParts = risk.file.split('/');
             const baseName = nameParts[nameParts.length - 1];
@@ -460,94 +732,26 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // -------------------------------------------------------------
-    // Prompt Compiler logic
-    // -------------------------------------------------------------
-    const generatePromptBtn = document.getElementById("btn-generate-prompt");
-    const copyPromptBtn = document.getElementById("btn-copy-prompt");
-    const promptOutputBox = document.getElementById("prompt-output-box");
-
-    generatePromptBtn.addEventListener("click", async () => {
-        const repo = repoInput.value.trim();
-        const intent = document.getElementById("prompt-intent").value.trim();
-        const files = document.getElementById("prompt-files").value.trim();
-
-        if (!repo) {
-            alert("Please connect your project folder first.");
-            return;
-        }
-        if (!intent) {
-            alert("Write down your vision description first.");
-            return;
-        }
-
-        generatePromptBtn.disabled = true;
-        generatePromptBtn.querySelector("span").textContent = "Compiling...";
-
-        try {
-            const response = await fetch("/api/generate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: jsonStringify({ repo, intent, files })
-            });
-            const data = await response.json();
-            
-            if (data.error) {
-                alert(`Error: ${data.error}`);
-            } else {
-                promptOutputBox.textContent = data.prompt;
-                showToast("Instructions compiled!");
-            }
-        } catch (err) {
-            console.error(err);
-            alert(`API Error: ${err.message}`);
-        } finally {
-            generatePromptBtn.disabled = false;
-            generatePromptBtn.querySelector("span").textContent = modeToggle.checked ? "Compile AI Instruction Prompt" : "Generate AI Instructions";
-        }
-    });
-
-    copyPromptBtn.addEventListener("click", () => {
-        const text = promptOutputBox.textContent;
-        if (!text || text.startsWith("Generated instructions")) return;
-        
-        navigator.clipboard.writeText(text).then(() => {
-            showToast("Copied to clipboard!");
-        }).catch(err => {
-            alert("Failed to copy: " + err);
-        });
-    });
-
-    // -------------------------------------------------------------
-    // Auditor / Health Shield Logic
-    // -------------------------------------------------------------
     const runAuditBtn = document.getElementById("btn-run-audit");
-    const anomalyReportsArea = document.getElementById("anomaly-reports");
+    const auditFile = document.getElementById("audit-file");
     const auditStatusEl = document.getElementById("audit-status");
     const healthShield = document.getElementById("health-shield");
     const shieldText = document.getElementById("shield-text");
-    const sandboxEditor = document.getElementById("sandbox-editor");
+    const anomalyReportsArea = document.getElementById("anomaly-reports");
 
-    runAuditBtn.addEventListener("click", async () => {
-        const repo = repoInput.value.trim();
-        const target_file = document.getElementById("audit-file").value.trim();
-        const typo_threshold = sliderTypo.value / 100;
-        const prob_threshold = sliderProb.value / 100;
-        const sandbox_code = sandboxEditor.value.trim();
+    if (runAuditBtn) {
+        runAuditBtn.addEventListener("click", async () => {
+            const repo = repoInput ? repoInput.value.trim() : ".";
+            const target_file = auditFile ? auditFile.value : "";
+            const typo_threshold = sliderTypo ? parseFloat(sliderTypo.value) : 15.0;
+            const prob_threshold = sliderProb ? parseFloat(sliderProb.value) : 0.95;
+            const sandbox_code = sandboxEditor ? sandboxEditor.value : "";
 
-        if (!repo) {
-            alert("Please connect your project first.");
-            return;
-        }
-
-        // Must specify target file OR paste sandbox code
-        if (!sandbox_code && !target_file) {
-            alert("Select a target file to verify or paste code inside the Sandbox Editor.");
-            return;
-        }
-
-        runAuditBtn.disabled = true;
-        runAuditBtn.querySelector("span").textContent = "Auditing...";
+            runAuditBtn.disabled = true;
+            if (typeof logSessionEvent === "function") {
+                logSessionEvent("audit", { file: activeFileRelativePath });
+            }
+        setButtonText(runAuditBtn, "Auditing...");
         auditStatusEl.textContent = "Auditing...";
         auditStatusEl.className = "report-status";
 
@@ -575,7 +779,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await response.json();
             
             if (data.error) {
-                alert(`Error: ${data.error}`);
+                showToast(`Audit error: ${data.error}`);
                 auditStatusEl.textContent = "Error";
                 shieldText.textContent = "error";
             } else {
@@ -583,14 +787,56 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch (err) {
             console.error(err);
-            alert(`API Error: ${err.message}`);
+            showToast(`API error: ${err.message}`);
             auditStatusEl.textContent = "Error";
             shieldText.textContent = "error";
         } finally {
             runAuditBtn.disabled = false;
-            runAuditBtn.querySelector("span").textContent = modeToggle.checked ? "Run Anomaly Audit" : "Run Safety Check";
+            setButtonText(runAuditBtn, modeToggle.checked ? "Run Anomaly Audit" : "Run Safety Check");
         }
     });
+}
+
+    const btnGeneratePrompt = document.getElementById("btn-generate-prompt");
+    const btnCopyPrompt = document.getElementById("btn-copy-prompt");
+
+    if (btnGeneratePrompt) {
+        btnGeneratePrompt.addEventListener("click", async () => {
+            const repo = repoInput ? repoInput.value.trim() : ".";
+            const files = document.getElementById("prompt-files") ? document.getElementById("prompt-files").value : "";
+            const intent = document.getElementById("prompt-intent") ? document.getElementById("prompt-intent").value : "";
+            const promptOutput = document.getElementById("prompt-output");
+
+            btnGeneratePrompt.disabled = true;
+            try {
+                const response = await fetch("/api/v1/context-brief", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: jsonStringify({ repo, intent, target_files: files ? [files] : [] })
+                });
+                const data = await response.json();
+                if (promptOutput) {
+                    promptOutput.value = data.brief || data.vibe_context_envelope || JSON.stringify(data, null, 2);
+                }
+                showToast("AI Context Brief generated successfully!");
+            } catch (err) {
+                console.error(err);
+                showToast(`Error generating prompt: ${err.message}`);
+            } finally {
+                btnGeneratePrompt.disabled = false;
+            }
+        });
+    }
+
+    if (btnCopyPrompt) {
+        btnCopyPrompt.addEventListener("click", () => {
+            const promptOutput = document.getElementById("prompt-output");
+            if (promptOutput && promptOutput.value) {
+                navigator.clipboard.writeText(promptOutput.value);
+                showToast("Prompt copied to clipboard!");
+            }
+        });
+    }
 
     function renderAuditReport(anomalies) {
         anomalyReportsArea.innerHTML = "";
@@ -773,7 +1019,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 fileEl.innerHTML = `
                     <span class="tree-file-icon">📄</span>
                     <span class="tree-file-name">${node.name}</span>
+                    <span class="tree-file-info-btn" style="margin-left:auto; opacity:0.6; cursor:pointer; font-size:11px;" title="View Entity Profile">ℹ️</span>
                 `;
+                
+                const infoBtn = fileEl.querySelector(".tree-file-info-btn");
+                infoBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    window.openEntityDetail(node.name, "file");
+                });
                 
                 fileEl.addEventListener("click", (e) => {
                     e.stopPropagation();
@@ -844,6 +1097,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 unsavedBadgeEl.classList.add("hidden");
             }
         }
+        if (activeFileRelativePath && repoInput.value.trim()) {
+            clearTimeout(editorChangeTimeout);
+            editorChangeTimeout = setTimeout(runChangeAnalysis, 800);
+        }
     });
 
     sandboxEditor.addEventListener("scroll", () => {
@@ -855,9 +1112,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const repo = repoInput.value.trim();
         const content = sandboxEditor.value;
         
+        if (typeof logSessionEvent === "function") {
+            logSessionEvent("save", { file: activeFileRelativePath });
+        }
         saveFileBtn.disabled = true;
         saveFileBtn.classList.add("disabled");
-        saveFileBtn.querySelector("span").textContent = "Saving...";
+        setButtonText(saveFileBtn, "Saving...");
         
         try {
             const response = await fetch("/api/save-file", {
@@ -867,7 +1127,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             const data = await response.json();
             if (data.error) {
-                alert(`Save failed: ${data.error}`);
+                showToast(`Save failed: ${data.error}`);
             } else {
                 originalFileContent = content;
                 unsavedBadgeEl.classList.add("hidden");
@@ -886,11 +1146,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
         } catch (err) {
-            alert(`Error saving file: ${err.message}`);
+            showToast(`Save error: ${err.message}`);
         } finally {
             saveFileBtn.disabled = false;
             saveFileBtn.classList.remove("disabled");
-            saveFileBtn.querySelector("span").textContent = "Save Changes";
+            setButtonText(saveFileBtn, "Save Changes");
         }
     });
 
@@ -900,13 +1160,13 @@ document.addEventListener("DOMContentLoaded", () => {
     runTestsBtn.addEventListener("click", async () => {
         const repo = repoInput.value.trim();
         if (!repo) {
-            alert("Connect a repository first.");
+            showToast("Connect a repository first.");
             return;
         }
         
         runTestsBtn.disabled = true;
         runTestsBtn.classList.add("disabled");
-        runTestsBtn.querySelector("span").textContent = "Running...";
+        setButtonText(runTestsBtn, "Running...");
         terminalLog.textContent = "Executing unittest suite...\n$ python -m unittest discover\n\n";
         terminalLog.scrollTop = terminalLog.scrollHeight;
         
@@ -952,22 +1212,13 @@ document.addEventListener("DOMContentLoaded", () => {
         } finally {
             runTestsBtn.disabled = false;
             runTestsBtn.classList.remove("disabled");
-            runTestsBtn.querySelector("span").textContent = "Run Project Tests";
+            setButtonText(runTestsBtn, "Run Project Tests");
         }
     });
 
     // -------------------------------------------------------------
     // Diff-Aware Risk and Test Prediction Logic
     // -------------------------------------------------------------
-    let diffTimeout = null;
-    sandboxEditor.addEventListener("input", () => {
-        // Toggle unsaved badge
-        unsavedBadgeEl.classList.remove("hidden");
-        
-        clearTimeout(diffTimeout);
-        diffTimeout = setTimeout(runChangeAnalysis, 800);
-    });
-
     async function runChangeAnalysis() {
         const repo = repoInput.value.trim();
         const content = sandboxEditor.value;
@@ -1049,6 +1300,18 @@ document.addEventListener("DOMContentLoaded", () => {
     async function loadDependencyGraph() {
         const repo = repoInput.value.trim();
         if (!repo) return;
+        const svg = document.getElementById("dependency-graph-full");
+        if (svg) {
+            const loadingText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            loadingText.setAttribute("x", "50%");
+            loadingText.setAttribute("y", "50%");
+            loadingText.setAttribute("text-anchor", "middle");
+            loadingText.setAttribute("fill", "#38bdf8");
+            loadingText.setAttribute("font-size", "14px");
+            loadingText.setAttribute("id", "graph-loading-text");
+            loadingText.textContent = "Loading dependency graph topology...";
+            svg.appendChild(loadingText);
+        }
         try {
             const res = await fetch("/api/dependency-graph", {
                 method: "POST",
@@ -1061,8 +1324,16 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch (err) {
             console.error("Failed to load dependency graph:", err);
+            if (svg) {
+                const loadingText = svg.querySelector("#graph-loading-text");
+                if (loadingText) loadingText.textContent = "Failed to load graph.";
+            }
         }
     }
+
+    let currentZoom = 1.0;
+    let currentPanX = 0;
+    let currentPanY = 0;
 
     function renderFullGraph(graph) {
         const svg = document.getElementById("dependency-graph-full");
@@ -1075,27 +1346,91 @@ document.addEventListener("DOMContentLoaded", () => {
                     <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa0a6" />
                 </marker>
             </defs>
+            <g id="viewport-transform">
+                <g id="viewport-links"></g>
+                <g id="viewport-nodes"></g>
+            </g>
         `;
 
         const width = svg.clientWidth || 800;
         const height = svg.clientHeight || 500;
+        currentZoom = 1.0;
+        currentPanX = 0;
+        currentPanY = 0;
+
+        const applyTransform = () => {
+            const viewport = svg.querySelector("#viewport-transform");
+            if (viewport) {
+                viewport.setAttribute("transform", `translate(${currentPanX}, ${currentPanY}) scale(${currentZoom})`);
+            }
+        };
+        applyTransform();
+
+        // Bind Zoom / Pan Controls
+        const btnIn = document.getElementById("btn-zoom-in");
+        const btnOut = document.getElementById("btn-zoom-out");
+        const btnReset = document.getElementById("btn-zoom-reset");
+        const filterRisk = document.getElementById("graph-filter-risk");
+        const filterType = document.getElementById("graph-filter-type");
+
+        if (btnIn) btnIn.onclick = () => { currentZoom = Math.min(3.0, currentZoom * 1.25); applyTransform(); };
+        if (btnOut) btnOut.onclick = () => { currentZoom = Math.max(0.3, currentZoom / 1.25); applyTransform(); };
+        if (btnReset) btnReset.onclick = () => { currentZoom = 1.0; currentPanX = 0; currentPanY = 0; applyTransform(); };
+
+        // Mousewheel zoom
+        svg.onwheel = (e) => {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 1.15 : 0.85;
+            currentZoom = Math.min(4.0, Math.max(0.2, currentZoom * delta));
+            applyTransform();
+        };
+
+        // Canvas pan
+        let isPanning = false;
+        let panStartX = 0, panStartY = 0;
+        svg.onmousedown = (e) => {
+            if (e.target === svg || e.target.tagName === 'svg' || e.target.id === 'viewport-transform') {
+                isPanning = true;
+                panStartX = e.clientX - currentPanX;
+                panStartY = e.clientY - currentPanY;
+                svg.style.cursor = "grabbing";
+            }
+        };
+        window.onmousemove = (e) => {
+            if (isPanning) {
+                currentPanX = e.clientX - panStartX;
+                currentPanY = e.clientY - panStartY;
+                applyTransform();
+            }
+        };
+        window.onmouseup = () => {
+            if (isPanning) {
+                isPanning = false;
+                svg.style.cursor = "grab";
+            }
+        };
 
         nodes = graph.nodes.map(n => ({
             ...n,
-            x: width / 2 + (Math.random() - 0.5) * 300,
-            y: height / 2 + (Math.random() - 0.5) * 300,
+            x: width / 2 + (Math.random() - 0.5) * 350,
+            y: height / 2 + (Math.random() - 0.5) * 350,
             vx: 0,
-            vy: 0
+            vy: 0,
+            r: n.type === "file" ? 10 : 7,
+            visible: true
         }));
 
         links = graph.links.map(l => ({
             ...l,
             sourceNode: nodes.find(n => n.id === l.source),
-            targetNode: nodes.find(n => n.id === l.target)
+            targetNode: nodes.find(n => n.id === l.target),
+            visible: true
         })).filter(l => l.sourceNode && l.targetNode);
 
+        const linkGroup = svg.querySelector("#viewport-links");
+        const nodeGroup = svg.querySelector("#viewport-nodes");
+
         // Render Links
-        const linkGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
         links.forEach(l => {
             const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
             line.setAttribute("class", `graph-link ${l.type}`);
@@ -1105,33 +1440,38 @@ document.addEventListener("DOMContentLoaded", () => {
             l.element = line;
             linkGroup.appendChild(line);
         });
-        svg.appendChild(linkGroup);
 
         // Render Nodes
-        const nodeGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
         nodes.forEach(n => {
             const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.setAttribute("class", "graph-node-group");
 
             const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
             circle.setAttribute("class", "node-circle");
 
             let color = "var(--text-secondary)";
-            let r = 6;
-            if (n.type === "file") {
-                color = "var(--neon-cyan)";
-                r = 10;
+            if (n.level === "HIGH") {
+                color = "#f43f5e";
+            } else if (n.type === "file") {
+                color = "#38bdf8";
             } else if (n.type === "function") {
-                color = "var(--neon-purple)";
-                r = 7;
+                color = "#c084fc";
             }
 
             circle.setAttribute("fill", color);
-            circle.setAttribute("r", r);
+            circle.setAttribute("r", n.r);
             circle.setAttribute("stroke", "rgba(0,0,0,0.6)");
+            if (n.level === "HIGH") {
+                circle.setAttribute("filter", "drop-shadow(0 0 6px #f43f5e)");
+            }
 
             const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
             text.setAttribute("class", "node-label");
-            text.setAttribute("dy", r + 12);
+            text.setAttribute("dy", n.r + 12);
+            text.setAttribute("fill", "#e2e8f0");
+            text.setAttribute("font-size", "11px");
+            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("pointer-events", "none");
             text.textContent = n.label;
 
             g.appendChild(circle);
@@ -1140,36 +1480,83 @@ document.addEventListener("DOMContentLoaded", () => {
             n.element = g;
             n.circle = circle;
 
+            // Drag behavior
             circle.addEventListener("mousedown", (e) => {
-                e.preventDefault();
+                e.stopPropagation();
                 n.dragged = true;
                 svg.style.cursor = "grabbing";
             });
 
+            // Hover highlight behavior
+            g.addEventListener("mouseenter", () => {
+                const connectedNodes = new Set([n.id]);
+                links.forEach(l => {
+                    if (l.source === n.id || l.target === n.id) {
+                        connectedNodes.add(l.source);
+                        connectedNodes.add(l.target);
+                        if (l.element) l.element.classList.add("highlighted");
+                    } else {
+                        if (l.element) l.element.classList.add("dimmed");
+                    }
+                });
+                nodes.forEach(other => {
+                    if (other.element && !connectedNodes.has(other.id)) {
+                        other.element.classList.add("dimmed");
+                    }
+                });
+            });
+
+            g.addEventListener("mouseleave", () => {
+                links.forEach(l => {
+                    if (l.element) {
+                        l.element.classList.remove("highlighted");
+                        l.element.classList.remove("dimmed");
+                    }
+                });
+                nodes.forEach(other => {
+                    if (other.element) other.element.classList.remove("dimmed");
+                });
+            });
+
             nodeGroup.appendChild(g);
         });
-        svg.appendChild(nodeGroup);
 
-        svg.addEventListener("mousemove", (e) => {
-            const rect = svg.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
+        // Filter Logic Handler
+        const applyFilters = () => {
+            const rVal = filterRisk ? filterRisk.value : "ALL";
+            const tVal = filterType ? filterType.value : "ALL";
+            let visibleCount = 0;
+
             nodes.forEach(n => {
-                if (n.dragged) {
-                    n.x = mouseX;
-                    n.y = mouseY;
-                    n.vx = 0;
-                    n.vy = 0;
+                const rMatch = (rVal === "ALL" || n.level === rVal);
+                const tMatch = (tVal === "ALL" || n.type === tVal);
+                n.visible = rMatch && tMatch;
+                if (n.element) {
+                    n.element.style.display = n.visible ? "" : "none";
+                }
+                if (n.visible) visibleCount++;
+            });
+
+            links.forEach(l => {
+                l.visible = l.sourceNode.visible && l.targetNode.visible;
+                if (l.element) {
+                    l.element.style.display = l.visible ? "" : "none";
                 }
             });
-        });
 
-        window.addEventListener("mouseup", () => {
-            nodes.forEach(n => {
-                n.dragged = false;
-            });
-            svg.style.cursor = "grab";
-        });
+            const emptyState = document.getElementById("graph-empty-state");
+            if (emptyState) {
+                if (visibleCount === 0) {
+                    emptyState.classList.remove("hidden");
+                } else {
+                    emptyState.classList.add("hidden");
+                }
+            }
+        };
+
+        if (filterRisk) filterRisk.onchange = applyFilters;
+        if (filterType) filterType.onchange = applyFilters;
+        applyFilters();
 
         if (!simRunning) {
             simRunning = true;
@@ -1189,22 +1576,24 @@ document.addEventListener("DOMContentLoaded", () => {
         const centerX = width / 2;
         const centerY = height / 2;
 
-        const kForce = 0.04;
-        const kRepulsion = 1800;
-        const kGravity = 0.015;
-        const damping = 0.88;
-        const desiredDistance = 70;
+        const kForce = 0.035;
+        const visibleNodes = nodes.filter(n => n.visible);
+        const kRepulsion = Math.max(2500, visibleNodes.length * 90);
+        const kGravity = 0.012;
+        const damping = 0.86;
+        const desiredDistance = 90;
 
-        // Repulsion
-        for (let i = 0; i < nodes.length; i++) {
-            for (let j = i + 1; j < nodes.length; j++) {
-                const n1 = nodes[i];
-                const n2 = nodes[j];
+        // Repulsion with collision avoidance
+        for (let i = 0; i < visibleNodes.length; i++) {
+            for (let j = i + 1; j < visibleNodes.length; j++) {
+                const n1 = visibleNodes[i];
+                const n2 = visibleNodes[j];
                 const dx = n2.x - n1.x;
                 const dy = n2.y - n1.y;
                 const dist = Math.sqrt(dx * dx + dy * dy) || 1.0;
-                if (dist < 250) {
-                    const force = kRepulsion / (dist * dist);
+                const minDist = n1.r + n2.r + 35; // Collision radius avoidance
+                if (dist < 320) {
+                    const force = (dist < minDist) ? (kRepulsion * 2.5) / (dist * dist) : kRepulsion / (dist * dist);
                     const fx = (dx / dist) * force;
                     const fy = (dy / dist) * force;
                     if (!n1.dragged) {
@@ -1220,7 +1609,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Attraction
-        links.forEach(l => {
+        links.filter(l => l.visible).forEach(l => {
             const n1 = l.sourceNode;
             const n2 = l.targetNode;
             const dx = n2.x - n1.x;
@@ -1242,7 +1631,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Update positions
         nodes.forEach(n => {
-            if (!n.dragged) {
+            if (n.visible && !n.dragged) {
                 const dx = centerX - n.x;
                 const dy = centerY - n.y;
                 n.vx += dx * kGravity;
@@ -1254,8 +1643,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 n.vx *= damping;
                 n.vy *= damping;
 
-                n.x = Math.max(15, Math.min(width - 15, n.x));
-                n.y = Math.max(15, Math.min(height - 15, n.y));
+                n.x = Math.max(30, Math.min(width - 30, n.x));
+                n.y = Math.max(30, Math.min(height - 30, n.y));
             }
 
             if (n.element) {
@@ -1263,8 +1652,9 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
 
+        // Update Link lines
         links.forEach(l => {
-            if (l.element) {
+            if (l.visible && l.element) {
                 l.element.setAttribute("x1", l.sourceNode.x);
                 l.element.setAttribute("y1", l.sourceNode.y);
                 l.element.setAttribute("x2", l.targetNode.x);
@@ -1379,16 +1769,25 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Hook existing UI clicks to log telemetry
-    // Intercept clicks
-    saveFileBtn.addEventListener("click", () => {
-        logSessionEvent("save", { file: activeFileRelativePath });
-    });
-
-    const auditBtn = document.getElementById("btn-run-audit");
-    auditBtn.addEventListener("click", () => {
-        logSessionEvent("audit", { file: activeFileRelativePath });
-    });
+    // -------------------------------------------------------------
+    // Modal Backdrop Click-to-Close
+    // -------------------------------------------------------------
+    const tourModalEl = document.getElementById("tour-modal");
+    if (tourModalEl) {
+        tourModalEl.addEventListener("click", (e) => {
+            if (e.target === tourModalEl) {
+                tourModalEl.classList.add("hidden");
+            }
+        });
+    }
+    const entityModalEl = document.getElementById("entity-detail-modal");
+    if (entityModalEl) {
+        entityModalEl.addEventListener("click", (e) => {
+            if (e.target === entityModalEl) {
+                entityModalEl.classList.add("hidden");
+            }
+        });
+    }
 
     // -------------------------------------------------------------
     // Auto-Calibration logic
@@ -1400,12 +1799,12 @@ document.addEventListener("DOMContentLoaded", () => {
         btnCalibrate.addEventListener("click", async () => {
             const repo = repoInput.value.trim();
             if (!repo) {
-                alert("Please connect a project first.");
+                showToast("Connect a project first.");
                 return;
             }
 
             btnCalibrate.disabled = true;
-            btnCalibrate.querySelector("span").textContent = "Calibrating...";
+            setButtonText(btnCalibrate, "Calibrating...");
             calibrationResults.style.display = "none";
 
             try {
@@ -1417,7 +1816,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const data = await response.json();
 
                 if (data.error) {
-                    alert(`Calibration error: ${data.error}`);
+                    showToast(`Calibration error: ${data.error}`);
                 } else if (data.success) {
                     // Update Typo Similarity slider
                     const typoVal = Math.round(data.optimal_typo_threshold * 100);
@@ -1470,47 +1869,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             } catch (err) {
                 console.error("Calibration request failed:", err);
-                alert(`API Error: ${err.message}`);
+                showToast(`API error: ${err.message}`);
             } finally {
                 btnCalibrate.disabled = false;
-                btnCalibrate.querySelector("span").textContent = "Calibrate Thresholds";
+                setButtonText(btnCalibrate, "Calibrate Thresholds");
             }
         });
     }
 
-    // -------------------------------------------------------------
-    // Demo Playground Quick Start handler (v1.7)
-    // -------------------------------------------------------------
-    const loadPlaygroundBtn = document.getElementById("btn-load-playground");
-    if (loadPlaygroundBtn) {
-        loadPlaygroundBtn.addEventListener("click", async () => {
-            loadPlaygroundBtn.disabled = true;
-            loadPlaygroundBtn.querySelector("span").textContent = "Creating...";
-
-            try {
-                const response = await fetch("/api/playground", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" }
-                });
-                const data = await response.json();
-
-                if (data.error) {
-                    alert(`Playground creation failed: ${data.error}`);
-                } else if (data.success) {
-                    // Automatically fill the repo input and connect
-                    repoInput.value = data.path;
-                    loadRepoBtn.click();
-                    showToast("Playground Connected!");
-                }
-            } catch (err) {
-                console.error("Playground request failed:", err);
-                alert(`API Error: ${err.message}`);
-            } finally {
-                loadPlaygroundBtn.disabled = false;
-                loadPlaygroundBtn.querySelector("span").textContent = "Demo Playground";
-            }
-        });
-    }
 
     // -------------------------------------------------------------
     // Onboarding Tour Modal Logic (v1.7)
@@ -1539,9 +1905,9 @@ document.addEventListener("DOMContentLoaded", () => {
         prevSlideBtn.classList.toggle("disabled", index === 0);
         
         if (index === slides.length - 1) {
-            nextSlideBtn.querySelector("span").textContent = "Get Started";
+            setButtonText(nextSlideBtn, "Get Started");
         } else {
-            nextSlideBtn.querySelector("span").textContent = "Next";
+            setButtonText(nextSlideBtn, "Next");
         }
     }
 
@@ -1647,4 +2013,589 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     }
-});
+
+    // -------------------------------------------------------------
+    // Milestone F: Interactive Repository Intelligence Additions
+    // -------------------------------------------------------------
+    const progressCard = document.getElementById("analysis-progress-card");
+    const progressStepText = document.getElementById("progress-step-text");
+    const progressBarFill = document.getElementById("progress-bar-fill");
+    const cancelAnalysisBtn = document.getElementById("btn-cancel-analysis");
+    const runSelectDropdown = document.getElementById("run-select-dropdown");
+    
+    const entityDetailModal = document.getElementById("entity-detail-modal");
+    const closeDetailBtn = document.getElementById("btn-close-detail");
+    const detailEntityName = document.getElementById("detail-entity-name");
+    const detailComplexity = document.getElementById("detail-complexity");
+    const detailCoupling = document.getElementById("detail-coupling");
+    const detailDepsList = document.getElementById("detail-dependencies-list");
+    const detailViosList = document.getElementById("detail-violations-list");
+    const detailTrendsList = document.getElementById("detail-trends-list");
+    const detailAiExplainBtn = document.getElementById("btn-detail-ai-explain");
+    const detailAiExplainBox = document.getElementById("detail-ai-explanation-box");
+
+    let progressInterval = null;
+    let currentActiveJobId = null;
+
+    const progressStepMap = {
+        "Scanning repository": 15,
+        "Building AST": 35,
+        "Resolving dependencies": 55,
+        "Computing metrics": 75,
+        "Executing rules": 90,
+        "Generating report": 95,
+        "Done": 100
+    };
+
+    function startProgressPolling(jobId) {
+        currentActiveJobId = jobId;
+        if (progressInterval) clearInterval(progressInterval);
+        
+        progressCard.classList.remove("hidden");
+        
+        progressInterval = setInterval(async () => {
+            try {
+                const res = await fetch("/api/v1/progress");
+                const progressData = await res.json();
+                
+                const step = progressData.progress_step || "Scanning repository";
+                const status = progressData.status || "running";
+                
+                progressStepText.textContent = step;
+                const pct = progressStepMap[step] || 10;
+                progressBarFill.style.width = `${pct}%`;
+                
+                if (status === "success" || status === "failed" || status === "cancelled") {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                    progressBarFill.style.width = "100%";
+                    setTimeout(() => {
+                        progressCard.classList.add("hidden");
+                    }, 1000);
+                    
+                    if (status === "success") {
+                        showToast("Analysis completed successfully!");
+                        fetchLatestData();
+                    } else if (status === "failed") {
+                        showToast(`Analysis failed: ${progressData.error}`);
+                    } else if (status === "cancelled") {
+                        showToast("Analysis cancelled.");
+                    }
+                }
+            } catch (err) {
+                console.error("Progress poll failed:", err);
+            }
+        }, 500);
+    }
+
+    async function fetchLatestData() {
+        const repo = repoInput.value.trim();
+        if (!repo) return;
+        try {
+            const response = await fetch("/api/analyze", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: jsonStringify({ repo })
+            });
+            const data = await response.json();
+            if (!data.error) {
+                codebaseData = data;
+                renderDashboard(data);
+                loadFileTree();
+                loadRunsDropdown();
+            }
+        } catch (err) {
+            console.error("Failed to fetch latest data:", err);
+        }
+    }
+
+    async function loadRunsDropdown() {
+        try {
+            const res = await fetch("/api/v1/runs");
+            const data = await res.json();
+            runSelectDropdown.innerHTML = "";
+            
+            if (!data.runs || data.runs.length === 0) {
+                const opt = document.createElement("option");
+                opt.value = "latest";
+                opt.textContent = "Latest Analysis Run";
+                runSelectDropdown.appendChild(opt);
+                return;
+            }
+            
+            data.runs.forEach((run, idx) => {
+                const opt = document.createElement("option");
+                opt.value = run.run_id;
+                opt.textContent = `Run #${run.run_id} (${new Date(run.timestamp).toLocaleString()})`;
+                if (idx === data.runs.length - 1) {
+                    opt.selected = true;
+                }
+                runSelectDropdown.appendChild(opt);
+            });
+        } catch (err) {
+            console.error("Failed to load runs dropdown:", err);
+        }
+    }
+
+    // Cancel analysis button
+    cancelAnalysisBtn.addEventListener("click", async () => {
+        try {
+            await fetch("/api/v1/cancel-analysis", { method: "POST" });
+            showToast("Cancelling analysis...");
+        } catch (err) {
+            console.error("Cancel failed:", err);
+        }
+    });
+
+    // Demo Playground button
+    const playgroundBtn = document.getElementById("btn-load-playground");
+    if (playgroundBtn) {
+        playgroundBtn.addEventListener("click", async () => {
+            playgroundBtn.disabled = true;
+            setButtonText(playgroundBtn, "Creating...");
+            try {
+                const response = await fetch("/api/playground", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" }
+                });
+                const data = await response.json();
+                if (data.error) {
+                    showToast(`Playground failed: ${data.error}`);
+                } else if (data.success) {
+                    repoInput.value = data.path;
+                    loadRepoBtn.click();
+                    showToast("Playground Connected!");
+                }
+            } catch (err) {
+                console.error("Playground request failed:", err);
+                showToast(`API error: ${err.message}`);
+            } finally {
+                playgroundBtn.disabled = false;
+                setButtonText(playgroundBtn, "Demo Playground");
+            }
+        });
+    }
+
+    // Run selector dropdown
+    runSelectDropdown.addEventListener("change", async () => {
+        const runId = runSelectDropdown.value;
+        if (runId === "latest") return;
+        showToast(`Loading Run #${runId}...`);
+    });
+
+    // -------------------------------------------------------------
+    // Entity Detail Modal — Close Button
+    // -------------------------------------------------------------
+    if (closeDetailBtn) {
+        closeDetailBtn.addEventListener("click", () => {
+            entityDetailModal.classList.add("hidden");
+        });
+    }
+
+    // Persona state & translation switcher logic
+    let currentPersonaCommunications = null;
+    let currentActivePersona = "developer";
+
+    const personaTabs = document.querySelectorAll(".persona-tab");
+    const personaActiveBadge = document.getElementById("persona-active-badge");
+
+    const personaBadgeMap = {
+        "developer": "👨‍💻 Developer",
+        "manager": "📊 Manager",
+        "founder": "🚀 Founder",
+        "security": "🛡️ Security",
+        "ai_agent": "🤖 AI Agent"
+    };
+
+    function updatePersonaView(personaKey) {
+        currentActivePersona = personaKey;
+        personaTabs.forEach(tab => {
+            if (tab.dataset.persona === personaKey) {
+                tab.classList.add("active");
+                tab.style.background = "var(--neon-cyan)";
+                tab.style.color = "#0d1b2a";
+                tab.style.fontWeight = "bold";
+            } else {
+                tab.classList.remove("active");
+                tab.style.background = "transparent";
+                tab.style.color = "var(--text-color)";
+                tab.style.fontWeight = "normal";
+            }
+        });
+
+        if (personaActiveBadge) {
+            personaActiveBadge.textContent = personaBadgeMap[personaKey] || personaKey;
+        }
+
+        if (currentPersonaCommunications && detailAiExplainBox) {
+            const explanation = currentPersonaCommunications[personaKey] || currentPersonaCommunications.developer || "No persona translation available.";
+            detailAiExplainBox.classList.remove("hidden");
+            detailAiExplainBox.textContent = explanation;
+        }
+    }
+
+    personaTabs.forEach(tab => {
+        tab.addEventListener("click", () => {
+            updatePersonaView(tab.dataset.persona);
+        });
+    });
+
+    // Entity Detail Modal — AI Explain Button
+    if (detailAiExplainBtn) {
+        detailAiExplainBtn.addEventListener("click", async () => {
+            if (!codebaseData) return;
+            const entityName = detailEntityName.textContent;
+            const match = codebaseData.risks.find(r => r.file.endsWith(entityName) || entityName.includes(r.file));
+            if (!match) {
+                detailAiExplainBox.classList.remove("hidden");
+                detailAiExplainBox.textContent = "No analysis data available for this entity.";
+                return;
+            }
+            detailAiExplainBtn.disabled = true;
+            setButtonText(detailAiExplainBtn, "Analyzing...");
+            try {
+                const repo = repoInput.value.trim();
+                const response = await fetch("/api/design-oracle", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: jsonStringify({ repo, entity_id: match.file, file: match.file, action: "explain" })
+                });
+                const data = await response.json();
+                detailAiExplainBox.classList.remove("hidden");
+                if (data.error) {
+                    detailAiExplainBox.textContent = `Error: ${data.error}`;
+                } else {
+                    currentPersonaCommunications = data.communication || { developer: data.explanation };
+                    updatePersonaView(currentActivePersona);
+                    // Show AI workspace handoff buttons
+                    const aiWorkspace = document.getElementById("ai-collaboration-workspace");
+                    if (aiWorkspace) aiWorkspace.classList.remove("hidden");
+                    // Try rendering trust chain and repair sim
+                    renderTrustChainAndRepairSim(data);
+                }
+            } catch (err) {
+                detailAiExplainBox.classList.remove("hidden");
+                detailAiExplainBox.textContent = `API Error: ${err.message}`;
+            } finally {
+                detailAiExplainBtn.disabled = false;
+                setButtonText(detailAiExplainBtn, "Explain Entity & Translate Machine Risk");
+            }
+        });
+    }
+
+    // ⚡ Auto-Push to AI Assistant (Zero Copy-Pasting)
+    const btnAutoPushAi = document.getElementById("btn-auto-push-ai");
+    if (btnAutoPushAi) {
+        btnAutoPushAi.addEventListener("click", async () => {
+            const repo = repoInput.value.trim();
+            const entityName = detailEntityName ? detailEntityName.textContent : "";
+            if (!repo) {
+                showToast("Connect a project folder first.");
+                return;
+            }
+            btnAutoPushAi.disabled = true;
+            setButtonText(btnAutoPushAi, "⚡ Pushing to AI...");
+            try {
+                const response = await fetch("/api/v1/ai-push", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: jsonStringify({ repo, target_file: entityName, persona: currentActivePersona })
+                });
+                const data = await response.json();
+                if (data.status === "success") {
+                    detailAiExplainBox.classList.remove("hidden");
+                    detailAiExplainBox.textContent = data.ai_response;
+                    showToast(`Pushed to AI (${data.source})!`);
+                    const aiWorkspace = document.getElementById("ai-collaboration-workspace");
+                    if (aiWorkspace) aiWorkspace.classList.remove("hidden");
+                } else {
+                    showToast(`AI Push error: ${data.message || 'Failed'}`);
+                }
+            } catch (err) {
+                console.error("AI Push error:", err);
+                showToast("AI Push failed: " + err.message);
+            } finally {
+                btnAutoPushAi.disabled = false;
+                setButtonText(btnAutoPushAi, "⚡ Auto-Push to AI Assistant");
+            }
+        });
+    }
+
+    // AI Workspace Handoff Buttons
+    async function copyWorkspaceHandoff(aiName) {
+        const repo = repoInput.value.trim();
+        const entityName = detailEntityName.textContent;
+        
+        try {
+            const response = await fetch("/api/v1/context-brief", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: jsonStringify({ repo, target_file: entityName })
+            });
+            const data = await response.json();
+            
+            let textToCopy = "";
+            if (data.handoff) {
+                if (aiName === "Claude") textToCopy = data.handoff.claude;
+                else if (aiName === "ChatGPT") textToCopy = data.handoff.codex;
+                else textToCopy = data.handoff.antigravity;
+            }
+            
+            if (!textToCopy) {
+                const match = codebaseData ? codebaseData.risks.find(r => r.file.endsWith(entityName) || entityName.includes(r.file)) : null;
+                const context = match ? `File: ${match.file}\nRisk: ${match.level}` : `Entity: ${entityName}`;
+                textToCopy = `[${aiName} Workspace Handoff from Ultron]\nAnalyze code entity:\n${context}`;
+            }
+
+            await navigator.clipboard.writeText(textToCopy);
+            showToast(`Copied context for ${aiName}!`);
+        } catch (err) {
+            console.error("Handoff fetch failed:", err);
+            showToast("Failed to copy: " + err.message);
+        }
+    }
+
+    const btnCopyClaude = document.getElementById("btn-copy-claude");
+    const btnCopyGpt = document.getElementById("btn-copy-gpt");
+    const btnCopyGemini = document.getElementById("btn-copy-gemini");
+    if (btnCopyClaude) btnCopyClaude.addEventListener("click", () => copyWorkspaceHandoff("Claude"));
+    if (btnCopyGpt) btnCopyGpt.addEventListener("click", () => copyWorkspaceHandoff("ChatGPT"));
+    if (btnCopyGemini) btnCopyGemini.addEventListener("click", () => copyWorkspaceHandoff("Gemini"));
+
+    // -------------------------------------------------------------
+    // Open Entity Detail (global function for SVG node clicks)
+    // -------------------------------------------------------------
+    window.openEntityDetail = function(entityName, entityType) {
+        if (!codebaseData) return;
+
+        const escName = escapeHtml(entityName);
+        detailEntityName.innerHTML = escName;
+        detailAiExplainBox.classList.add("hidden");
+        const aiWorkspace = document.getElementById("ai-collaboration-workspace");
+        if (aiWorkspace) aiWorkspace.classList.add("hidden");
+        entityDetailModal.classList.remove("hidden");
+
+        const match = codebaseData.risks.find(r => r.file.endsWith(entityName) || entityName.includes(r.file));
+
+        if (match) {
+            detailComplexity.textContent = escapeHtml(String(match.complexity || "-"));
+            detailCoupling.textContent = escapeHtml(String(match.coupling_score || "-"));
+            detailDepsList.textContent = match.callers ? match.callers.map(c => escapeHtml(String(c))).join(", ") : "None";
+
+            detailViosList.innerHTML = "";
+            const levelColor = match.level === "HIGH" ? "var(--risk-high)" : match.level === "MEDIUM" ? "var(--risk-med)" : "var(--risk-low)";
+            detailViosList.innerHTML = `<span style="color:${levelColor}; font-weight:700;">${escapeHtml(match.level)} Risk Zone</span><p style="margin-top:4px; font-size:12px;">${escapeHtml(match.summary || "")}</p>`;
+
+            // Repo/run-scoped hotspot trend rendering
+            const currentRepo = repoInput ? repoInput.value.trim() : "";
+            function renderSpotText(spots) {
+                if (spots && spots.length > 0) {
+                    const spot = spots.find(h => h.file_path.endsWith(entityName) || entityName.includes(h.file_path));
+                    if (spot) {
+                        detailTrendsList.innerHTML = `Complexity Trend: <strong>${escapeHtml(spot.complexity_trend)}</strong><br>Coupling Trend: <strong>${escapeHtml(spot.coupling_trend)}</strong><br>Historical Changes: <strong>${spot.change_count}</strong><br>Hotspot Score: <strong>${spot.hotspot_score.toFixed(1)}</strong> (${escapeHtml(spot.severity_level)})`;
+                        return;
+                    }
+                }
+                detailTrendsList.innerHTML = `Complexity: Stable <br> Coupling: Stable <br> Historical Changes: 0`;
+            }
+
+            if (hotspotsCache.repo === currentRepo && hotspotsCache.data) {
+                renderSpotText(hotspotsCache.data);
+            } else {
+                detailTrendsList.innerHTML = `Loading RKM trend metrics...`;
+                fetch("/api/v1/hotspots")
+                    .then(res => res.json())
+                    .then(data => {
+                        hotspotsCache = { repo: currentRepo, data: data.hotspots || [] };
+                        renderSpotText(hotspotsCache.data);
+                    })
+                    .catch(err => {
+                        detailTrendsList.innerHTML = `Complexity: Stable <br> Coupling: Stable <br> Trend error: ${escapeHtml(err.message)}`;
+                    });
+            }
+        } else {
+            detailComplexity.textContent = "-";
+            detailCoupling.textContent = "-";
+            detailDepsList.textContent = "None";
+            detailViosList.innerHTML = `<span style="opacity: 0.5; font-size: 13px;">No risk data for this entity.</span>`;
+            detailTrendsList.innerHTML = "No trend data available.";
+        }
+    };
+
+    // Render Trust Chain & Repair Simulation with Plain English lead labels
+    function renderTrustChainAndRepairSim(data) {
+        const trustBox = document.getElementById("detail-trust-chain-box");
+        const repairBox = document.getElementById("detail-repair-simulation-box");
+
+        if (!trustBox || !repairBox) return;
+
+        if (data.trust_chain) {
+            const tc = data.trust_chain;
+            trustBox.innerHTML = `
+                <div style="font-size: 13px; font-weight: 600; color: #f8fafc; margin-bottom: 6px;">
+                    ${tc.plain_label}
+                </div>
+                <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px;">
+                    Technical Rule: <code style="color: #38bdf8; background: rgba(56,189,248,0.1); padding: 2px 6px; border-radius: 4px;">${tc.rule_technical_name}</code> | Confidence: <strong>${(tc.confidence * 100).toFixed(0)}%</strong>
+                </div>
+                <div style="font-size: 11px; color: #e2e8f0; background: rgba(255,255,255,0.03); padding: 8px; border-radius: 4px;">
+                    <strong>Observed Evidence:</strong> ${tc.evidence[0]?.description || tc.entity} (${tc.evidence[0]?.value || 'Threshold Exceeded'})
+                </div>
+            `;
+        }
+
+        if (data.repair_simulation) {
+            const rs = data.repair_simulation;
+            repairBox.innerHTML = `
+                <div style="font-size: 13px; font-weight: 600; color: #f8fafc; margin-bottom: 6px;">
+                    ${rs.plain_summary}
+                </div>
+                <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin: 8px 0;">
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <th style="text-align: left; padding: 4px; color: #ef4444;">Before Refactoring</th>
+                        <th style="text-align: left; padding: 4px; color: #34d399;">After Refactoring</th>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 4px; color: #cbd5e1;">Risk Score: <strong>${rs.before_state.risk_score}</strong> (${rs.before_state.status})</td>
+                        <td style="padding: 6px 4px; color: #cbd5e1;">Estimated Risk: <strong style="color: #34d399;">${rs.after_state.estimated_risk_score}</strong> (${rs.after_state.status})</td>
+                    </tr>
+                </table>
+                <div style="font-size: 11px; color: #94a3b8;">
+                    <strong>Action Plan:</strong>
+                    <ul style="margin: 4px 0 0 16px; padding: 0;">
+                        ${rs.recommended_steps.map(step => `<li>${step}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+    }
+
+    // -------------------------------------------------------------
+    // Shared Error Vocabulary (matches backend response schemas)
+    // -------------------------------------------------------------
+    const UltronState = {
+        NO_RKM_DB:        "db_uninitialized",
+        ANALYSIS_EMPTY:   "analysis_empty",
+        ANALYSIS_FAILED:  "analysis_failed",
+        DB_READ_ERROR:    "db_read_error"
+    };
+
+    const STATE_MESSAGES = {
+        [UltronState.NO_RKM_DB]:       "No RKM database found. Run an analysis to generate recommendations.",
+        [UltronState.ANALYSIS_EMPTY]:   "Analysis completed with no violations. Your codebase is clean.",
+        [UltronState.ANALYSIS_FAILED]:  "Analysis failed. Check the server console for details.",
+        [UltronState.DB_READ_ERROR]:    "Could not read the RKM database. It may be locked by another process."
+    };
+
+    // -------------------------------------------------------------
+    // Recommendations & AI Export Handoff Logic
+    // -------------------------------------------------------------
+    async function fetchRecommendations() {
+        const recListEl = document.getElementById("recommendations-list");
+        const recSourceBadge = document.getElementById("rec-source-badge");
+        const btnRefresh = document.getElementById("btn-refresh-recs");
+        if (!recListEl) return;
+
+        // Loading state: show immediately, hide only on success/failure/cancel
+        if (btnRefresh) btnRefresh.disabled = true;
+        recListEl.innerHTML = `<div style="color: #94a3b8; font-size: 0.85rem;"><span style="display:inline-block; animation: pulse 1.5s infinite; opacity: 0.7;">Loading recommendations...</span></div>`;
+
+        try {
+            const resp = await fetch("/api/v1/recommendations?limit=10");
+            const data = await resp.json();
+
+            // Update source badge
+            if (recSourceBadge) {
+                const isLive = data.source === "rkm_db";
+                recSourceBadge.textContent = isLive ? "RKM DB" : "Fallback";
+                recSourceBadge.style.background = isLive ? "rgba(56, 189, 248, 0.15)" : "rgba(245, 158, 11, 0.15)";
+                recSourceBadge.style.color = isLive ? "#38bdf8" : "#f59e0b";
+            }
+
+            // Contextual empty state
+            const recs = data.recommendations || [];
+            if (recs.length === 0) {
+                const reason = data.fallback_reason || UltronState.ANALYSIS_EMPTY;
+                const msg = STATE_MESSAGES[reason] || STATE_MESSAGES[UltronState.ANALYSIS_EMPTY];
+                const icon = reason === UltronState.ANALYSIS_EMPTY ? "&#10003;" : "&#9432;";
+                const color = reason === UltronState.ANALYSIS_EMPTY ? "#4ade80" : "#f59e0b";
+                recListEl.innerHTML = `<div style="color: ${color}; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;"><span style="font-size: 1.1rem;">${icon}</span> ${msg}</div>`;
+                return;
+            }
+
+            // Render recommendation cards
+            recListEl.innerHTML = recs.map(r => `
+                <div style="background: rgba(30, 41, 59, 0.6); padding: 10px 14px; border-radius: 6px; border-left: 3px solid ${r.severity === 'HIGH' ? '#f43f5e' : (r.severity === 'MEDIUM' ? '#f59e0b' : '#38bdf8')}; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                    <div>
+                        <div style="color: #f1f5f9; font-weight: 600; font-size: 0.88rem;">${r.target_file || 'Global'} <span style="font-size: 11px; opacity: 0.7; color: #94a3b8;">(${r.rule_id})</span></div>
+                        <div style="color: #cbd5e1; font-size: 0.8rem; margin-top: 2px;">${r.suggested_action}</div>
+                    </div>
+                    <span style="font-size: 11px; font-weight: 700; color: ${r.severity === 'HIGH' ? '#f43f5e' : '#38bdf8'}; background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 4px; white-space: nowrap;">
+                        Impact: -${(r.risk_reduction_score || 0).toFixed(1)}
+                    </span>
+                </div>
+            `).join('');
+        } catch (err) {
+            console.error("Failed to fetch recommendations:", err);
+            recListEl.innerHTML = `<div style="color: #f43f5e; font-size: 0.85rem;">&#9888; Could not load recommendations. Server may be unreachable.</div>`;
+        } finally {
+            if (btnRefresh) btnRefresh.disabled = false;
+        }
+    }
+
+    const btnRefreshRecs = document.getElementById("btn-refresh-recs");
+    if (btnRefreshRecs) {
+        btnRefreshRecs.addEventListener("click", fetchRecommendations);
+    }
+
+    // AI Handoff Export Buttons Handler with Clipboard Fallback
+    document.querySelectorAll(".btn-export-ai").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+            const thisBtn = e.currentTarget;
+            const format = thisBtn.getAttribute("data-format");
+            if (!format) return;
+
+            // Disable during async to prevent double-click
+            thisBtn.disabled = true;
+            const originalText = thisBtn.textContent;
+            thisBtn.textContent = "Exporting...";
+
+            try {
+                const resp = await fetch("/api/v1/export-brief", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ format: format })
+                });
+                const data = await resp.json();
+                if (data.status === "ok") {
+                    const textToCopy = data.content || JSON.stringify(data.brief, null, 2);
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(textToCopy);
+                    } else {
+                        const textarea = document.createElement("textarea");
+                        textarea.value = textToCopy;
+                        document.body.appendChild(textarea);
+                        textarea.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(textarea);
+                    }
+                    showToast(`Copied ${format.toUpperCase()} Context Brief!`);
+                } else {
+                    showToast(data.message || "Export failed.");
+                }
+            } catch (err) {
+                console.error("Export brief error:", err);
+                showToast("Export error: " + err.message);
+            } finally {
+                thisBtn.disabled = false;
+                thisBtn.textContent = originalText;
+            }
+        });
+    });
+
+    // Auto-connect repository on initial page load if valid path present
+    if (repoInput && repoInput.value.trim()) {
+        setTimeout(() => {
+            if (loadRepoBtn) loadRepoBtn.click();
+        }, 100);
+    }

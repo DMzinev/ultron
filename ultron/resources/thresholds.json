@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "description": "Priority tier cutoffs",
+  "priority_thresholds": {
+    "CRITICAL": 75.0,
+    "HIGH": 50.0,
+    "MEDIUM": 25.0
+  }
+}

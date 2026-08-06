@@ -4,7 +4,7 @@ import math
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 _root = os.path.abspath(os.path.join(_dir, "..", ".."))
-WEIGHTS_PATH = os.path.join(_root, "ultron", "meta", "logistic_weights.json")
+WEIGHTS_PATH = os.path.join(_root, "ultron", "resources", "weights.json")
 
 DEFAULT_COEFFICIENTS = {
     "beta_0": -1.0,  # intercept
@@ -43,9 +43,9 @@ def predict_defect_probability(impact_score, mkr):
 def train_confidence_classifier():
     """
     Fits logistic regression parameters using batch gradient descent on ledger outcomes.
-    Reads data from meta/experiment_log.jsonl.
+    Reads data from resources/experiment_log.jsonl.
     """
-    log_path = os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "meta", "experiment_log.jsonl"))
+    log_path = os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "experiment_log.jsonl"))
     if not os.path.exists(log_path):
         return load_logistic_weights()
         

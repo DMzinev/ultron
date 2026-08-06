@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "description": "Business criticality priority multipliers",
+  "criticality_multipliers": {
+    "CRITICAL_PATH": 1.2,
+    "DEFAULT": 1.0,
+    "EXPERIMENTAL": 0.8
+  }
+}

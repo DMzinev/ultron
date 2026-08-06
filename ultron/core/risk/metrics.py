@@ -10,7 +10,11 @@ No I/O beyond the single file read in get_file_complexity. No network, no json, 
 """
 import os
 import ast
-from radon.visitors import ComplexityVisitor
+
+try:
+    from radon.visitors import ComplexityVisitor
+except ImportError:
+    ComplexityVisitor = None
 
 
 def get_file_complexity(filepath):
@@ -24,9 +28,7 @@ def get_file_complexity(filepath):
     try:
         with open(filepath, "r", encoding="utf-8-sig") as f:
             code = f.read()
-        visitor = ComplexityVisitor.from_code(code)
-        if visitor.blocks:
-            return max(block.complexity for block in visitor.blocks)
+        return get_code_complexity(code)
     except Exception as e:
         print(f"Warning: failed to compute complexity of {filepath}: {e}")
     return 1
@@ -40,13 +42,25 @@ def get_code_complexity(code):
     """
     if code is None:
         raise ValueError("code cannot be None")
+    if ComplexityVisitor is not None:
+        try:
+            visitor = ComplexityVisitor.from_code(code)
+            if visitor.blocks:
+                return max(block.complexity for block in visitor.blocks)
+        except Exception as e:
+            print(f"Warning: failed to compute code complexity: {e}")
+        return 1
+
+    # Fallback AST branch counting when radon is missing
     try:
-        visitor = ComplexityVisitor.from_code(code)
-        if visitor.blocks:
-            return max(block.complexity for block in visitor.blocks)
-    except Exception as e:
-        print(f"Warning: failed to compute code complexity: {e}")
-    return 1
+        tree = ast.parse(code)
+        complexity = 1
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.If, ast.For, ast.While, ast.ExceptHandler, ast.With, ast.BoolOp, ast.Try)):
+                complexity += 1
+        return complexity
+    except Exception:
+        return 1
 
 
 def extract_ast_blocks(code):

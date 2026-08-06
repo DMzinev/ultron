@@ -2,7 +2,12 @@ import os
 import ast
 import re
 import subprocess
-from radon.visitors import ComplexityVisitor
+try:
+    from radon.visitors import ComplexityVisitor
+    HAS_RADON = True
+except ImportError:
+    ComplexityVisitor = None
+    HAS_RADON = False
 
 def get_file_ast_and_metadata(content):
     """
@@ -17,11 +22,16 @@ def get_file_ast_and_metadata(content):
 
     # 1. Cyclomatic Complexity
     complexity = 0
-    try:
-        visitor = ComplexityVisitor.from_code(content)
-        complexity = sum(block.complexity for block in visitor.blocks)
-    except Exception:
-        pass
+    if HAS_RADON and ComplexityVisitor is not None:
+        try:
+            visitor = ComplexityVisitor.from_code(content)
+            complexity = sum(block.complexity for block in visitor.blocks)
+        except Exception:
+            pass
+    if complexity == 0 and tree is not None:
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.If, ast.For, ast.While, ast.Try, ast.ExceptHandler, ast.With, ast.Assert, ast.BoolOp)):
+                complexity += 1
     if complexity == 0:
         complexity = 1
 

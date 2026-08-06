@@ -177,6 +177,9 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
         list[AnalysisPacket]
     """
     target_files = list(target_files)
+    caller_had_targets = bool(target_files)
+    caller_had_intent = bool(intent)
+
     if not target_files and intent:
         keywords = [w.lower() for w in intent.split() if len(w) > 3]
         for rel_path, analysis in codebase.items():
@@ -198,6 +201,10 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
                 target_files.append(rel_path)
         target_files = list(set(target_files))
 
+    # Full-repo scan: only when caller provided neither targets nor intent
+    if not target_files and not caller_had_targets and not caller_had_intent:
+        target_files = list(codebase.keys())
+
     risks = []
 
     # Lazy import to prevent circular dependency (analyzer imports risk at module level)
@@ -211,16 +218,16 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
 
     feedback = load_human_feedback()
 
-    # Build global callers map once for all targets
+    # Build global callers map once for all targets using set for O(1) deduplication
     global_callers = {}
     for rel_path, analysis in codebase.items():
         for defn in analysis.get("definitions", []):
             for call in defn.get("calls", []):
-                global_callers.setdefault(call, []).append(rel_path)
+                global_callers.setdefault(call, set()).add(rel_path)
             if defn.get("type") == "class":
                 for method in defn.get("methods", []):
                     for call in method.get("calls", []):
-                        global_callers.setdefault(call, []).append(rel_path)
+                        global_callers.setdefault(call, set()).add(rel_path)
 
     for target in target_files:
         if target not in codebase:
@@ -228,19 +235,17 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
         analysis = codebase[target]
         target_defs = analysis.get("definitions", [])
 
-        downstream_files = []
+        downstream_files = set()
         for defn in target_defs:
             name = defn.get("name")
             if name in global_callers:
-                downstream_files.extend(global_callers[name])
+                downstream_files.update(global_callers[name])
             if defn.get("type") == "class":
                 for method in defn.get("methods", []):
                     m_name = method.get("name")
                     if m_name in global_callers:
-                        downstream_files.extend(global_callers[m_name])
-        downstream_files = list(set(downstream_files))
-        if target in downstream_files:
-            downstream_files.remove(target)
+                        downstream_files.update(global_callers[m_name])
+        downstream_files.discard(target)
 
         coupling_count = len(downstream_files)
         abs_target = os.path.join(repo_path, target) if repo_path else target
@@ -319,7 +324,7 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
             level=level,
             complexity=complexity,
             mitigation=mitigation,
-            callers=downstream_files,
+            callers=sorted(list(downstream_files)),
             architectural_role=role,
             change_strategy=change_strategy,
         ))

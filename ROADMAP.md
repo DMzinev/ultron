@@ -207,6 +207,14 @@ Browser-served dashboard, auto-opens on server launch, auto-scans the launch dir
 Here is the verified screenshot:
 ![heatmap_screenshot](file:///C:/Users/This%20PC/.gemini/antigravity/brain/7494477a-6e49-465f-ab3a-1623cfde1808/heatmap_screenshot.png)
 
+**Repository Knowledge Model (RKM) Persistent Memory Foundation** (`core/rkm/`, `core/pipeline/`)
+Persistent database memory foundation built with SQLite to store structured facts, metrics, symbols, file structures, dependencies, architecture roles, and explainability diagnostic chains across repository analysis runs.
+*STATUS:* ✅ **FULLY VERIFIED AND IMPLEMENTED** (Phase 2 Pass 1). Features:
+- Idempotent schema migrations runner (`store.py` + initial schema DDL migrations versioned at `1.0.0` with compatibility metadata validation).
+- Safe adapter layer (`adapters.py` protecting the frozen engine layer).
+- Orchestrator pipeline (`discovery.py`, `persistence.py`, `orchestrator.py`) running discovery -> extraction -> metrics -> interpretations -> recommendations -> persistence.
+- Complete integration test coverage (`test_rkm_contract.py`, `test_rkm_restart.py`, `test_diagnostic_chain.py`, `test_engine_compatibility.py`).
+
 ---
 
 ### ⚠️ Working, not yet validated

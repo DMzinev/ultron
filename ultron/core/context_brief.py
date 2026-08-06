@@ -241,8 +241,97 @@ def compile_brief(repo_path):
             lines.append("")
     else:
         lines.append("*   None documented")
+    lines.append("")
+
+    # 5. Rule Violations from RKM
+    db_path = os.path.join(repo_path, ".ultron", "repository.db")
+    if os.path.exists(db_path):
+        from ultron.core.rkm.store import RepositoryStore
+        try:
+            store = RepositoryStore(db_path)
+            meta = store.get_metadata()
+            if meta and meta.latest_analysis_run_id:
+                violations = store.get_violations(meta.latest_analysis_run_id)
+                instances = store.get_rule_instances()
+                inst_map = {inst.rule_id: inst for inst in instances}
+                
+                if violations:
+                    lines.append("## 5. Architectural Rule Violations")
+                    lines.append("| Rule ID | Severity | File | Details | Remediation |")
+                    lines.append("| --- | --- | --- | --- | --- |")
+                    for vio, rule, evidences in violations:
+                        inst = inst_map.get(rule.id)
+                        severity = inst.severity if inst else "warning"
+                        f_path = "Repository"
+                        if vio.file_id:
+                            f_cursor = store.conn.execute("SELECT path FROM rkm_files WHERE id = ?", (vio.file_id,)).fetchone()
+                            if f_cursor:
+                                f_path = f_cursor["path"]
+                        
+                        remediation = "Remediate according to rule definition details."
+                        if rule.id == "complexity_limit":
+                            remediation = "Simplify code structures, extract methods, or split class responsibilities."
+                        elif rule.id == "coupling_limit":
+                            remediation = "Reduce direct dependencies, inject abstractions, or decouple modules."
+                        elif rule.id == "layer_restriction":
+                            remediation = "Remove invalid import layer crossing. Depend on abstractions or decouple layers."
+                            
+                        lines.append(f"| {rule.id} | {severity.upper()} | {f_path} | {vio.details} | {remediation} |")
+                    lines.append("")
+            store.close()
+        except Exception as e:
+            import sys
+            sys.stderr.write(f"[Ultron] Warning: failed to load constraint violations for brief: {e}\n")
         
     return "\n".join(lines)
+
+def compile_brief_data(repo_path):
+    """
+    Compiles a structured dictionary brief with real health score, top risks,
+    and markdown representation for fallback when RKM DB is uninitialized.
+    """
+    if not repo_path:
+        raise ValueError("Repository path must not be empty.")
+    repo_path = os.path.abspath(os.path.normpath(repo_path))
+    codebase = analyzer.analyze_directory(repo_path)
+    all_files = list(codebase.keys())
+    risks = risk.evaluate_risks(codebase, all_files, repo_path=repo_path)
+    sorted_risks = sorted(risks, key=lambda r: get_attr(r, 'impact_score', 0.0), reverse=True)
+
+    top_risks_structured = []
+    for r in sorted_risks[:5]:
+        fp = get_attr(r, 'file_path', get_attr(r, 'file', ''))
+        lvl = get_attr(r, 'level', 'LOW')
+        impact = get_attr(r, 'impact_score', 0.0)
+        reasons_list = []
+        c_val = get_attr(r, 'complexity', 0.0)
+        k_val = get_attr(r, 'coupling', 0.0)
+        if c_val > 10:
+            reasons_list.append(f"McCabe Complexity: {c_val:.1f}")
+        if k_val > 5:
+            reasons_list.append(f"Coupling: {k_val:.1f}")
+        if not reasons_list:
+            reasons_list.append(f"Impact Score: {impact:.1f}")
+
+        top_risks_structured.append({
+            "entity_id": fp,
+            "priority": lvl,
+            "reasons": reasons_list
+        })
+
+    raw_markdown = compile_brief(repo_path)
+    high_count = sum(1 for r in sorted_risks if get_attr(r, 'level', '') == 'HIGH')
+    computed_health = max(40.0, round(100.0 - (high_count * 8.0), 1))
+
+    return {
+        "repo_name": os.path.basename(repo_path),
+        "repository_uuid": "uninitialized",
+        "health_score": computed_health,
+        "total_files": len(all_files),
+        "total_modules": len(all_files),
+        "top_risks": top_risks_structured,
+        "raw_text": raw_markdown
+    }
 
 if __name__ == "__main__":
     import sys
@@ -265,3 +354,107 @@ if __name__ == "__main__":
         print(f"[+] Context brief written to {args.output}")
     else:
         print(brief)
+
+
+
+
+def _load_rkm_violations(db_path: str) -> tuple[list, list]:
+    violations_summary = []
+    allowed_files = []
+    if os.path.exists(db_path):
+        import sqlite3
+        try:
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT v.id, f.path as file_path, v.details, r.name as rule_name "
+                "FROM rkm_violations v "
+                "JOIN rkm_evaluations e ON e.id = v.evaluation_id "
+                "JOIN rkm_rules r ON r.id = e.rule_id "
+                "JOIN rkm_files f ON f.id = v.file_id LIMIT 5"
+            ).fetchall()
+            for r in rows:
+                violations_summary.append({
+                    "id": r["id"],
+                    "file": r["file_path"],
+                    "rule": r["rule_name"],
+                    "details": r["details"]
+                })
+                allowed_files.append(r["file_path"])
+            conn.close()
+        except Exception:
+            pass
+    return violations_summary, allowed_files
+
+
+def _resolve_suggested_safe_zones(intent_lower: str, allowed_files: list) -> list:
+    suggested_safe_zones = []
+    if "auth" in intent_lower or "login" in intent_lower or "session" in intent_lower:
+        suggested_safe_zones.append("NEW: ultron/interfaces/auth.py (Recommended Service Boundary)")
+    elif "db" in intent_lower or "database" in intent_lower or "storage" in intent_lower:
+        suggested_safe_zones.append("NEW: ultron/services/storage.py (Recommended Service Boundary)")
+    elif "api" in intent_lower or "route" in intent_lower:
+        suggested_safe_zones.append("NEW: ultron/interfaces/api/custom_routes.py")
+    else:
+        suggested_safe_zones.append("ultron/interfaces/ (Safe Custom Interface Zone)")
+        
+    for f in allowed_files:
+        if f not in suggested_safe_zones:
+            suggested_safe_zones.append(f)
+    return suggested_safe_zones
+
+
+def generate_vibe_context_package(intent: str = "", repo_path: str = None) -> dict:
+    """
+    Generates a grounded Vibe Coder AI Middleware Context Package with Constraint Resolution.
+    Analyzes intent and suggests safe modification zones (e.g. NEW files under ultron/interfaces/ or ultron/services/)
+    while protecting frozen core engine files.
+    """
+    if not repo_path:
+        repo_path = os.getcwd()
+        
+    db_path = os.path.join(repo_path, ".ultron", "repository.db")
+    violations_summary, allowed_files = _load_rkm_violations(db_path)
+            
+    user_intent = intent.strip() if intent and intent.strip() else "Improve codebase quality and resolve structural violations"
+    suggested_safe_zones = _resolve_suggested_safe_zones(user_intent.lower(), allowed_files)
+                
+    forbidden_files = [
+        "ultron/core/analyzer.py (FROZEN CORE ENGINE - DO NOT MODIFY)",
+        "ultron/core/models.py (FROZEN CORE ENGINE - DO NOT MODIFY)",
+        "ultron/core/classifier.py (FROZEN CORE ENGINE - DO NOT MODIFY)"
+    ]
+    
+    prompt_package = f"""==================================================
+ULTRON GROUNDED MISSION ENVELOPE FOR AI AGENT
+==================================================
+
+[OBJECTIVE & USER INTENT]
+{user_intent}
+
+[GROUND TRUTH CODEBASE FACTS - RKM SQLite Memory]
+- Active Structural Violations: {len(violations_summary)}
+{chr(10).join([f"  - [{v['rule']}] {v['file']}: {v['details']}" for v in violations_summary]) if violations_summary else "  - Codebase is structurally sound under active RKM rules."}
+
+[CONSTRAINT RESOLVER: SAFE MODIFICATION ZONES]
+Recommended Target Files:
+{chr(10).join([f"- {sz}" for sz in suggested_safe_zones])}
+
+Forbidden Core Files (PROTECTED BY GOVERNANCE):
+{chr(10).join([f"- {ff}" for ff in forbidden_files])}
+
+[ACCEPTANCE CRITERIA]
+1. Do NOT modify any forbidden frozen core engine files.
+2. Build new capabilities inside the recommended Safe Modification Zones.
+3. All unit tests must pass (`python -m unittest discover -s ultron/tests -p "test_*.py"`).
+"""
+
+    return {
+        "status": "success",
+        "user_intent": user_intent,
+        "violations_count": len(violations_summary),
+        "violations": violations_summary,
+        "allowed_files": suggested_safe_zones,
+        "forbidden_files": forbidden_files,
+        "prompt_package": prompt_package
+    }

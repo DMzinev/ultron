@@ -158,7 +158,8 @@ def run_threshold_calibration(repo_path):
     print(f"[Meta-Ultron] Starting threshold sweep auto-calibration on repo: {repo_path}")
     
     # 1. Build models
-    names, probs = classifier.build_models(repo_path)
+    res = classifier.build_models(repo_path)
+    names = res[0] if isinstance(res, (tuple, list)) else res
     if not names:
         names = {"process", "init_db", "query", "close_db"}
     

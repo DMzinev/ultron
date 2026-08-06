@@ -426,11 +426,12 @@ textarea {
 /* Node/Link styling inside SVG */
 #dependency-graph .node {
     cursor: pointer;
-    transition: transform 0.2s;
+    transition: transform 0.2s, filter 0.2s;
 }
 
 #dependency-graph .node:hover {
     transform: scale(1.1);
+    filter: drop-shadow(0 0 8px var(--neon-cyan));
 }
 
 #dependency-graph .node-glow {
@@ -462,6 +463,25 @@ textarea {
     fill: var(--text-primary);
     text-anchor: middle;
     pointer-events: none;
+}
+
+/* Graph Visual Enhancements & Hover States */
+.graph-node-group {
+    transition: opacity 0.25s ease;
+}
+.graph-node-group.dimmed {
+    opacity: 0.15;
+}
+.graph-link {
+    transition: opacity 0.25s ease, stroke-width 0.25s ease;
+}
+.graph-link.dimmed {
+    opacity: 0.05;
+}
+.graph-link.highlighted {
+    opacity: 1.0 !important;
+    stroke: #38bdf8 !important;
+    stroke-width: 2.5px !important;
 }
 
 /* Grid card table container */
@@ -1420,3 +1440,38 @@ input[type="range"]::-webkit-slider-thumb {
 
 
 
+
+
+
+/* Responsive Mobile & Tablet Layout Overrides */
+@media (max-width: 900px) {
+    .app-container {
+        grid-template-columns: 1fr !important;
+        grid-template-rows: auto 1fr !important;
+    }
+    .sidebar {
+        width: 100% !important;
+        height: auto !important;
+        position: relative !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 12px 16px !important;
+    }
+    .nav-links {
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 8px !important;
+        overflow-x: auto !important;
+    }
+    .main-content {
+        padding: 16px !important;
+    }
+    .summary-hero-card {
+        padding: 16px !important;
+    }
+    .drawer {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+}
