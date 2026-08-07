@@ -173,9 +173,7 @@ def compile_brief(repo_path):
     lines.append("- **Scan Boundaries & Limitations**:")
     lines.append("  - Static AST evaluation — dynamic runtime reflection not monitored")
     lines.append("  - Incremental AST caching active")
-    lines.append("")
-    
-    lines.append("## 2. File Risk Profiles")
+    lines.append("## 2. File Risk Profiles & Explainable Evidence Chains")
     lines.append("| File | Risk Tier | Role | Change Strategy | Impact Score | Complexity | Coupling |")
     lines.append("| --- | --- | --- | --- | --- | --- | --- |")
     for r in sorted_risks:
@@ -193,6 +191,16 @@ def compile_brief(repo_path):
             strategy_display = strategy.display_name
         else:
             strategy_display = "Safe internal edits"
+            
+        comp = get_attr(r, 'max_complexity', get_attr(r, 'complexity', 1))
+        coup = get_attr(r, 'coupling', 0)
+        lines.append(f"| `{filepath}` | **{level}** | {role_display} | {strategy_display} | {impact:.2f} | {comp} | {coup} |")
+        
+        # Add explicit Explainable Evidence Chain for High/Medium risk files
+        if level in ["HIGH", "CRITICAL", "MEDIUM"]:
+            lines.append(f"  - **Evidence Chain**: `AST Complexity: {comp}` | `Call Coupling: {coup}` | `Impact Score: {impact:.2f}`")
+            lines.append(f"    - *Why*: High function complexity or coupling density detected across module AST.")
+            lines.append(f"    - *Impact*: Changes in `{filepath}` risk ripple-effect regressions across dependent modules.")
         
         # Check if git-history or feedback adjustment changed the outcome
         n_fixes = bug_fixes.get(filepath, 0)
