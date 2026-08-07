@@ -1,0 +1,27 @@
+{
+  "release_version": "2.0.0",
+  "verified_at": "2026-08-07T17:47:29.296727+00:00",
+  "git": {
+    "commit": "3e7a2b6a9eb047b52e4c9758bd84cee5da74e2ac",
+    "clean_tree": false
+  },
+  "tests": {
+    "total": 105,
+    "passed": 105,
+    "failed": 0,
+    "duration_sec": 84.11
+  },
+  "compilation": {
+    "python": "PASS",
+    "es_modules": "PASS"
+  },
+  "performance": {
+    "api_latency_ms": 435.84,
+    "peak_heap_mb": 2.62,
+    "scan_throughput_files_per_sec": 101.0
+  },
+  "governance": {
+    "high_severity_defects": 0,
+    "residual_risk_within_threshold": true
+  }
+}
