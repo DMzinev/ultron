@@ -4,7 +4,6 @@ __pycache__/
 *.pyo
 *.pyd
 *.so
-.cache/
 
 # Local databases and RKM state
 .ultron/
@@ -24,12 +23,41 @@ dist/
 build/
 *.egg-info/
 
+# Internal development artifacts (not shipped)
+.agents/
+.synapse/
+scratch/
+synapse_project
+walkthrough.md
+ultron/walkthrough.md
+
+# Internal process documents
+EXECUTION_PLAN.md
+PROJECT_LOG.md
+PROTOCOL.md
+ROADMAP.md
+ROADMAP_CORRECTIONS.md
+RELEASE_CHECKLIST.md
+RELEASE_READINESS_DASHBOARD.md
+release_report.json
+
+# Internal meta/experiment data
+ultron/meta/audit_package.yaml
+ultron/meta/audit_telemetry.jsonl
+ultron/meta/blind_feedback*.jsonl
+ultron/meta/blind_study_*
+ultron/meta/evolution_ledger.json
+ultron/meta/experiment_log.jsonl
+ultron/meta/reality_deltas.jsonl
+ultron/meta/subagents_config.json
+ultron/meta/active_pledges.json
+ultron/meta/human_feedback.jsonl
+ultron/data/ledger.json
+ultron/.synapse/
+ultron.spec
+
 # Backup & temporary verification artifacts
 *.bak
 .bak
 *.tmp_verification
-.agents/
-.synapse/
-ultron/meta/audit_package.yaml
-ultron/meta/audit_telemetry.jsonl
 umags/.cache/
