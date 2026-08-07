@@ -19,12 +19,16 @@ class AppliedMigration:
 
 class RepositoryStore:
     def __init__(self, db_path: str):
-        self.db_path = db_path
-        # Ensure parent directory exists
-        db_dir = os.path.dirname(os.path.abspath(db_path))
-        os.makedirs(db_dir, exist_ok=True)
+        self.db_path = db_path if db_path == ":memory:" else os.path.normpath(os.path.abspath(db_path))
+        # Campaign 20: Integrity Check, Pre-Migration Backup & Corrupted DB Preservation
+        from ultron.core.rkm.integrity import RKMDatabaseIntegrity
+        RKMDatabaseIntegrity.verify_and_repair_database(self.db_path)
         
-        self.conn = sqlite3.connect(db_path)
+        if self.db_path != ":memory:":
+            db_dir = os.path.dirname(self.db_path)
+            os.makedirs(db_dir, exist_ok=True)
+        
+        self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON;")
         self._run_migrations()

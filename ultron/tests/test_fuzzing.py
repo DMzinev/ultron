@@ -14,6 +14,7 @@ from ultron.interfaces.server import UltronAPIHandler
 class TestAdversarialFuzzing(unittest.TestCase):
     def setUp(self):
         self.handler = UltronAPIHandler.__new__(UltronAPIHandler)
+        self.handler.headers = {}
         self.handler.send_json_response = MagicMock()
         self.handler.get_request_data = MagicMock()
 
