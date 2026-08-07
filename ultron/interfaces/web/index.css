@@ -484,6 +484,45 @@ textarea {
     stroke-width: 2.5px !important;
 }
 
+/* Campaign 6: Privacy Trust Badge */
+.privacy-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+.privacy-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 6px #10b981;
+}
+
+/* Campaign 1: Skeleton Wave Loading Animations */
+.skeleton-box {
+    background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.12) 37%, rgba(255,255,255,0.05) 63%);
+    background-size: 400% 100%;
+    animation: skeleton-wave 1.4s ease infinite;
+    border-radius: 4px;
+}
+
+@keyframes skeleton-wave {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
+/* Button Loading & Disabled States */
+button.loading {
+    opacity: 0.7;
+    pointer-events: none;
+    cursor: wait;
+}
+
 /* Grid card table container */
 .grid-card {
     padding: 24px;

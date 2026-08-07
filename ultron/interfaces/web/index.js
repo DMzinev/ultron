@@ -1480,6 +1480,12 @@
             n.element = g;
             n.circle = circle;
 
+            // Campaign 1: Click node to open Detail Drawer Sidebar
+            circle.addEventListener("click", (e) => {
+                e.stopPropagation();
+                openNodeDrawer(n);
+            });
+
             // Drag behavior
             circle.addEventListener("mousedown", (e) => {
                 e.stopPropagation();
@@ -1562,6 +1568,68 @@
             simRunning = true;
             runPhysicsLoop();
         }
+    }
+
+    function openNodeDrawer(n) {
+        const drawer = document.getElementById("graph-detail-drawer");
+        if (!drawer) return;
+
+        const dLabel = document.getElementById("drawer-node-label");
+        const dType = document.getElementById("drawer-node-type");
+        const dImpact = document.getElementById("drawer-impact-score");
+        const dComplexity = document.getElementById("drawer-complexity");
+        const dCoupling = document.getElementById("drawer-coupling");
+        const dStrategy = document.getElementById("drawer-strategy");
+        const dContent = document.getElementById("drawer-ai-content");
+        const btnAI = document.getElementById("btn-drawer-ai-critique");
+
+        if (dLabel) dLabel.textContent = n.label || n.id;
+        if (dType) dType.textContent = n.type === "file" ? "📁 File Node" : "⚡ Function Node";
+        if (dImpact) dImpact.textContent = (n.impact_score || 0).toFixed(2);
+        if (dComplexity) dComplexity.textContent = n.complexity || 1;
+        if (dCoupling) dCoupling.textContent = n.coupling || 0;
+        if (dStrategy) dStrategy.textContent = n.strategy_display || "Safe localized modifications";
+        if (dContent) dContent.textContent = "Click 'Explain with AI' for grounded architectural feedback.";
+
+        drawer.classList.remove("hidden");
+
+        if (btnAI) {
+            btnAI.onclick = async () => {
+                if (btnAI.disabled) return;
+                btnAI.disabled = true;
+                btnAI.classList.add("loading");
+                if (dContent) dContent.textContent = "Analyzing hotspot with Local AI Engine...";
+
+                try {
+                    const res = await fetch("/api/v1/ai/critique", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            file: n.id,
+                            complexity: n.complexity || 1,
+                            coupling: n.coupling || 0,
+                            impact_score: n.impact_score || 0
+                        })
+                    });
+                    const raw = await res.json();
+                    const data = (raw && typeof raw === 'object' && raw.success === true && raw.data !== undefined && raw.data !== null) ? raw.data : raw;
+                    if (dContent) dContent.textContent = data.critique || data.error || "No critique generated.";
+                } catch (err) {
+                    if (dContent) dContent.textContent = `Offline Fallback: High complexity (${n.complexity || 1}). Enforce Single Responsibility (SRP).`;
+                } finally {
+                    btnAI.disabled = false;
+                    btnAI.classList.remove("loading");
+                }
+            };
+        }
+    }
+
+    const btnCloseDrawer = document.getElementById("btn-close-drawer");
+    if (btnCloseDrawer) {
+        btnCloseDrawer.onclick = () => {
+            const drawer = document.getElementById("graph-detail-drawer");
+            if (drawer) drawer.classList.add("hidden");
+        };
     }
 
     function runPhysicsLoop() {

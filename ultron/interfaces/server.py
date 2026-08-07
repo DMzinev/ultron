@@ -46,7 +46,29 @@ ACTIVE_JOB = {
 PORT = 8000
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 CONFIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".ultron")
-CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
+def validate_repo_path(base_dir: str, target_path: str) -> tuple[bool, str]:
+    """
+    Validates that target_path is inside base_dir and handles Windows drive letter boundaries.
+    Returns (is_valid, abs_normalized_path).
+    """
+    try:
+        norm_base = os.path.abspath(os.path.normpath(base_dir))
+        norm_target = os.path.abspath(os.path.normpath(target_path))
+        
+        # Windows drive letter mismatch check (e.g. C:\ vs D:\)
+        if os.name == 'nt':
+            base_drive = os.path.splitdrive(norm_base)[0].lower()
+            target_drive = os.path.splitdrive(norm_target)[0].lower()
+            if base_drive and target_drive and base_drive != target_drive:
+                return False, norm_target
+                
+        common = os.path.commonpath([norm_base, norm_target])
+        if os.path.abspath(common) == norm_base:
+            return True, norm_target
+        return False, norm_target
+    except (ValueError, OSError, Exception):
+        return False, os.path.abspath(os.path.normpath(target_path))
+
 
 class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -223,8 +245,8 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_v1_context_brief()
         elif req_path == "/api/v1/export-brief":
             self.handle_v1_export_brief()
-        elif req_path == "/api/v1/ai-push":
-            self.handle_v1_ai_push()
+        elif req_path == "/api/v1/ai/critique":
+            self.handle_v1_ai_critique()
         elif req_path == "/api/set-repo-root":
             self.handle_set_repo_root()
         else:
@@ -232,6 +254,7 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({"error": "Endpoint not found"}).encode())
+
     def get_post_data(self):
         if hasattr(self, "_cached_post_data") and self._cached_post_data is not None:
             return self._cached_post_data
@@ -240,13 +263,14 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             if content_length <= 0:
                 self._cached_post_data = {}
                 return {}
-            post_data = self.rfile.read(content_length).decode('utf-8')
+            post_data = self.rfile.read(content_length).decode('utf-8', errors='replace')
             if not post_data.strip():
                 self._cached_post_data = {}
                 return {}
             self._cached_post_data = json.loads(post_data)
             return self._cached_post_data
-        except Exception:
+        except (ValueError, KeyError, TypeError, OSError) as err:
+            sys.stderr.write(f"[Ultron Server Notice] Corrupted JSON payload: {err}\n")
             self._cached_post_data = None
             return None
 
@@ -260,7 +284,7 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                 if v:
                     result[k] = v[0]
             return result
-        except Exception:
+        except (ValueError, KeyError, TypeError, OSError):
             return {}
 
     def get_request_data(self):
@@ -282,10 +306,28 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
         return post_data
 
     def send_json_response(self, status_code, data):
+        import uuid
+        req_id = f"req-{uuid.uuid4().hex[:8]}"
+        iso_time = datetime.now(timezone.utc).isoformat()
+        
+        envelope = {
+            "success": status_code < 400,
+            "data": data if status_code < 400 else None,
+            "error": data.get("error") if (isinstance(data, dict) and status_code >= 400) else None,
+            "timestamp": iso_time,
+            "request_id": req_id
+        }
+        
+        # Merge top-level keys for 100% backward compatibility
+        if isinstance(data, dict):
+            for k, v in data.items():
+                if k not in envelope:
+                    envelope[k] = v
+
         self.send_response(status_code)
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.end_headers()
-        self.wfile.write(json.dumps(data).encode('utf-8'))
+        self.wfile.write(json.dumps(envelope).encode('utf-8'))
 
     
     def handle_v1_risk_profile(self):
@@ -2279,11 +2321,34 @@ After: Estimated Risk Score 25.0 (Decoupled Interface)"""
                 "details": details,
                 "entity_identifier": entity,
                 "explanation": markdown_explanation,
-                "trust_chain": trust_chain,
-                "repair_simulation": repair_simulation
             })
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, OSError) as e:
             self.send_json_response(500, {"error": f"Failed to explain violation: {str(e)}"})
+
+    def handle_v1_ai_critique(self):
+        try:
+            data = self.get_request_data()
+            if not isinstance(data, dict):
+                self.send_json_response(400, {"error": "Invalid payload"})
+                return
+            
+            file_path = data.get("file", "") or data.get("file_path", "")
+            if not file_path:
+                self.send_json_response(400, {"error": "Missing required 'file' parameter"})
+                return
+                
+            from ultron.core.ai.client import AIClient
+            ai_client = AIClient()
+            critique = ai_client.query_critique(
+                file_path=file_path,
+                complexity=int(data.get("complexity", 10)),
+                coupling=int(data.get("coupling", 5)),
+                impact_score=float(data.get("impact_score", 12.0)),
+                intent=data.get("intent", "")
+            )
+            self.send_json_response(200, critique)
+        except (ValueError, KeyError, TypeError, OSError) as err:
+            self.send_json_response(500, {"error": f"AI critique generation failed: {str(err)}"})
 
 def serve(port=8000):
     """Launches the Ultron REST API & Web Dashboard Server.

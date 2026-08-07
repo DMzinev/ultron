@@ -382,8 +382,8 @@ def _load_rkm_violations(db_path: str) -> tuple[list, list]:
                 })
                 allowed_files.append(r["file_path"])
             conn.close()
-        except Exception:
-            pass
+        except (sqlite3.Error, OSError, ValueError, KeyError) as err:
+            sys.stderr.write(f"[Ultron Brief Notice] RKM SQLite query warning: {err}\n")
     return violations_summary, allowed_files
 
 

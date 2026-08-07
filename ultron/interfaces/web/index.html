@@ -32,6 +32,12 @@
                 </label>
                 <span class="mode-label" id="label-engineer">Engineer</span>
             </div>
+
+            <!-- Campaign 6: Privacy & Security Trust Badge -->
+            <div class="privacy-badge glass" title="Privacy Guarantee: 100% local analysis. Zero cloud telemetry uploads.">
+                <span class="privacy-dot"></span>
+                <span class="privacy-text">✓ 100% Local Analysis · ✓ Local DB · ✓ Zero Uploads</span>
+            </div>
             
             <nav class="nav-links">
                 <button class="nav-btn active" data-tab="dashboard-tab" id="nav-dashboard">
@@ -568,6 +574,47 @@
                             </defs>
                             <!-- Graph nodes and links dynamically rendered -->
                         </svg>
+
+                        <!-- Campaign 1: Non-blocking Interactive Graph Detail Drawer Sidebar -->
+                        <div id="graph-detail-drawer" class="drawer-sidebar glass hidden" style="position:absolute; top:0; right:0; width:340px; height:100%; z-index:20; background:rgba(15,23,42,0.95); backdrop-filter:blur(12px); border-left:1px solid rgba(56,189,248,0.3); padding:20px; box-shadow:-8px 0 24px rgba(0,0,0,0.5); display:flex; flex-direction:column; gap:16px; overflow-y:auto; transition:transform 0.3s ease;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
+                                <div>
+                                    <h3 id="drawer-node-label" style="margin:0; color:#f8fafc; font-size:1.1rem; font-weight:700;">Node Details</h3>
+                                    <span id="drawer-node-type" style="font-size:0.8rem; color:#38bdf8;">File Node</span>
+                                </div>
+                                <button id="btn-close-drawer" class="btn-close" style="font-size:20px; background:none; border:none; color:#94a3b8; cursor:pointer;">&times;</button>
+                            </div>
+                            
+                            <div style="display:flex; gap:10px;">
+                                <div class="metric-card glass" style="flex:1; padding:10px; text-align:center;">
+                                    <span style="font-size:0.75rem; color:#94a3b8; display:block;">Impact Score</span>
+                                    <span id="drawer-impact-score" style="font-size:1.2rem; font-weight:700; color:#f43f5e;">12.40</span>
+                                </div>
+                                <div class="metric-card glass" style="flex:1; padding:10px; text-align:center;">
+                                    <span style="font-size:0.75rem; color:#94a3b8; display:block;">McCabe CC</span>
+                                    <span id="drawer-complexity" style="font-size:1.2rem; font-weight:700; color:#c084fc;">14</span>
+                                </div>
+                                <div class="metric-card glass" style="flex:1; padding:10px; text-align:center;">
+                                    <span style="font-size:0.75rem; color:#94a3b8; display:block;">Coupling</span>
+                                    <span id="drawer-coupling" style="font-size:1.2rem; font-weight:700; color:#38bdf8;">6</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 style="margin:0 0 6px 0; color:#cbd5e1; font-size:0.85rem;">Architectural Role & Strategy</h4>
+                                <p id="drawer-strategy" style="margin:0; font-size:0.8rem; color:#94a3b8; line-height:1.4;">Safe internal edits. Low risk of ripple effects across adjacent components.</p>
+                            </div>
+
+                            <div>
+                                <h4 style="margin:0 0 6px 0; color:#cbd5e1; font-size:0.85rem;">AI Architectural Critique</h4>
+                                <div id="drawer-ai-content" style="background:rgba(0,0,0,0.3); padding:12px; border-radius:6px; font-size:0.8rem; color:#cbd5e1; font-family:monospace; line-height:1.4; min-height:80px;">
+                                    Click "Explain with AI" for grounded architectural feedback.
+                                </div>
+                                <button id="btn-drawer-ai-critique" class="btn primary btn-small" style="width:100%; margin-top:10px; display:flex; justify-content:center; align-items:center; gap:6px;">
+                                    <span>⚡ Explain with Local AI</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>

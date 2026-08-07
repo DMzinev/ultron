@@ -1,6 +1,10 @@
 import os
 
-EXCLUDED_DIRS = {".git", ".ultron", "scratch", "synapse_project", "build", "dist", "tests", "test_env"}
+EXCLUDED_DIRS = {
+    ".git", ".ultron", "scratch", "synapse_project", "build", "dist",
+    "node_modules", "__pycache__", ".venv", "venv", "env", ".cache",
+    ".synapse", ".agents"
+}
 
 def discover(repo_path: str) -> list[str]:
     """
