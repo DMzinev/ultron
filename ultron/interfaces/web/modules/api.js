@@ -1,11 +1,31 @@
 /**
  * Ultron Web SPA — Robust API Client
- * Campaign 9 & 13: Error Boundaries, Timeout & Response Envelope Unwrapper
+ * Campaign 9 & 13: Error Boundaries, Timeout, Request Cancellation & Envelope Unwrapper
  */
 
 export class APIClient {
+    static activeControllers = new Map();
+
+    static cancelInFlight(key = 'default') {
+        if (this.activeControllers.has(key)) {
+            try {
+                this.activeControllers.get(key).abort();
+            } catch (e) {
+                // Ignore abort errors
+            }
+            this.activeControllers.delete(key);
+        }
+    }
+
     static async request(endpoint, options = {}) {
+        const cancelKey = options.cancelKey || 'default';
+        if (options.cancelPrevious !== false) {
+            this.cancelInFlight(cancelKey);
+        }
+
         const controller = new AbortController();
+        this.activeControllers.set(cancelKey, controller);
+
         const timeoutMs = options.timeout || 10000;
         const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -25,6 +45,7 @@ export class APIClient {
 
             const response = await fetch(endpoint, fetchOptions);
             clearTimeout(timer);
+            this.activeControllers.delete(cancelKey);
 
             let rawJson = null;
             try {
@@ -39,7 +60,6 @@ export class APIClient {
             }
 
             // Campaign 9: Robust Envelope Unwrapper
-            // Handles both standardized envelope { success: true, data: { ... } } and raw legacy object payloads
             const isEnvelope = rawJson && typeof rawJson === 'object' && 'success' in rawJson;
             const success = isEnvelope ? Boolean(rawJson.success) : response.ok;
             const data = (isEnvelope && rawJson.data !== undefined && rawJson.data !== null) ? rawJson.data : rawJson;
@@ -53,9 +73,11 @@ export class APIClient {
             };
         } catch (err) {
             clearTimeout(timer);
+            this.activeControllers.delete(cancelKey);
+
             const isAbort = err.name === 'AbortError';
-            const errorMsg = isAbort ? 'Request timed out after 10s' : (err.message || 'Network connection failed');
-            console.error(`[Ultron API Error] ${endpoint}:`, errorMsg);
+            const errorMsg = isAbort ? 'Request cancelled or timed out after 10s' : (err.message || 'Network connection failed');
+            if (!isAbort) console.error(`[Ultron API Error] ${endpoint}:`, errorMsg);
             return {
                 success: false,
                 data: null,
@@ -65,17 +87,17 @@ export class APIClient {
         }
     }
 
-    static async get(endpoint, params = {}) {
+    static async get(endpoint, params = {}, options = {}) {
         const url = new URL(endpoint, window.location.origin);
         Object.keys(params).forEach(key => {
             if (params[key] !== undefined && params[key] !== null) {
                 url.searchParams.append(key, params[key]);
             }
         });
-        return this.request(url.toString(), { method: 'GET' });
+        return this.request(url.toString(), { method: 'GET', ...options });
     }
 
-    static async post(endpoint, body = {}) {
-        return this.request(endpoint, { method: 'POST', body });
+    static async post(endpoint, body = {}, options = {}) {
+        return this.request(endpoint, { method: 'POST', body, ...options });
     }
 }
