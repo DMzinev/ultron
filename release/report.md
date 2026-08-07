@@ -1,9 +1,9 @@
 # Ultron v2.1 Verification Evidence Report
 
 - **Version**: 2.1.0
-- **Verified At**: 2026-08-07T17:55:27.189134+00:00
-- **Git Commit**: `c645da08321fa96d1c28305d342e66c27db829c1` (Clean Tree: False)
-- **Test Results**: 111/111 Passed (0 Failures)
+- **Verified At**: 2026-08-07T18:01:22.932623+00:00
+- **Git Commit**: `6e06700fd5e900a5901e6b6a252372907efee51c` (Clean Tree: False)
+- **Test Results**: 114/114 Passed (0 Failures)
 - **Compilation**: Python: PASS | ES Modules: PASS
-- **Performance (N=10)**: Mean=483.72ms | Median=481.82ms | p95=501.18ms | Peak Heap=2.82MB
+- **Performance (N=10)**: Mean=510.83ms | Median=503.13ms | p95=541.76ms | Peak Heap=2.81MB
 - **Governance Status**: Zero High-Severity Defects; Residual Risk within Release Threshold.

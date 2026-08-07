@@ -1,6 +1,6 @@
 """
 Ultron Historical Bug Prediction Validation & Precision/Recall Calibration Engine
-Campaign 24 — Git Log Correlation, Precision/Recall Metrics & Disjoint Evaluation
+Campaign 24 — Git Log Correlation, Precision/Recall Metrics & Multi-Signal Filtering
 """
 
 import os
@@ -12,17 +12,41 @@ from typing import Dict, Any, List, Set
 class BugPredictionValidator:
     @staticmethod
     def extract_bug_fix_files(repo_path: str = ".") -> Set[str]:
-        """Extracts set of files modified in git commits matching bug fix keywords."""
-        norm_path = os.path.normpath(os.path.abspath(repo_path))
+        """
+        Extracts set of files modified in git commits matching bug fix keywords,
+        while filtering out doc/typo commits (docs:, typo, readme, license, formatting).
+        """
+        norm_path = os.path.normpath(os.path.abspath(repo_path)).replace("\\", "/")
         if not os.path.exists(os.path.join(norm_path, ".git")):
             return set()
 
         try:
-            cmd = ["git", "-C", norm_path, "log", "--grep=fix\\|bug\\|issue\\|patch", "-i", "--name-only", "--pretty=format:"]
-            output = subprocess.check_output(cmd, text=True, encoding="utf-8", errors="ignore")
-            fix_files = {line.strip().replace("\\", "/") for line in output.splitlines() if line.strip()}
+            cmd = ["git", "-C", norm_path, "log", '--pretty=format:COMMIT:%H%nSUBJECT:%s', "--name-only"]
+            output = subprocess.check_output(cmd, text=True, encoding="utf-8", errors="replace")
+            
+            fix_files: Set[str] = set()
+            current_subject = ""
+            bug_keywords = ["fix", "bug", "issue", "patch", "revert"]
+            ignore_keywords = ["docs:", "typo", "readme", "license", "formatting"]
+
+            for line in output.splitlines():
+                line_str = line.strip()
+                if not line_str:
+                    continue
+                if line_str.startswith("SUBJECT:"):
+                    current_subject = line_str[8:].lower()
+                elif line_str.startswith("COMMIT:"):
+                    pass
+                else:
+                    # Line is a modified file path
+                    is_bug_commit = any(k in current_subject for k in bug_keywords)
+                    is_doc_typo = any(k in current_subject for k in ignore_keywords)
+                    if is_bug_commit and not is_doc_typo:
+                        fix_files.add(line_str.replace("\\", "/"))
+
             return fix_files
-        except Exception:
+        except Exception as err:
+            sys.stderr.write(f"[Bug Prediction Warning] Failed to extract git history: {err}\n")
             return set()
 
     @classmethod
@@ -31,7 +55,7 @@ class BugPredictionValidator:
         Evaluates Precision, Recall, and F1 Score of high-risk predictions against git bug fix history.
         Includes zero-division safety guards.
         """
-        norm_path = os.path.normpath(os.path.abspath(repo_path))
+        norm_path = os.path.normpath(os.path.abspath(repo_path)).replace("\\", "/")
         if not os.path.exists(os.path.join(norm_path, ".git")):
             return {
                 "status": "inactive",

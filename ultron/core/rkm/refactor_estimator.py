@@ -12,7 +12,7 @@ class RefactorEstimator:
     @staticmethod
     def calculate_cost_reduction(current_complexity: float, current_coupling: float, target_complexity: float = 5.0, target_coupling: float = 2.0) -> float:
         """
-        Calculates estimated maintenance cost reduction percentage using deterministic formula:
+        Calculates estimated structural complexity reduction percentage using deterministic formula:
         Cost Reduction % = 100 * (1 - (target_comp * target_coup) / max(1, current_comp * current_coup))
         Bounded between 0.0% and 75.0%.
         """
@@ -27,10 +27,10 @@ class RefactorEstimator:
         """
         Generates an actionable step-by-step refactoring plan for a high-risk file.
         """
-        norm_path = os.path.normpath(os.path.abspath(file_path)) if file_path != ":memory:" else file_path
+        norm_path = os.path.normpath(os.path.abspath(file_path)).replace("\\", "/") if file_path != ":memory:" else file_path
         file_name = os.path.basename(norm_path) if norm_path != ":memory:" else "memory_buffer"
         
-        cost_reduction_pct = cls.calculate_cost_reduction(complexity, coupling)
+        reduction_pct = cls.calculate_cost_reduction(complexity, coupling)
         
         refactor_tier = "LOW"
         if complexity > 15 or coupling > 8:
@@ -49,7 +49,9 @@ class RefactorEstimator:
         return {
             "file": norm_path,
             "refactor_tier": refactor_tier,
-            "estimated_maintenance_cost_reduction_pct": cost_reduction_pct,
+            "structural_complexity_reduction_estimate_pct": reduction_pct,
+            # Backward-compatible alias key for existing test/API consumers
+            "estimated_maintenance_cost_reduction_pct": reduction_pct,
             "target_complexity": 5,
             "target_coupling": 2,
             "action_plan_steps": action_steps
