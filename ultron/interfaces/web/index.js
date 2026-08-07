@@ -133,12 +133,13 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateDashboard(data) {
         if (!data) return;
 
-        // Render Overview Metrics
+        // Render Overview & Confidence Panel Metrics
         const stats = data.stats || {};
         UIManager.setElementText("stat-total-files", stats.total_files ?? 0);
         UIManager.setElementText("stat-total-functions", stats.total_functions ?? 0);
         UIManager.setElementText("stat-avg-complexity", (stats.avg_complexity ?? 0).toFixed(2));
         UIManager.setElementText("stat-risk-score", (stats.overall_risk_score ?? 0).toFixed(2));
+        UIManager.renderConfidencePanel(data);
 
         // Render Graph Topology
         if (data.dependency_graph) {
