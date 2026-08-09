@@ -59,11 +59,20 @@ export class APIClient {
                 };
             }
 
-            // Campaign 9: Robust Envelope Unwrapper
-            const isEnvelope = rawJson && typeof rawJson === 'object' && 'success' in rawJson;
-            const success = isEnvelope ? Boolean(rawJson.success) : response.ok;
-            const data = (isEnvelope && rawJson.data !== undefined && rawJson.data !== null) ? rawJson.data : rawJson;
-            const error = (isEnvelope && rawJson.error) ? rawJson.error : (!response.ok ? (rawJson?.error || `HTTP ${response.status}`) : null);
+            // Envelope Unwrapper
+            let success = response.ok;
+            if (rawJson && typeof rawJson === 'object') {
+                if ('success' in rawJson) {
+                    success = Boolean(rawJson.success);
+                } else if ('status' in rawJson) {
+                    success = response.ok && rawJson.status !== 'error' && rawJson.status !== 'failed';
+                }
+            }
+
+            const data = (rawJson && typeof rawJson === 'object' && rawJson.data !== undefined && rawJson.data !== null) ? rawJson.data : rawJson;
+            const error = (rawJson && typeof rawJson === 'object' && rawJson.error)
+                ? rawJson.error
+                : (rawJson && typeof rawJson === 'object' && rawJson.message && !success ? rawJson.message : (!response.ok ? `HTTP ${response.status}` : null));
 
             return {
                 success,
