@@ -6,7 +6,14 @@ import sys
 import traceback
 import shutil
 import subprocess
+import time
+import tempfile
+import threading
+import uuid
+import socket
 from datetime import datetime, timezone
+from urllib.parse import parse_qs, urlparse
+from dataclasses import asdict
 
 from ultron.core import analyzer
 from ultron.core import risk
@@ -46,6 +53,7 @@ ACTIVE_JOB = {
 PORT = 8000
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 CONFIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".ultron")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 def validate_repo_path(base_dir: str, target_path: str) -> tuple[bool, str]:
     """
     Validates that target_path is inside base_dir and handles Windows drive letter boundaries.
@@ -2037,15 +2045,17 @@ if __name__ == "__main__":
             self.send_json_response(500, {"error": f"Failed to retrieve summary: {str(e)}"})
 
     def get_repo_root_path(self) -> str:
-        if os.path.exists(CONFIG_FILE):
-            try:
-                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                    cfg = json.load(f)
-                    val = cfg.get("repo_root")
-                    if val and os.path.isdir(val):
-                        return os.path.abspath(val)
-            except Exception:
-                pass
+        cwd_config = os.path.join(os.getcwd(), ".ultron", "config.json")
+        for cfg_path in (cwd_config, CONFIG_FILE):
+            if os.path.exists(cfg_path):
+                try:
+                    with open(cfg_path, "r", encoding="utf-8") as f:
+                        cfg = json.load(f)
+                        val = cfg.get("repo_root")
+                        if val and os.path.isdir(val):
+                            return os.path.abspath(val)
+                except Exception:
+                    pass
         return os.path.abspath(os.getcwd())
 
     def handle_v1_progress(self):
