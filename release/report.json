@@ -1,8 +1,8 @@
 {
   "release_version": "2.1.0",
-  "verified_at": "2026-08-10T06:44:37.056088+00:00",
+  "verified_at": "2026-08-10T06:57:21.105800+00:00",
   "git": {
-    "commit": "eae8603b32dc9417d5e7006b142c37fb85dbe34f",
+    "commit": "885f13a15681f51fb1bb93e1bd556fa93b95ce9f",
     "clean_tree": false
   },
   "environment": {
@@ -21,7 +21,7 @@
       "ANTIGRAVITY_LS_VERSION": "hub-2.5.0",
       "ANTIGRAVITY_PROJECT_ID": "c3da186d-281f-4120-a5ed-774c96028d9d",
       "ANTIGRAVITY_SAFECLIS_SOURCE": "C:/Users/This PC/.gemini/antigravity/bin/safeclis/src",
-      "ANTIGRAVITY_SOURCE_METADATA": "{\"tool\":{\"conversationId\":\"7494477a-6e49-465f-ab3a-1623cfde1808\",\"stepIndex\":17289,\"toolCall\":{\"id\":\"EEwwcm33\",\"name\":\"run_command\",\"argumentsJson\":\"{\\\"CommandLine\\\":\\\"python verify_release.py\\\",\\\"Cwd\\\":\\\"C:\\\\\\\\Users\\\\\\\\This PC\\\\\\\\Desktop\\\\\\\\cost accounting\\\",\\\"WaitMsBeforeAsync\\\":15000,\\\"toolAction\\\":\\\"Running master release verification script\\\",\\\"toolSummary\\\":\\\"run verify_release.py\\\"}\",\"thinkingSignature\":\"EuoBCucBARFNMg9/qLStJD7iVpsp7P3FwnXnZ+rm4DTlLXYAjyTH23cCzs74EEzhMMhYidd6FHdHUKpKhz2zx8onXU15eaEBVPX/ZzrpBMT2Jh2yIOgwvl42pIsi4xzwqRvZ1hmljE1x12Oz0m/X2XXl0DWd9yFo6aGr7rEnj0suVb/bZngUUKhhpFboTvfjRa/5J30v3RnRfM/rEdR+MLFkaxKQOsndZ0sHOXUnuVaNUzRE4Lgl1jtjRvkac9I5X2+CDiIHdIm+IByodFWKBZzrNQJv8Y6scfnmBvHxzXLzqZPctsr/ztbG0BzX\",\"originalName\":\"run_command\"}}}",
+      "ANTIGRAVITY_SOURCE_METADATA": "{\"tool\":{\"conversationId\":\"7494477a-6e49-465f-ab3a-1623cfde1808\",\"stepIndex\":17394,\"toolCall\":{\"id\":\"JsILa0PK\",\"name\":\"run_command\",\"argumentsJson\":\"{\\\"CommandLine\\\":\\\"python verify_release.py\\\",\\\"Cwd\\\":\\\"C:\\\\\\\\Users\\\\\\\\This PC\\\\\\\\Desktop\\\\\\\\cost accounting\\\",\\\"WaitMsBeforeAsync\\\":15000,\\\"toolAction\\\":\\\"Running master release verification runner\\\",\\\"toolSummary\\\":\\\"run verify_release.py\\\"}\",\"thinkingSignature\":\"EpcCCpQCARFNMg9rH0fIpkssmXcal37STvLIs9RRdxYql5zz8JnBOwUtBBnWztvH2NmXHlxRx6tHUvcRTPst2jlOyElL3mGlnugGikXcCPNeN9fyZdK7De5UzpzTaigitp5u0LeU4VFKarvVhl0Xq8B50q9gBkH5XnAhXi3rmst+o6JpyAqxmHu/37GpyUugZofMo7fLrQQQZIw+HCxanpqAPTFNFTiAy5UF8Yz/nluWegZkzW3tHLZKwjC1j7kExUqQXv1hDdPHLGNw1KgnKxncnW9YafeO8jFlcDp+VqGbn4eK0QJOVOeaLgKIGp2ARd/dfKNBGSJcs2J4XNajiBo2DmdZICdzw93AU/M8adJBgum+bRIZtDb5\",\"originalName\":\"run_command\"}}}",
       "ANTIGRAVITY_TRAJECTORY_ID": "7f8ffec4-59b2-455a-ac26-6f07b9cb3d0d",
       "APPDATA": "C:\\Users\\This PC\\AppData\\Roaming",
       "CHOCOLATEYINSTALL": "C:\\ProgramData\\chocolatey",
@@ -73,20 +73,20 @@
     }
   },
   "tests": {
-    "total": 130,
-    "passed": 130,
+    "total": 140,
+    "passed": 140,
     "failed": 0,
-    "duration_sec": 105.58
+    "duration_sec": 99.1
   },
   "compilation": {
     "python": "PASS",
     "es_modules": "PASS"
   },
   "performance": {
-    "mean_latency_ms": 607.15,
-    "median_latency_ms": 603.1,
-    "p95_latency_ms": 641.77,
-    "peak_heap_mb": 2.9
+    "mean_latency_ms": 632.42,
+    "median_latency_ms": 627.12,
+    "p95_latency_ms": 678.9,
+    "peak_heap_mb": 2.91
   },
   "bug_prediction_calibration": {
     "status": "active",

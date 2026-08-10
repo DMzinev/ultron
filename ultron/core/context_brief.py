@@ -110,6 +110,18 @@ def compile_brief(repo_path):
     all_files = list(codebase.keys())
     risks = risk.evaluate_risks(codebase, all_files, repo_path=repo_path)
     
+    # 2.5 SystemGraph Canonical Model Integration (v2.4)
+    from ultron.core.language_adapter import PythonLanguageAdapter
+    from ultron.core.system_query import SystemQueryEngine
+    from ultron.core.system_model import SystemModelManager
+
+    adapter = PythonLanguageAdapter()
+    system_graph = adapter.parse_repository(repo_path)
+    model_mgr = SystemModelManager()
+    model_mgr.graph = system_graph
+    model_hash = model_mgr.compute_hash()
+    query_engine = SystemQueryEngine(system_graph)
+    
     sorted_risks = sorted(risks, key=lambda r: get_attr(r, 'impact_score', 0.0), reverse=True)
     
     bug_fixes = {}
@@ -164,10 +176,12 @@ def compile_brief(repo_path):
     
     confidence_val = round((0.35 * ast_success + 0.25 * coverage_ratio + 0.15 * cache_consistency + 0.15 * rule_validation + 0.10 * runtime_evidence) * 100, 1)
 
-    lines.append("## 1.5 System Observability & Confidence Breakdown")
+    lines.append("## 1.5 System Observability & Canonical Model Substrate")
+    lines.append(f"- **SystemModel Digest**: `{model_hash[:16]}` (Schema v1.0, Python Adapter)")
+    lines.append(f"- **Canonical Subgraph Nodes**: {len(system_graph.nodes)} | **Relationship Edges**: {len(system_graph.edges)} | **Evidence Records**: {len(system_graph.evidence)}")
     lines.append(f"- **Analysis Confidence**: {confidence_val}% (Empirical Formula: 0.35*AST + 0.25*Coverage + 0.15*Cache + 0.15*Rules)")
     lines.append("- **Scanned Evidence**:")
-    lines.append(f"  - ✓ {total_files_count} source files scanned cleanly via native Python AST parser")
+    lines.append(f"  - ✓ {total_files_count} source files scanned cleanly via canonical SystemGraph parser")
     lines.append(f"  - ✓ {total_funcs_count} functions and methods evaluated")
     lines.append("  - ✓ 100% local analysis — zero external network telemetry uploads")
     lines.append("- **Scan Boundaries & Limitations**:")
