@@ -207,12 +207,18 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
 
     risks = []
 
-    # Lazy import to prevent circular dependency (analyzer imports risk at module level)
-    from ultron.core import analyzer
+    # v2.5 Canonical GitEvidenceAdapter Integration
+    from ultron.core.git_adapter import GitEvidenceAdapter
     bug_fixes = {}
     if repo_path:
         try:
-            bug_fixes = analyzer.extract_git_history(repo_path)
+            adapter = GitEvidenceAdapter()
+            evidence_records = adapter.parse_git_history(repo_path)
+            for ev in evidence_records:
+                rel_f = ev.source.get("file", "")
+                n_fixes = ev.measurement.get("bug_fixes", 0)
+                if rel_f and n_fixes > 0:
+                    bug_fixes[rel_f] = n_fixes
         except Exception as e:
             print(f"Warning: failed to extract git history from {repo_path}: {e}")
 

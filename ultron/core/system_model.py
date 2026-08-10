@@ -195,12 +195,15 @@ class SystemModelManager:
     Pure Data Store & Manager for Canonical System Model.
     INVARIANT 1: Contains ZERO risk evaluation, scoring, or recommendation logic.
     """
-    def __init__(self):
-        self.graph = SystemGraph(metadata={
-            "schema_version": "1.0",
-            "adapter": {"name": "python", "version": "1.0"},
-            "created_at": datetime.now(timezone.utc).isoformat()
-        })
+    def __init__(self, graph: Optional[SystemGraph] = None):
+        if graph is not None:
+            self.graph = graph
+        else:
+            self.graph = SystemGraph(metadata={
+                "schema_version": "1.0",
+                "adapter": {"name": "python", "version": "1.0"},
+                "created_at": datetime.now(timezone.utc).isoformat()
+            })
 
     def clear(self) -> None:
         self.graph = SystemGraph(metadata={
@@ -225,6 +228,29 @@ class SystemModelManager:
             node = self.graph.nodes[evidence.subject_id]
             if evidence.id not in node.evidence_ids:
                 node.evidence_ids.append(evidence.id)
+
+    def compute_completeness_telemetry(self, files_discovered: int) -> Dict[str, Any]:
+        """Calculates graph completeness telemetry metrics with zero-division safety."""
+        module_nodes = [n for n in self.graph.nodes.values() if n.type == SystemNodeType.MODULE or n.type == SystemNodeType.TEST]
+        syntax_errors = len([n for n in module_nodes if "parse_error" in n.facts])
+        files_parsed = len(module_nodes)
+
+        parse_coverage_pct = round((files_parsed / files_discovered * 100.0) if files_discovered > 0 else 100.0, 1)
+
+        total_classes = len([n for n in self.graph.nodes.values() if n.type == SystemNodeType.CLASS])
+        total_functions = len([n for n in self.graph.nodes.values() if n.type == SystemNodeType.FUNCTION or n.type == SystemNodeType.METHOD])
+
+        telemetry = {
+            "files_discovered": files_discovered,
+            "files_parsed": files_parsed,
+            "syntax_errors": syntax_errors,
+            "parse_coverage_pct": parse_coverage_pct,
+            "total_classes": total_classes,
+            "total_functions": total_functions,
+            "total_edges": len(self.graph.edges)
+        }
+        self.graph.metadata["completeness"] = telemetry
+        return telemetry
 
     def compute_hash(self) -> str:
         """
