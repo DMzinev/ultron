@@ -28,8 +28,28 @@ export class GraphView {
         // Campaign 10: Clean up previous event listeners & animation frame to prevent leaks
         this.destroy();
 
+        let rawNodes = graphData.nodes || [];
+        let rawLinks = graphData.links || graphData.edges || [];
+
+        if (typeof rawNodes === 'object' && !Array.isArray(rawNodes)) {
+            rawNodes = Object.values(rawNodes).map(n => ({
+                id: n.id,
+                label: n.file_path || n.id,
+                type: (n.type || 'MODULE').toLowerCase(),
+                facts: n.facts || {}
+            }));
+        }
+
+        if (Array.isArray(rawLinks)) {
+            rawLinks = rawLinks.map(l => ({
+                source: l.source || l.source_id,
+                target: l.target || l.target_id,
+                type: l.type || 'DEPENDS_ON'
+            }));
+        }
+
         const emptyState = document.getElementById("graph-empty-state");
-        if (!graphData || !Array.isArray(graphData.nodes) || graphData.nodes.length === 0) {
+        if (!rawNodes || rawNodes.length === 0) {
             if (emptyState) emptyState.classList.remove("hidden");
             svg.innerHTML = '<defs><marker id="arrow" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" opacity="0.5" /></marker></defs>';
             return;
@@ -105,17 +125,17 @@ export class GraphView {
         window.addEventListener("mouseup", this.mouseUpHandler);
 
         // Process Nodes & Links
-        this.nodes = graphData.nodes.map(n => ({
+        this.nodes = rawNodes.map(n => ({
             ...n,
             x: width / 2 + (Math.random() - 0.5) * 350,
             y: height / 2 + (Math.random() - 0.5) * 350,
             vx: 0,
             vy: 0,
-            r: n.type === "file" ? 10 : 7,
+            r: (n.type === "file" || n.type === "module") ? 10 : 7,
             visible: true
         }));
 
-        this.links = graphData.links.map(l => ({
+        this.links = rawLinks.map(l => ({
             ...l,
             sourceNode: this.nodes.find(n => n.id === l.source),
             targetNode: this.nodes.find(n => n.id === l.target),

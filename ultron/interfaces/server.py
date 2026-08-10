@@ -25,6 +25,7 @@ from ultron.core import fuzz
 from ultron.core import logistic
 from ultron.core import translate
 from ultron.interfaces.api.router import APIRouter
+import ultron.interfaces.api.routes
 
 try:
     from ultron.experimental import delta
