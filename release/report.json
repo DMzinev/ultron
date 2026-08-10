@@ -1,8 +1,8 @@
 {
   "release_version": "2.1.0",
-  "verified_at": "2026-08-09T20:07:22.641012+00:00",
+  "verified_at": "2026-08-10T06:24:09.939016+00:00",
   "git": {
-    "commit": "545c7978357ae3e46a6b4eed9f5def865d4583e2",
+    "commit": "6eb0da1f2d07d182eea47819bd3d993a3b3c5de9",
     "clean_tree": false
   },
   "environment": {
@@ -11,17 +11,17 @@
     "cpu_count": 8,
     "env_vars": {
       "AGY_BROWSER_ACTIVE_PORT_FILE": "C:\\Users\\This PC\\AppData\\Roaming\\Antigravity\\DevToolsActivePort",
-      "AGY_BROWSER_WS_URL": "ws://127.0.0.1:52761/devtools/browser/01d05ef7-b11c-498c-b10d-896664a40aea",
+      "AGY_BROWSER_WS_URL": "ws://127.0.0.1:54068/devtools/browser/48b8b932-7493-4b12-b02d-8069ca599490",
       "ALLUSERSPROFILE": "C:\\ProgramData",
       "ANTIGRAVITY_AGENT": "1",
       "ANTIGRAVITY_AGENTAPI_EXE": "C:\\Users\\This PC\\AppData\\Local\\Programs\\antigravity\\resources\\bin\\language_server.exe",
       "ANTIGRAVITY_CONVERSATION_ID": "7494477a-6e49-465f-ab3a-1623cfde1808",
       "ANTIGRAVITY_CSRF_TOKEN": "[REDACTED]",
-      "ANTIGRAVITY_LS_ADDRESS": "localhost:52763",
+      "ANTIGRAVITY_LS_ADDRESS": "localhost:54075",
       "ANTIGRAVITY_LS_VERSION": "hub-2.5.0",
       "ANTIGRAVITY_PROJECT_ID": "c3da186d-281f-4120-a5ed-774c96028d9d",
       "ANTIGRAVITY_SAFECLIS_SOURCE": "C:/Users/This PC/.gemini/antigravity/bin/safeclis/src",
-      "ANTIGRAVITY_SOURCE_METADATA": "{\"tool\":{\"conversationId\":\"7494477a-6e49-465f-ab3a-1623cfde1808\",\"stepIndex\":17072,\"toolCall\":{\"id\":\"qPHrup8p\",\"name\":\"run_command\",\"argumentsJson\":\"{\\\"CommandLine\\\":\\\"python verify_release.py\\\",\\\"Cwd\\\":\\\"C:\\\\\\\\Users\\\\\\\\This PC\\\\\\\\Desktop\\\\\\\\cost accounting\\\",\\\"WaitMsBeforeAsync\\\":15000,\\\"toolAction\\\":\\\"Executing verify_release.py\\\",\\\"toolSummary\\\":\\\"verify_release.py run 2\\\"}\",\"thinkingSignature\":\"EpICCo8CARFNMg87sICmghjadIruOmMU4AVd5VLHeM4nG0nuPxwR0vOvjUhw8kSjN1I4rPBL0ycEQjI7XRRSreUX4rIk+palqJs7Cm1Oirt0Z/fydIdzuexytlgKpZVPkeBQRbbk8xSSnVV7D6nwrVAZQ1cXSRvmkrmBoz1cpgMyrjuDa2UueCXFS4ckRHQ12/MWqqRptOEWSu1AhalWAArMUQr3fT8SCXaMO85mEPC93baLqhoxO9MYN4/8i5QJQpHdHiDzNa1hpXZ/LR4LkNo353NiPPs0qqjjQ9wsXk5bSqyIG8L/SB6lHqzY0K6rfQsU11uQGV2MwekL08V+po2cpcqMX7w7NTxEVyHVLz/ZY/MRFw==\",\"originalName\":\"run_command\"}}}",
+      "ANTIGRAVITY_SOURCE_METADATA": "{\"tool\":{\"conversationId\":\"7494477a-6e49-465f-ab3a-1623cfde1808\",\"stepIndex\":17138,\"toolCall\":{\"id\":\"vRYzFVtP\",\"name\":\"run_command\",\"argumentsJson\":\"{\\\"CommandLine\\\":\\\"python verify_release.py\\\",\\\"Cwd\\\":\\\"C:\\\\\\\\Users\\\\\\\\This PC\\\\\\\\Desktop\\\\\\\\cost accounting\\\",\\\"WaitMsBeforeAsync\\\":15000,\\\"toolAction\\\":\\\"Executing verify_release.py\\\",\\\"toolSummary\\\":\\\"run verify_release.py\\\"}\",\"thinkingSignature\":\"EqkCCqYCARFNMg8RCjzfZFqBcENPSgCT2uEjo3EHjVWvnpmWE6troHw6JD0pg1a6ZHRKTdHT9dk0UBu7XJA0nGrq9Eaa2EH8upy3Rc5//C98OsTGotQtTJaLkLEtS9WD/DymX4gs07MnvpLzD+qj9sQtQf1pt+/OUR/el/PMW3T87di+D1BS9YVUtxm9GDz8zajtjYd3STzVmRjiaUNC2WQf+2O3F2LqCFE5OlpSkzy6e8krsJm3pSPgbazC1ROrarXu/gR3+fKnNwwfWh3jsY59wbzrH1ftiRG2Owqr6wpSJzE/6gHV7FdINJxvc7KpDNqGgHn5JqqNsqRp4Qif+2VvmrMM08A8wQys+Rw2aWwqSH/NCNFTrF9jvZ7J/uU498RcLfpZES/835a7\",\"originalName\":\"run_command\"}}}",
       "ANTIGRAVITY_TRAJECTORY_ID": "7f8ffec4-59b2-455a-ac26-6f07b9cb3d0d",
       "APPDATA": "C:\\Users\\This PC\\AppData\\Roaming",
       "CHOCOLATEYINSTALL": "C:\\ProgramData\\chocolatey",
@@ -33,12 +33,12 @@
       "COMPUTERNAME": "MSI-GF63-THIN-8",
       "COMSPEC": "C:\\WINDOWS\\system32\\cmd.exe",
       "DRIVERDATA": "C:\\Windows\\System32\\Drivers\\DriverData",
-      "EFC_8216_1262719628": "1",
-      "EFC_8216_1592913036": "1",
-      "EFC_8216_2283032206": "1",
-      "EFC_8216_2775293581": "1",
-      "EFC_8216_3789132940": "1",
-      "EFC_8216_4126798990": "1",
+      "EFC_8340_1262719628": "1",
+      "EFC_8340_1592913036": "1",
+      "EFC_8340_2283032206": "1",
+      "EFC_8340_2775293581": "1",
+      "EFC_8340_3789132940": "1",
+      "EFC_8340_4126798990": "1",
       "GIT_INSTALL_ROOT": "C:\\Users\\This PC\\scoop\\apps\\git\\current",
       "HOMEDRIVE": "C:",
       "HOMEPATH": "\\Users\\This PC",
@@ -73,20 +73,20 @@
     }
   },
   "tests": {
-    "total": 114,
-    "passed": 114,
+    "total": 119,
+    "passed": 119,
     "failed": 0,
-    "duration_sec": 98.15
+    "duration_sec": 148.37
   },
   "compilation": {
     "python": "PASS",
     "es_modules": "PASS"
   },
   "performance": {
-    "mean_latency_ms": 501.38,
-    "median_latency_ms": 501.07,
-    "p95_latency_ms": 517.92,
-    "peak_heap_mb": 2.81
+    "mean_latency_ms": 538.02,
+    "median_latency_ms": 505.84,
+    "p95_latency_ms": 653.46,
+    "peak_heap_mb": 2.84
   },
   "bug_prediction_calibration": {
     "status": "active",

@@ -24,6 +24,7 @@ from ultron.core import pledge
 from ultron.core import fuzz
 from ultron.core import logistic
 from ultron.core import translate
+from ultron.interfaces.api.router import APIRouter
 
 try:
     from ultron.experimental import delta
@@ -92,8 +93,12 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         req_path = self.path.split('?')[0]
-        # Route to static files
-        parsed_path = self.path.split('?')[0]
+        parsed_path = req_path
+        
+        # Check modular APIRouter first
+        if APIRouter.dispatch(self, parsed_path, "GET"):
+            return
+            
         # API routes — must be handled before the static-file/traversal block
         
         if parsed_path.startswith("/api/v1/risk-profile"):
@@ -195,6 +200,12 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         req_path = self.path.split('?')[0]
+        self._cached_post_data = None
+        
+        # Check modular APIRouter first
+        if APIRouter.dispatch(self, req_path, "POST"):
+            return
+            
         if req_path == "/api/v1/analyze":
             self.handle_v1_analyze()
             return
