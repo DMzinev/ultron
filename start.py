@@ -13,6 +13,10 @@ if ROOT not in sys.path:
 PORT_IN_USE = "PORT_IN_USE"
 _FALLBACK_PORTS = [8000, 8001, 8002]
 
+# Use the literal loopback IP rather than 'localhost'. The server listens on IPv4 only,
+# and on Windows 'localhost' resolves to ::1 first, adding ~2s to every single request.
+SERVER_HOST = "127.0.0.1"
+
 
 def _safe_reconfigure_console():
     """Guard against Windows cp1252 console crashes on non-ASCII output."""
@@ -74,12 +78,12 @@ def launch_ultron():
 
     for port in _FALLBACK_PORTS:
         try:
-            print(f"\n  [3/3] Starting Server on http://localhost:{port}/ ...")
+            print(f"\n  [3/3] Starting Server on http://{SERVER_HOST}:{port}/ ...")
 
             def auto_open_browser(p=port):
                 time.sleep(1.2)
                 try:
-                    webbrowser.open(f"http://localhost:{p}/")
+                    webbrowser.open(f"http://{SERVER_HOST}:{p}/")
                 except Exception:
                     pass
 

@@ -48,6 +48,7 @@ ultron/meta/blind_feedback*.jsonl
 ultron/meta/blind_study_*
 ultron/meta/evolution_ledger.json
 ultron/meta/experiment_log.jsonl
+ultron/meta/logistic_coefficients.json
 ultron/meta/reality_deltas.jsonl
 ultron/meta/subagents_config.json
 ultron/meta/active_pledges.json

@@ -14,7 +14,7 @@
 
 *   **Zero Network Calls / 100% Local Privacy:** Ultron runs completely on your local machine. No source code or metadata leaves your system.
 *   **Explainable & Traceable:** Every warning and refactoring opportunity follows a deterministic trail from AST measurements to software design principles (ADP, SDP, DIP, SRP). Zero speculative AI hallucinations.
-*   **Futuristic Dark Web SPA Portal (`http://localhost:8000/`):**
+*   **Futuristic Dark Web SPA Portal (`http://127.0.0.1:8000/`):**
     *   **Creator Mode**: Visual heatmaps, plain-English impact explanations, and safe-zone modification guides.
     *   **Engineer Mode**: Deep static metrics datagrid, McCabe complexity breakdown, coupling ranks, and RKM Policy Engine recommendations.
 *   **High-Scale Visual Topology Explorer**:

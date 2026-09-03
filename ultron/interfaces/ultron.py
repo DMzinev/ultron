@@ -39,7 +39,7 @@ def main():
         print("  RECOMMENDED ACTION (Developer Persona):")
         print(f"    {dev_comm['explanation']}")
         print("==================================================================================")
-        print("  Visual Web Dashboard Ready: Open http://localhost:8000/ in your browser.")
+        print("  Visual Web Dashboard Ready: Open http://127.0.0.1:8000/ in your browser.")
         print("  Run 'python -m ultron.interfaces.server' to launch live web dashboard.")
         print("==================================================================================")
         sys.exit(0)

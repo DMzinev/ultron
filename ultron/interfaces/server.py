@@ -44,20 +44,40 @@ ACTIVE_JOB = {
 }
 
 PORT = 8000
+LOOPBACK_HOST = "127.0.0.1"
+
+# Only same-machine origins may call the API. The server exposes unauthenticated
+# file read/write endpoints, so a wildcard ACAO would let any website a user visits
+# drive their local filesystem.
+def _is_local_origin(origin: str) -> bool:
+    if not origin:
+        return False
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(origin).hostname
+    except Exception:
+        return False
+    return host in ("127.0.0.1", "localhost", "::1")
+
+
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 CONFIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".ultron")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
-        # Enable CORS for local cross-origin development if needed
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        # Echo the origin only when it is same-machine; never send a wildcard.
+        origin = self.headers.get('Origin')
+        if _is_local_origin(origin):
+            self.send_header('Access-Control-Allow-Origin', origin)
+            self.send_header('Vary', 'Origin')
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         super().end_headers()
 
     def do_OPTIONS(self):
-        self.send_response(200)
+        origin = self.headers.get('Origin')
+        self.send_response(200 if _is_local_origin(origin) or not origin else 403)
         self.end_headers()
 
     def do_GET(self):
@@ -288,14 +308,63 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps(data).encode('utf-8'))
 
     
+    def measure_entity(self, entity):
+        """
+        Resolve `entity` to a real file inside the repository and measure it.
+
+        Returns (complexity, coupling_fanout, error_response) where error_response is
+        None on success. Previously these endpoints ignored `entity` entirely and passed
+        fixed literals, so every input - including files that did not exist - produced an
+        identical HIGH-risk verdict at confidence 1.0.
+        """
+        if not entity or not entity.strip():
+            return None, None, (400, {"error": "Missing required 'entity' parameter."})
+
+        repo_root = os.path.realpath(self.get_repo_root_path())
+        candidate = entity if os.path.isabs(entity) else os.path.join(repo_root, entity)
+        abs_entity = os.path.realpath(candidate)
+
+        if not os.path.normcase(abs_entity).startswith(os.path.normcase(os.path.join(repo_root, ""))):
+            return None, None, (400, {"error": "Access denied: entity must be inside the repository."})
+        if not os.path.isfile(abs_entity):
+            return None, None, (404, {"error": f"Entity not found in repository: {entity}"})
+
+        from ultron.core.risk.metrics import get_file_complexity
+        complexity = float(get_file_complexity(abs_entity))
+
+        rel_entity = os.path.relpath(abs_entity, repo_root).replace("\\", "/")
+        coupling = 0
+        try:
+            codebase = analyzer.analyze_directory(repo_root)
+            packets = risk.evaluate_risks(codebase, [rel_entity], repo_path=repo_root)
+            for packet in packets:
+                packet_path = (getattr(packet, "file_path", "") or "").replace("\\", "/")
+                if packet_path.endswith(rel_entity) or rel_entity.endswith(packet_path):
+                    complexity = float(packet.complexity)
+                    coupling = int(getattr(packet, "coupling_score", 0))
+                    break
+        except Exception as e:
+            sys.stderr.write(f"[Ultron] Coupling measurement failed for {rel_entity}: {e}\n")
+
+        return complexity, coupling, None
+
     def handle_v1_risk_profile(self):
         try:
             from urllib.parse import parse_qs, urlparse
             from dataclasses import asdict
             query = parse_qs(urlparse(self.path).query)
-            entity = query.get("entity", ["ultron/core/analyzer.py"])[0]
+            entity = query.get("entity", [""])[0]
+
+            complexity, coupling, err = self.measure_entity(entity)
+            if err:
+                self.send_json_response(*err)
+                return
+
             from ultron.core.rkm.risk_intelligence import compute_risk_profile
-            prof = compute_risk_profile(entity, complexity=22.0, coupling_fanout=6, coverage_percent=40.0)
+            # coverage_percent is left None on purpose: Ultron has no coverage source, and
+            # compute_risk_profile reports confidence 0.0 for the missing signal rather
+            # than inventing a plausible-looking number.
+            prof = compute_risk_profile(entity, complexity=complexity, coupling_fanout=coupling)
             self.send_json_response(200, asdict(prof))
         except Exception as e:
             self.send_json_response(500, {"error": str(e)})
@@ -305,11 +374,17 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             from urllib.parse import parse_qs, urlparse
             from dataclasses import asdict
             query = parse_qs(urlparse(self.path).query)
-            entity = query.get("entity", ["ultron/core/analyzer.py"])[0]
+            entity = query.get("entity", [""])[0]
             crit = query.get("criticality", ["DEFAULT"])[0]
+
+            complexity, coupling, err = self.measure_entity(entity)
+            if err:
+                self.send_json_response(*err)
+                return
+
             from ultron.core.rkm.risk_intelligence import compute_risk_profile
             from ultron.core.rkm.policy_engine import evaluate_policy
-            prof = compute_risk_profile(entity, complexity=22.0, coupling_fanout=6, coverage_percent=40.0)
+            prof = compute_risk_profile(entity, complexity=complexity, coupling_fanout=coupling)
             dec = evaluate_policy(prof, business_criticality=crit)
             self.send_json_response(200, asdict(dec))
         except Exception as e:
@@ -1009,11 +1084,33 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
 
             codebase = analyzer.analyze_directory(repo_path)
             target_files = [k for k in codebase.keys() if k.endswith(".py")] if isinstance(codebase, dict) else []
-            
+
             if not codebase or not target_files:
+                # A repository we could not analyze is NOT a healthy repository. Returning
+                # health_score=100 here made "analysis produced nothing" visually identical
+                # to "your code is flawless", which is the most dangerous possible default
+                # for a risk tool. Report an explicit state and no score instead.
+                discovered_py = []
+                try:
+                    for _root, _dirs, _files in os.walk(repo_path):
+                        _dirs[:] = [d for d in _dirs if d not in (".git", "__pycache__", ".venv", "node_modules")]
+                        if any(f.endswith(".py") for f in _files):
+                            discovered_py.append(_root)
+                            break
+                except OSError:
+                    pass
+
+                state = "analysis_empty" if not discovered_py else "analysis_failed"
                 self.send_json_response(200, {
-                    "success": True,
-                    "health_score": 100,
+                    "success": False,
+                    "state": state,
+                    "health_score": None,
+                    "message": (
+                        "No Python files found in this repository."
+                        if state == "analysis_empty"
+                        else "Python files were found but none could be analyzed. Check the server console for parse errors."
+                    ),
+                    "analyzed_file_count": 0,
                     "hotspots": [],
                     "circular_dependencies": [],
                     "violations": [],
@@ -1067,20 +1164,54 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             hotspots = []
             contracts = []
 
+            # Track which analysis subsystems actually ran. Every block below depends on
+            # ultron.experimental.*, which may not be installed; without this bookkeeping
+            # a total failure produced cycles=[]/violations=[] and therefore a perfect
+            # health score of 100 - indistinguishable from a genuinely clean repository.
+            available = set()
+            unavailable = []
+
             if design_oracle is not None:
                 try:
                     cycles = design_oracle.detect_circular_dependencies(codebase)
                     leaks = design_oracle.detect_abstraction_leaks(codebase, repo_path)
                     total_leaks = sum(len(v) for v in leaks.values()) if isinstance(leaks, dict) else 0
-                except Exception:
-                    pass
+                    available.add("design_oracle")
+                except Exception as e:
+                    unavailable.append(f"design_oracle ({type(e).__name__})")
+            else:
+                unavailable.append("design_oracle (module not installed)")
 
             try:
                 from ultron.experimental.reasoning import ReasoningEngine
                 engine = ReasoningEngine(codebase, repo_path)
                 violations = engine.analyze()
-            except Exception:
-                pass
+                available.add("reasoning_engine")
+            except Exception as e:
+                unavailable.append(f"reasoning_engine ({type(e).__name__})")
+
+            if not available:
+                # No architectural signal was collected, so there is no basis for a score.
+                sys.stderr.write(
+                    f"[Ultron] architecture-health degraded; unavailable: {', '.join(unavailable)}\n"
+                )
+                self.send_json_response(200, {
+                    "success": False,
+                    "state": "analysis_failed",
+                    "health_score": None,
+                    "message": (
+                        "Architecture analysis is unavailable: "
+                        + ", ".join(unavailable)
+                        + ". No health score can be computed."
+                    ),
+                    "unavailable_analyzers": unavailable,
+                    "analyzed_file_count": len(target_files),
+                    "hotspots": [],
+                    "circular_dependencies": [],
+                    "violations": [],
+                    "contracts": []
+                })
+                return
 
             health_score = 100 - (len(cycles) * 15 + len(violations) * 5 + total_leaks * 2)
             health_score = max(10, min(100, health_score))
@@ -1088,8 +1219,8 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             risks = []
             try:
                 risks = risk.evaluate_risks(codebase, target_files, intent="Identify hotspots", repo_path=repo_path)
-            except Exception:
-                pass
+            except Exception as e:
+                sys.stderr.write(f"[Ultron] Hotspot risk evaluation failed: {type(e).__name__}: {e}\n")
 
             if design_oracle is not None:
                 try:
@@ -2300,14 +2431,20 @@ def serve(port=8000):
             except Exception:
                 pass
 
-    server_address = ('', port)
+    # Bind loopback only: Ultron exposes unauthenticated filesystem APIs, so it must
+    # never be reachable from the network.
+    #
+    # Note this socket is IPv4-only. On Windows the name 'localhost' usually resolves to
+    # ::1 first, so clients that use the hostname pay a ~2s failed-IPv6-connect penalty
+    # on every request. Entry points therefore advertise LOOPBACK_HOST, not 'localhost'.
+    server_address = (LOOPBACK_HOST, port)
     try:
         httpd = http.server.HTTPServer(server_address, UltronAPIHandler)
     except OSError as e:
         # Re-raise so the caller (start.py) can try a different port
         raise
 
-    print(f"[*] Ultron Dashboard Server running on http://localhost:{port}/")
+    print(f"[*] Ultron Dashboard Server running on http://{LOOPBACK_HOST}:{port}/")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

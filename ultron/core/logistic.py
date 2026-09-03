@@ -4,7 +4,16 @@ import math
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 _root = os.path.abspath(os.path.join(_dir, "..", ".."))
-WEIGHTS_PATH = os.path.join(_root, "ultron", "resources", "weights.json")
+
+# Logistic coefficients live in their own file. They used to be read from (and written
+# to) ultron/resources/weights.json, which actually holds the unrelated risk-signal
+# weights schema {version, description, weights, scaling} and contains no beta_* keys -
+# so every predict_defect_probability() call raised KeyError, and a successful training
+# run would have overwritten the risk weights.
+COEFFICIENTS_PATH = os.path.join(_root, "ultron", "meta", "logistic_coefficients.json")
+
+# Must match where pledge.py appends outcomes, otherwise training never sees any data.
+EXPERIMENT_LOG_PATH = os.path.join(_root, "ultron", "meta", "experiment_log.jsonl")
 
 DEFAULT_COEFFICIENTS = {
     "beta_0": -1.0,  # intercept
@@ -12,22 +21,31 @@ DEFAULT_COEFFICIENTS = {
     "beta_2": 0.5    # coefficient for fragility (1 - MKR)
 }
 
+_REQUIRED_KEYS = ("beta_0", "beta_1", "beta_2")
+
+
 def load_logistic_weights():
-    if not os.path.exists(WEIGHTS_PATH):
-        os.makedirs(os.path.dirname(WEIGHTS_PATH), exist_ok=True)
-        with open(WEIGHTS_PATH, "w", encoding="utf-8") as f:
-            json.dump(DEFAULT_COEFFICIENTS, f, indent=2)
-        return DEFAULT_COEFFICIENTS
+    if not os.path.exists(COEFFICIENTS_PATH):
+        save_logistic_weights(DEFAULT_COEFFICIENTS)
+        return dict(DEFAULT_COEFFICIENTS)
     try:
-        with open(WEIGHTS_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
+        with open(COEFFICIENTS_PATH, "r", encoding="utf-8") as f:
+            loaded = json.load(f)
     except Exception:
-        return DEFAULT_COEFFICIENTS
+        return dict(DEFAULT_COEFFICIENTS)
+
+    if not isinstance(loaded, dict) or not all(k in loaded for k in _REQUIRED_KEYS):
+        return dict(DEFAULT_COEFFICIENTS)
+    try:
+        return {k: float(loaded[k]) for k in _REQUIRED_KEYS}
+    except (TypeError, ValueError):
+        return dict(DEFAULT_COEFFICIENTS)
+
 
 def save_logistic_weights(weights):
-    os.makedirs(os.path.dirname(WEIGHTS_PATH), exist_ok=True)
-    with open(WEIGHTS_PATH, "w", encoding="utf-8") as f:
-        json.dump(weights, f, indent=2)
+    os.makedirs(os.path.dirname(COEFFICIENTS_PATH), exist_ok=True)
+    with open(COEFFICIENTS_PATH, "w", encoding="utf-8") as f:
+        json.dump({k: weights[k] for k in _REQUIRED_KEYS}, f, indent=2)
 
 def sigmoid(z):
     try:
@@ -43,9 +61,9 @@ def predict_defect_probability(impact_score, mkr):
 def train_confidence_classifier():
     """
     Fits logistic regression parameters using batch gradient descent on ledger outcomes.
-    Reads data from resources/experiment_log.jsonl.
+    Reads data from ultron/meta/experiment_log.jsonl (written by pledge.py).
     """
-    log_path = os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "resources", "experiment_log.jsonl"))
+    log_path = EXPERIMENT_LOG_PATH
     if not os.path.exists(log_path):
         return load_logistic_weights()
         
