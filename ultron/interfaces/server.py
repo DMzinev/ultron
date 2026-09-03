@@ -45,6 +45,9 @@ ACTIVE_JOB = {
 
 PORT = 8000
 LOOPBACK_HOST = "127.0.0.1"
+# A modal folder dialog blocks this single-threaded server, so give up on it
+# rather than letting one unanswered window take the whole API down.
+BROWSE_DIALOG_TIMEOUT = 20
 
 # Only same-machine origins may call the API. The server exposes unauthenticated
 # file read/write endpoints, so a wildcard ACAO would let any website a user visits
@@ -128,6 +131,9 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
 
         if parsed_path == "/api/get-repo-root":
             self.handle_get_repo_root()
+            return
+        if parsed_path == "/api/list-dirs":
+            self.handle_list_dirs()
             return
         if parsed_path == "/api/v1/progress" or parsed_path == "/api/v1/status":
             self.handle_v1_progress()
@@ -413,10 +419,79 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             from ultron.interfaces.api.browse_folder import select_folder_dialog
             data = self.get_post_data()
             initial_dir = data.get("initial_dir") or self.get_repo_root_path()
-            res = select_folder_dialog(initial_dir)
-            self.send_json_response(200, res)
+
+            # The dialog is modal and this server handles one request at a time,
+            # so an unanswered dialog would freeze every other endpoint. Wait a
+            # bounded time, then hand back to the caller's own folder browser.
+            import threading
+            result = {}
+
+            def run_dialog():
+                try:
+                    result["value"] = select_folder_dialog(initial_dir)
+                except Exception as exc:
+                    result["value"] = {"path": "", "cancelled": True, "fallback": True, "error": str(exc)}
+
+            worker = threading.Thread(target=run_dialog, daemon=True)
+            worker.start()
+            worker.join(timeout=BROWSE_DIALOG_TIMEOUT)
+
+            if worker.is_alive():
+                self.send_json_response(200, {
+                    "path": "",
+                    "cancelled": True,
+                    "fallback": True,
+                    "error": "The folder dialog did not return in time. Use the built-in folder browser."
+                })
+                return
+
+            self.send_json_response(200, result.get("value", {"path": "", "cancelled": True, "fallback": True}))
         except Exception as e:
             self.send_json_response(500, {"error": f"Failed to browse folder: {str(e)}"})
+
+    def handle_list_dirs(self):
+        """List subdirectories of a path so the UI can browse folders in-page.
+
+        Replaces the native modal dialog, which blocked the whole server while open.
+        """
+        try:
+            query = self.get_query_data() if hasattr(self, "get_query_data") else {}
+            raw = (query or {}).get("path", "")
+            if isinstance(raw, list):
+                raw = raw[0] if raw else ""
+            raw = str(raw or "").strip()
+
+            drives = []
+            if os.name == "nt":
+                import string
+                drives = [f"{d}:\\" for d in string.ascii_uppercase if os.path.isdir(f"{d}:\\")]
+
+            target = os.path.abspath(raw) if raw else self.get_repo_root_path()
+            if not os.path.isdir(target):
+                self.send_json_response(400, {"error": f"'{target}' is not a directory.", "drives": drives})
+                return
+
+            entries = []
+            try:
+                for name in sorted(os.listdir(target), key=str.lower):
+                    if name.startswith("."):
+                        continue
+                    full = os.path.join(target, name)
+                    if os.path.isdir(full):
+                        entries.append({"name": name, "path": full})
+            except PermissionError:
+                self.send_json_response(403, {"error": f"Permission denied reading '{target}'.", "drives": drives})
+                return
+
+            parent = os.path.dirname(target.rstrip(os.sep))
+            self.send_json_response(200, {
+                "path": target,
+                "parent": parent if parent and parent != target and os.path.isdir(parent) else None,
+                "entries": entries,
+                "drives": drives
+            })
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
 
     def handle_v1_context_brief(self):
         try:

@@ -80,8 +80,40 @@ body { display: flex; flex-direction: column; }
 .btn-ghost { background: transparent; }
 .btn-lg { padding: 11px 22px; font-size: 15px; }
 
-/* ---------- banner ---------- */
+/* ---------- folder picker ---------- */
 
+.picker {
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-raised);
+  flex-shrink: 0;
+  max-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+.picker-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 18px; border-bottom: 1px solid var(--line);
+}
+.picker-head code {
+  flex: 1; min-width: 0; font-size: 12px; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.picker-drives { display: flex; flex-wrap: wrap; gap: 6px; padding: 9px 18px 0; }
+.chip-btn {
+  padding: 3px 10px; font-size: 12px; cursor: pointer;
+  background: var(--bg-sunken); border: 1px solid var(--line);
+  border-radius: 6px; color: var(--text-dim);
+}
+.chip-btn:hover { color: var(--text); border-color: var(--accent); }
+.picker-list { list-style: none; margin: 0; padding: 8px 10px 12px; overflow-y: auto; flex: 1; }
+.picker-row {
+  padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.picker-row:hover { background: var(--bg-sunken); }
+.picker-note { padding: 6px 10px; color: var(--text-dim); font-size: 13px; }
+
+/* ---------- banner ---------- */
 .banner {
   display: flex;
   align-items: center;

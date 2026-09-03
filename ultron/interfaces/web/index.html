@@ -16,7 +16,7 @@
 
   <div class="repo-picker">
     <input id="repo-input" type="text" spellcheck="false" placeholder="Path to a repository…" aria-label="Repository path">
-    <button id="browse-btn" class="btn btn-ghost" title="Pick a folder">Browse</button>
+    <button id="browse-btn" class="btn btn-ghost" title="Browse folders">Browse</button>
   </div>
 
   <button id="scan-btn" class="btn btn-primary">Scan repository</button>
@@ -25,6 +25,17 @@
     <span class="dot"></span><span id="conn-text">connecting…</span>
   </div>
 </header>
+
+<div id="picker" class="picker" hidden>
+  <div class="picker-head">
+    <strong>Choose a folder</strong>
+    <code id="picker-path"></code>
+    <button id="picker-close" class="btn btn-ghost">Cancel</button>
+    <button id="picker-use" class="btn btn-primary">Use this folder</button>
+  </div>
+  <div id="picker-drives" class="picker-drives"></div>
+  <ul id="picker-list" class="picker-list"></ul>
+</div>
 
 <div id="banner" class="banner" hidden>
   <span id="banner-text"></span>

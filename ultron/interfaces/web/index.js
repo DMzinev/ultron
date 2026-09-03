@@ -12,6 +12,7 @@ const state = {
   fileCache: new Map(),
   activeTab: "why",
   briefTarget: "claude",
+  pickerPath: "",
 };
 
 /* ---------------- helpers ---------------- */
@@ -375,6 +376,34 @@ async function copyBrief() {
   setTimeout(() => { btn.textContent = "Copy"; }, 1400);
 }
 
+/* ---------------- folder picker ----------------
+   Browsed in-page. The old native dialog ran inside the request handler of a
+   single-threaded server, so leaving it open froze every other endpoint. */
+
+async function openPicker(startPath) {
+  const box = $("picker");
+  box.hidden = false;
+  $("picker-list").innerHTML = `<li class="picker-note">Loading…</li>`;
+  try {
+    const q = startPath ? `?path=${encodeURIComponent(startPath)}` : "";
+    const res = await api(`/api/list-dirs${q}`);
+    state.pickerPath = res.path;
+    $("picker-path").textContent = res.path;
+
+    $("picker-drives").innerHTML = (res.drives || [])
+      .map((d) => `<button class="chip-btn" data-path="${esc(d)}">${esc(d)}</button>`).join("");
+
+    const rows = [];
+    if (res.parent) rows.push(`<li class="picker-row" data-path="${esc(res.parent)}">↑ ..</li>`);
+    for (const e of res.entries || []) {
+      rows.push(`<li class="picker-row" data-path="${esc(e.path)}">${esc(e.name)}</li>`);
+    }
+    $("picker-list").innerHTML = rows.length ? rows.join("") : `<li class="picker-note">No subfolders here.</li>`;
+  } catch (err) {
+    $("picker-list").innerHTML = `<li class="picker-note">${esc(err.message)}</li>`;
+  }
+}
+
 /* ---------------- wiring ---------------- */
 
 function wire() {
@@ -389,14 +418,23 @@ function wire() {
     if (e.key === "Enter") scan();
   });
 
-  $("browse-btn").addEventListener("click", async () => {
-    try {
-      const res = await api("/api/browse-folder", { initial_dir: $("repo-input").value.trim() });
-      if (res.path) $("repo-input").value = res.path;
-      else if (res.folder) $("repo-input").value = res.folder;
-    } catch (err) {
-      banner(`Folder picker unavailable: ${err.message}. Type the path instead.`);
-    }
+  $("browse-btn").addEventListener("click", () => openPicker($("repo-input").value.trim()));
+
+  $("picker-close").addEventListener("click", () => { $("picker").hidden = true; });
+
+  $("picker-use").addEventListener("click", () => {
+    if (state.pickerPath) $("repo-input").value = state.pickerPath;
+    $("picker").hidden = true;
+  });
+
+  $("picker-list").addEventListener("click", (e) => {
+    const item = e.target.closest("[data-path]");
+    if (item) openPicker(item.dataset.path);
+  });
+
+  $("picker-drives").addEventListener("click", (e) => {
+    const item = e.target.closest("[data-path]");
+    if (item) openPicker(item.dataset.path);
   });
 
   $("risk-list").addEventListener("click", (e) => {
