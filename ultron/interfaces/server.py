@@ -60,6 +60,21 @@ def _is_local_origin(origin: str) -> bool:
     return host in ("127.0.0.1", "localhost", "::1")
 
 
+def coerce_file_list(value) -> list:
+    """Accept a JSON array, a comma-separated string, or nothing.
+
+    The dashboard sends an array while the CLI and older clients send CSV;
+    silently ignoring one of those made requests look like whole-repo scans.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [part.strip() for part in value.split(",") if part.strip()]
+    if isinstance(value, (list, tuple, set)):
+        return [str(part).strip() for part in value if str(part).strip()]
+    return []
+
+
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 CONFIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".ultron")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
@@ -187,6 +202,9 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
         req_path = self.path.split('?')[0]
         if req_path == "/api/v1/analyze":
             self.handle_v1_analyze()
+            return
+        elif req_path == "/api/v1/overview":
+            self.handle_v1_overview()
             return
         elif req_path == "/api/v1/cancel-analysis":
             self.handle_v1_cancel_analysis()
@@ -414,54 +432,37 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             db_path = os.path.join(repo_path, ".ultron", "repository.db")
             repo_name = os.path.basename(repo_path)
             
-            canonical_brief = None
+            # Always build the canonical brief from live analysis: it carries the
+            # real per-file reasons ("McCabe Complexity: 114.0") that an agent can
+            # act on. The knowledge base then refines the score and identity.
+            from ultron.core.context_brief import compile_brief_data
+            canonical_brief = compile_brief_data(repo_path)
+            canonical_brief["target_file"] = target_file
+            canonical_brief["memory_backed"] = False
 
-            # 1. RKM Memory First (Primary Path)
             if os.path.exists(db_path):
                 try:
                     from ultron.core.rkm.store import RepositoryStore
                     from ultron.core.rkm.evolution.engine import EvolutionEngine
 
                     store = RepositoryStore(db_path)
-                    meta = store.get_metadata()
-                    if meta and meta.latest_analysis_run_id:
-                        run_id = meta.latest_analysis_run_id
-                        files = store.get_file_records_for_run(run_id)
-                        vios = store.get_violations(run_id)
-                        health_run = EvolutionEngine.evaluate_health_score(store, run_id)
-                        health_score = round(
-                            (health_run.architecture_stability * 0.4 +
-                             health_run.rule_compliance * 0.4 +
-                             health_run.complexity_trend * 0.2) * 100, 1
-                        )
-                        
-                        top_risks = []
-                        for v in vios[:5]:
-                            top_risks.append({
-                                "entity_id": v[0].details or "Unknown Entity",
-                                "priority": getattr(v[0], "severity", "HIGH"),
-                                "score": 75.0,
-                                "reasons": [getattr(v[1], "name", "ARCHITECTURAL_VIOLATION")]
-                            })
-                            
-                        canonical_brief = {
-                            "repo_name": repo_name,
-                            "repository_uuid": meta.repository_uuid,
-                            "health_score": health_score,
-                            "total_files": len(files),
-                            "total_modules": len(files),
-                            "top_risks": top_risks,
-                            "target_file": target_file
-                        }
-                    store.close()
+                    try:
+                        meta = store.get_metadata()
+                        if meta and meta.latest_analysis_run_id:
+                            run_id = meta.latest_analysis_run_id
+                            health_run = EvolutionEngine.evaluate_health_score(store, run_id)
+                            canonical_brief["health_score"] = round(
+                                (health_run.architecture_stability * 0.4 +
+                                 health_run.rule_compliance * 0.4 +
+                                 health_run.complexity_trend * 0.2) * 100, 1
+                            )
+                            canonical_brief["repository_uuid"] = meta.repository_uuid
+                            canonical_brief["memory_backed"] = True
+                            canonical_brief["violation_count"] = len(store.get_violations(run_id))
+                    finally:
+                        store.close()
                 except Exception as e:
                     print(f"[Warning] RKM Store lookup failed for context brief: {e}")
-
-            # 2. Fallback to compile_brief_data (ONLY if no RKM DB exists)
-            if not canonical_brief:
-                from ultron.core.context_brief import compile_brief_data
-                canonical_brief = compile_brief_data(repo_path)
-                canonical_brief["target_file"] = target_file
 
             # 3. Render 3 Model-Specific Outputs from Canonical Brief
             target_str = f" Target file: {target_file}." if target_file else ""
@@ -712,8 +713,7 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                 return
                 
             intent = str(data.get("intent", "")).strip()
-            files_str = str(data.get("files", "")).strip()
-            target_files = [f.strip() for f in files_str.split(",") if f.strip()] if files_str else []
+            target_files = coerce_file_list(data.get("files"))
             
             codebase = analyzer.analyze_directory(repo_path)
             if not codebase:
@@ -722,6 +722,15 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             risks = risk.evaluate_risks(codebase, target_files, intent, repo_path=repo_path)
+
+            # Intent matching is keyword-based, so a perfectly reasonable phrase
+            # ("improve performance") can match nothing. Returning an empty list
+            # made the dashboard look like a clean repo. Fall back to the whole
+            # repository instead and tell the caller the intent was ignored.
+            intent_matched = True
+            if intent and not target_files and not risks:
+                intent_matched = False
+                risks = risk.evaluate_risks(codebase, [], "", repo_path=repo_path)
             
             # Extract basic stats
             total_files = len(codebase)
@@ -733,6 +742,13 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                 "stats": {
                     "total_files": total_files,
                     "total_definitions": total_definitions
+                },
+                "intent": {
+                    "text": intent,
+                    "matched": intent_matched,
+                    "message": "" if intent_matched else (
+                        f"No files matched \"{intent}\". Showing the whole repository instead."
+                    )
                 },
                 "risks": [r.to_dict() for r in risks]
             })
@@ -841,12 +857,16 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_get_repo_root(self):
         try:
-            if not os.path.exists(CONFIG_FILE):
-                self.send_json_response(200, {"repo_root": None})
-                return
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-            self.send_json_response(200, {"repo_root": cfg.get("repo_root")})
+            configured = None
+            if os.path.exists(CONFIG_FILE):
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    configured = json.load(f).get("repo_root")
+            # Fall back to the effective root so a first-run UI has something to
+            # show instead of an empty box the user has to guess at.
+            self.send_json_response(200, {
+                "repo_root": configured or self.get_repo_root_path(),
+                "configured": bool(configured)
+            })
         except Exception as e:
             self.send_json_response(500, {"error": str(e)})
 
@@ -2125,6 +2145,172 @@ if __name__ == "__main__":
         except Exception as e:
             self.send_json_response(500, {"error": f"Failed to retrieve summary: {str(e)}"})
 
+    def _memory_snapshot(self, repo_path: str) -> dict:
+        """Everything the UI needs from the persisted knowledge base, or an
+        honest reason why there is nothing yet."""
+        db_path = os.path.join(repo_path, ".ultron", "repository.db")
+        if not os.path.exists(db_path):
+            return {
+                "initialized": False,
+                "reason": "never_analyzed",
+                "latest_run": None,
+                "hotspots": [],
+                "recommendations": []
+            }
+        try:
+            from ultron.core.rkm.store import RepositoryStore
+            from ultron.core.rkm.evolution.engine import EvolutionEngine
+            from ultron.core.rkm.recommendation_service import get_recommendations
+
+            store = RepositoryStore(db_path)
+            try:
+                meta = store.get_metadata()
+                if not meta or not meta.latest_analysis_run_id:
+                    return {
+                        "initialized": False,
+                        "reason": "no_completed_run",
+                        "latest_run": None,
+                        "hotspots": [],
+                        "recommendations": []
+                    }
+                run_id = meta.latest_analysis_run_id
+                run = store.get_analysis_run(run_id)
+                health_run = EvolutionEngine.evaluate_health_score(store, run_id)
+                score = round(
+                    (health_run.architecture_stability * 0.4 +
+                     health_run.rule_compliance * 0.4 +
+                     health_run.complexity_trend * 0.2) * 100, 1
+                )
+                hotspots = [
+                    {
+                        "file_path": h.file_path,
+                        "change_count": h.change_count,
+                        "violation_count": h.violation_count,
+                        "hotspot_score": h.hotspot_score,
+                        "severity_level": h.severity_level
+                    }
+                    for h in EvolutionEngine.detect_hotspots(store, run_id)
+                ][:10]
+            finally:
+                store.close()
+
+            recs = get_recommendations(repo_path, limit=10)
+            return {
+                "initialized": True,
+                "reason": None,
+                "repository_uuid": meta.repository_uuid,
+                "health_score": score,
+                "latest_run": {
+                    "run_id": run.id,
+                    "timestamp": run.timestamp,
+                    "engine_version": run.engine_version
+                } if run else None,
+                "hotspots": hotspots,
+                "recommendations": recs.get("recommendations", []) if isinstance(recs, dict) else []
+            }
+        except Exception as e:
+            return {
+                "initialized": False,
+                "reason": "memory_unreadable",
+                "error": str(e),
+                "latest_run": None,
+                "hotspots": [],
+                "recommendations": []
+            }
+
+    def handle_v1_overview(self):
+        """One request, everything the main screen shows.
+
+        The dashboard previously assembled this from a dozen calls with
+        inconsistent repo handling, several of which could never return data.
+        """
+        try:
+            data = self.get_post_data()
+            if not isinstance(data, dict):
+                data = {}
+            requested = str(data.get("repo", "")).strip()
+            repo_path = os.path.abspath(requested) if requested else self.get_repo_root_path()
+
+            if not os.path.exists(repo_path):
+                self.send_json_response(400, {"status": "error", "message": f"'{repo_path}' does not exist."})
+                return
+            if not os.path.isdir(repo_path):
+                self.send_json_response(400, {"status": "error", "message": f"'{repo_path}' is a file, not a directory."})
+                return
+
+            intent = str(data.get("intent", "")).strip()
+            target_files = coerce_file_list(data.get("files"))
+            repo_block = {"path": repo_path, "name": os.path.basename(repo_path) or repo_path}
+
+            codebase = analyzer.analyze_directory(repo_path)
+            if not codebase:
+                self.send_json_response(200, {
+                    "status": "success",
+                    "state": "analysis_empty",
+                    "repo": repo_block,
+                    "message": "No Python files found here. Pick a folder that contains Python source.",
+                    "stats": {"total_files": 0, "total_definitions": 0, "high": 0, "medium": 0, "low": 0},
+                    "health": {"score": None, "source": "none", "explanation": "Nothing to measure yet."},
+                    "intent": {"text": intent, "matched": True, "message": ""},
+                    "risks": [],
+                    "memory": self._memory_snapshot(repo_path)
+                })
+                return
+
+            risks = risk.evaluate_risks(codebase, target_files, intent, repo_path=repo_path)
+            intent_matched = True
+            if intent and not target_files and not risks:
+                intent_matched = False
+                risks = risk.evaluate_risks(codebase, [], "", repo_path=repo_path)
+
+            ranked = sorted(risks, key=lambda r: getattr(r, "impact_score", 0.0), reverse=True)
+            levels = [getattr(r, "level", "LOW") for r in ranked]
+            high = levels.count("HIGH")
+            medium = levels.count("MEDIUM")
+            low = len(levels) - high - medium
+
+            memory = self._memory_snapshot(repo_path)
+            if memory.get("initialized") and memory.get("health_score") is not None:
+                health = {
+                    "score": memory["health_score"],
+                    "source": "memory",
+                    "explanation": "Scored from the last saved analysis (rule compliance, stability, complexity trend)."
+                }
+            elif ranked:
+                penalty = (high / len(ranked)) * 70 + (medium / len(ranked)) * 20
+                health = {
+                    "score": round(max(0.0, 100.0 - penalty), 1),
+                    "source": "live",
+                    "explanation": f"{high} of {len(ranked)} files are high risk. Save an analysis to track this over time."
+                }
+            else:
+                health = {"score": None, "source": "none", "explanation": "No files scored."}
+
+            self.send_json_response(200, {
+                "status": "success",
+                "state": "ok",
+                "repo": repo_block,
+                "stats": {
+                    "total_files": len(codebase),
+                    "total_definitions": sum(len(c.get("definitions", [])) for c in codebase.values()),
+                    "high": high,
+                    "medium": medium,
+                    "low": low
+                },
+                "health": health,
+                "intent": {
+                    "text": intent,
+                    "matched": intent_matched,
+                    "message": "" if intent_matched else f"No files matched \"{intent}\". Showing the whole repository instead."
+                },
+                "risks": [r.to_dict() for r in ranked],
+                "memory": memory
+            })
+        except PermissionError as e:
+            self.send_json_response(400, {"status": "error", "message": f"Permission denied: {e}"})
+        except Exception as e:
+            self.send_json_response(500, {"status": "error", "message": str(e)})
+
     def get_repo_root_path(self) -> str:
         if os.path.exists(CONFIG_FILE):
             try:
@@ -2206,6 +2392,20 @@ if __name__ == "__main__":
             self.send_json_response(400, {"error": "Analysis is already running"})
             return
 
+        # The dashboard sends the repository it is showing; honouring it keeps the
+        # persisted knowledge base pointed at the same tree the user is looking at.
+        try:
+            body = self.get_post_data()
+        except Exception:
+            body = {}
+        requested_repo = ""
+        if isinstance(body, dict):
+            requested_repo = str(body.get("repo", "")).strip()
+        repo_root = os.path.abspath(requested_repo) if requested_repo else self.get_repo_root_path()
+        if not os.path.isdir(repo_root):
+            self.send_json_response(400, {"error": f"Repository path '{repo_root}' is not a directory."})
+            return
+
         import uuid
         import threading
         job_id = str(uuid.uuid4())
@@ -2216,8 +2416,6 @@ if __name__ == "__main__":
         ACTIVE_JOB["cancel_requested"] = False
         ACTIVE_JOB["job_id"] = job_id
         
-        repo_root = self.get_repo_root_path()
-        
         def run_pipeline():
             global ACTIVE_JOB
             try:
@@ -2226,34 +2424,13 @@ if __name__ == "__main__":
                 if ACTIVE_JOB["cancel_requested"]:
                     ACTIVE_JOB["status"] = "cancelled"
                     return
-                ACTIVE_JOB["progress_step"] = "Scanning repository"
-                
-                if ACTIVE_JOB["cancel_requested"]:
-                    ACTIVE_JOB["status"] = "cancelled"
-                    return
-                ACTIVE_JOB["progress_step"] = "Building AST"
-                
-                if ACTIVE_JOB["cancel_requested"]:
-                    ACTIVE_JOB["status"] = "cancelled"
-                    return
-                ACTIVE_JOB["progress_step"] = "Resolving dependencies"
-                
-                if ACTIVE_JOB["cancel_requested"]:
-                    ACTIVE_JOB["status"] = "cancelled"
-                    return
-                ACTIVE_JOB["progress_step"] = "Computing metrics"
-                
-                if ACTIVE_JOB["cancel_requested"]:
-                    ACTIVE_JOB["status"] = "cancelled"
-                    return
-                ACTIVE_JOB["progress_step"] = "Executing rules"
-                
+                ACTIVE_JOB["progress_step"] = "Reading repository"
+
                 orchestrator.analyze_repository(repo_root, force=True)
                 
                 if ACTIVE_JOB["cancel_requested"]:
                     ACTIVE_JOB["status"] = "cancelled"
                     return
-                ACTIVE_JOB["progress_step"] = "Generating report"
                 ACTIVE_JOB["progress_step"] = "Done"
                 ACTIVE_JOB["status"] = "success"
                 
@@ -2265,7 +2442,7 @@ if __name__ == "__main__":
         thread = threading.Thread(target=run_pipeline, daemon=True)
         thread.start()
         
-        self.send_json_response(200, {"success": True, "job_id": job_id})
+        self.send_json_response(200, {"success": True, "job_id": job_id, "repo": repo_root})
 
     def handle_v1_cancel_analysis(self):
         global ACTIVE_JOB

@@ -14,19 +14,19 @@
 
 *   **Zero Network Calls / 100% Local Privacy:** Ultron runs completely on your local machine. No source code or metadata leaves your system.
 *   **Explainable & Traceable:** Every warning and refactoring opportunity follows a deterministic trail from AST measurements to software design principles (ADP, SDP, DIP, SRP). Zero speculative AI hallucinations.
-*   **Futuristic Dark Web SPA Portal (`http://127.0.0.1:8000/`):**
-    *   **Creator Mode**: Visual heatmaps, plain-English impact explanations, and safe-zone modification guides.
-    *   **Engineer Mode**: Deep static metrics datagrid, McCabe complexity breakdown, coupling ranks, and RKM Policy Engine recommendations.
-*   **High-Scale Visual Topology Explorer**:
-    *   **Viewport Pan & Zoom**: Smooth mousewheel zoom, canvas drag-pan, and fit-screen controls.
-    *   **Dynamic Force Repulsion & Collision Avoidance**: Node repulsion (`max(2500, N * 90)`) and collision radius spacing prevent overlapping text labels on large repositories.
-    *   **Interactive Node Filters**: Filter graph nodes by Risk Level (`High`, `Medium`, `Low`) or Node Type (`Files`, `Functions`).
-    *   **Hover Dependency Highlight**: Hovering over any node highlights direct import/caller links while dimming unrelated code.
+*   **One-screen dashboard (`http://127.0.0.1:8000/`)** — scan a repository, read the ranked list of files that are risky to change, and copy a briefing for your coding agent. Every panel is backed by live data.
+    *   **Change with care**: files ranked by impact score, each with the reason it scored that way (McCabe complexity, coupling, number of dependents).
+    *   **Why / Code / Agent brief**: for any file, see its metrics and guidance, read the source, or generate a handoff payload.
+    *   **Save this scan**: persists the run to the Repository Knowledge Model so repeat offenders and rule suggestions accumulate over time.
 *   **AI Context Briefs & MCP Integration**:
     *   One-click AI Context Brief generator for Claude, ChatGPT/Codex, and Gemini/Antigravity orientation payloads.
     *   Native stdio JSON-RPC MCP server (`get_context_brief`, `evaluate_repository`, `explain_violation`).
 *   **Closed-Loop Self-Optimization**:
     *   Ultron analyzes its own codebase (`./ultron`), identifies complexity hotspots, guides refactoring, and empirically measures health score improvements.
+
+> The previous multi-tab dashboard (topology explorer, prompt studio, auditor, calibration) is still shipped at
+> `http://127.0.0.1:8000/legacy.html`. Several of its panels depend on modules that are not part of this
+> repository and render empty; the main screen deliberately shows only what the engine can actually answer.
 
 ---
 
@@ -100,7 +100,7 @@ python umags/run_verification_loop.py
 ultron/
 ├── core/                   # AST analyzer, complexity, coupling, RKM SQLite memory & policy engine
 ├── interfaces/
-│   ├── web/                # Glassmorphic SPA (index.html, index.js, index.css)
+│   ├── web/                # Single-screen dashboard (index.*) + previous UI (legacy.*)
 │   ├── server.py           # HTTP REST server router & API handlers
 │   ├── ultron.py           # CLI entry point
 │   ├── mcp_server.py       # Model Context Protocol stdio middleware

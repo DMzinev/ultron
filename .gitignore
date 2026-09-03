@@ -10,6 +10,9 @@ __pycache__/
 *.db
 *.sqlite
 
+# Runtime output written by the server (saved sessions)
+/data/
+
 # Environments and IDEs
 .venv/
 env/
