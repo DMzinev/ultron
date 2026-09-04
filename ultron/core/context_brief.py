@@ -455,12 +455,20 @@ def _resolve_suggested_safe_zones(intent_lower: str, allowed_files: list) -> lis
     return suggested_safe_zones
 
 
-def generate_vibe_context_package(intent: str = "", repo_path: str = None) -> dict:
+from ultron.core.prompt import compile_mission_envelope
+
+
+def generate_vibe_context_package(intent: str = "", repo_path: str = None, target_file: str = None) -> dict:
     """
     Generates a grounded Vibe Coder AI Middleware Context Package with Constraint Resolution.
     Analyzes intent and suggests safe modification zones (e.g. NEW files under ultron/interfaces/ or ultron/services/)
     while protecting frozen core engine files.
     """
+    # Handle positional repo_path passed as first argument (e.g. from export_routes.py)
+    if intent and repo_path is None and os.path.isdir(str(intent)):
+        repo_path = intent
+        intent = ""
+
     if not repo_path:
         repo_path = os.getcwd()
         
@@ -475,6 +483,13 @@ def generate_vibe_context_package(intent: str = "", repo_path: str = None) -> di
         "ultron/core/models.py (FROZEN CORE ENGINE - DO NOT MODIFY)",
         "ultron/core/classifier.py (FROZEN CORE ENGINE - DO NOT MODIFY)"
     ]
+
+    # Synthesize grounded 7-field mission envelope
+    envelope = compile_mission_envelope(
+        intent=user_intent,
+        target_file=target_file,
+        repo_path=repo_path
+    )
     
     prompt_package = f"""==================================================
 ULTRON GROUNDED MISSION ENVELOPE FOR AI AGENT
@@ -497,7 +512,9 @@ Forbidden Core Files (PROTECTED BY GOVERNANCE):
 [ACCEPTANCE CRITERIA]
 1. Do NOT modify any forbidden frozen core engine files.
 2. Build new capabilities inside the recommended Safe Modification Zones.
-3. All unit tests must pass (`python -m unittest discover -s ultron/tests -p "test_*.py"`).
+3. All unit tests must pass (`{envelope['verification_command']}`).
+
+{envelope['rendered_prompt']}
 """
 
     return {
@@ -507,5 +524,6 @@ Forbidden Core Files (PROTECTED BY GOVERNANCE):
         "violations": violations_summary,
         "allowed_files": suggested_safe_zones,
         "forbidden_files": forbidden_files,
-        "prompt_package": prompt_package
+        "prompt_package": prompt_package,
+        "envelope": envelope
     }
