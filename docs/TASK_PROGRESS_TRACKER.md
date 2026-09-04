@@ -2,8 +2,8 @@
 
 **Single Source of Truth**: `docs/AGENT_EXECUTION_PLAN.md`  
 **Total Planned Tasks**: 18  
-**Completed**: 11 / 18 (Tasks A1, A2, C3, A3, A4, A5, B1, B2, B3, B4, C1)  
-**Current Active Task**: C2 (`agent/C2-violation-to-fix`)
+**Completed**: 12 / 18 (Tasks A1, A2, C3, A3, A4, A5, B1, B2, B3, B4, C1, C2)  
+**Current Active Task**: C4 (`agent/C4-dashboard-hierarchy`)
 
 ---
 
@@ -22,8 +22,8 @@
 | 9 | **B3** | `agent/B3-git-churn-signal` | **COMPLETED** | `9f6c266` | `python -m unittest ultron.tests.test_churn_signal` → 6/6 passed in 3.305s; churn multiplier bounded in [1.0, 2.0]; non-git returns `status: "unavailable"` and $M_{\text{churn}} = 1.0$; 17 contract/signal tests and 176 regression tests pass |
 | 10 | **B4** | `agent/B4-honest-confidence` | **COMPLETED** | `4ee85b3` | `python -m unittest ultron.tests.test_honest_confidence` → 19/19 passed in 0.131s; 4-signal model (`ast` 0.35, `coupling` 0.25, `churn` 0.15, `coverage` 0.25); Cobertura XML and SQLite `.coverage` ingestion with Windows path safety; stats.signals surfaced in API; confidence chip & basis pill in UI; 46 cross-module tests & 176 regression tests pass |
 | 11 | **C1** | `agent/C1-graph-granularity` | **COMPLETED** | `b7d5633` | `python -m unittest ultron.tests.test_graph_granularity` → 10/10 passed in 2.05s; `test_route_contract` passed in 18.40s; 176 regression tests passed in 28.09s; top-level contract keys preserved; package clustering + cycle edge highlights |
-| 12 | **C2** | `agent/C2-violation-to-fix` | **NEXT** | - | Actionable link from policy violation to fix |
-| 13 | **C4** | `agent/C4-dashboard-hierarchy` | PENDING | - | Clean, intuitive dashboard information hierarchy |
+| 12 | **C2** | `agent/C2-violation-to-fix` | **COMPLETED** | `075ee24` | `python -m unittest ultron.tests.test_violation_to_fix` → 12/12 passed in 0.001s; 17 route contract/signal tests passed; 176 regression tests passed in 17.11s; 1-click violation → file detail, graph node, and fix mission verified |
+| 13 | **C4** | `agent/C4-dashboard-hierarchy` | **NEXT** | - | Clean, intuitive dashboard information hierarchy |
 | 14 | **D1** | `agent/D1-mission-envelope-quality` | PENDING | - | Bounded AI prompt missions with blast radius |
 | 15 | **D2** | `agent/D2-contract-ci-gate` | PENDING | - | Machine-readable contract and CI gate |
 | 16 | **D3** | `agent/D3-mcp-parity` | PENDING | - | Full MCP stdio tool parity |
