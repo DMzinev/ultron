@@ -16,17 +16,17 @@
   </div>
 
   <nav class="nav-tabs" id="nav-tabs" aria-label="Main Navigation">
-    <button class="nav-tab is-active" data-view="dashboard">
-      <span class="nav-tab-icon">📊</span> Dashboard
+    <button class="nav-tab is-active" data-view="dashboard" title="Switch to Dashboard [1]">
+      <span class="nav-tab-icon">📊</span> Architecture <kbd class="nav-kbd">1</kbd>
     </button>
-    <button class="nav-tab" data-view="graph">
-      <span class="nav-tab-icon">🕸</span> Topology Graph
+    <button class="nav-tab" data-view="graph" title="Switch to Topology Graph [2]">
+      <span class="nav-tab-icon">🕸</span> Topology Graph <kbd class="nav-kbd">2</kbd>
     </button>
-    <button class="nav-tab" data-view="studio">
-      <span class="nav-tab-icon">⚡</span> Agent Studio
+    <button class="nav-tab" data-view="studio" title="Switch to Agent Studio [3]">
+      <span class="nav-tab-icon">⚡</span> Agent Studio <kbd class="nav-kbd">3</kbd>
     </button>
-    <button class="nav-tab" data-view="auditor">
-      <span class="nav-tab-icon">🛡</span> Code Auditor
+    <button class="nav-tab" data-view="auditor" title="Switch to Code Auditor [4]">
+      <span class="nav-tab-icon">🛡</span> Code Auditor <kbd class="nav-kbd">4</kbd>
     </button>
   </nav>
 
@@ -80,14 +80,14 @@
 
     <!-- TAB 1: DASHBOARD -->
     <div id="view-dashboard" class="tab-view is-active">
-      <div class="summary">
-        <div class="summary-score">
-          <div id="health-score" class="score-num">—</div>
-          <div class="score-label">Health</div>
-          <span id="health-badge" class="badge-pill">Analyzing</span>
-        </div>
-        <div class="summary-facts">
-          <p id="health-explain" class="explain"></p>
+      <div class="summary primary-verdict">
+        <div class="verdict-main">
+          <h1 id="primary-verdict-title" class="verdict-title">
+            These <span id="primary-risky-count">0</span> files are risky to change — here's why.
+          </h1>
+          <p id="primary-verdict-desc" class="verdict-desc">
+            High branch complexity combined with caller fan-out means changes to these files carry the widest blast radius across your repository.
+          </p>
           <div class="chips">
             <span class="chip chip-high"><b id="count-high">0</b> risky</span>
             <span class="chip chip-med"><b id="count-med">0</b> watch</span>
@@ -104,9 +104,22 @@
             </span>
           </div>
         </div>
-        <div class="summary-memory">
-          <div id="memory-line" class="memory-line">Not saved yet</div>
-          <button id="save-btn" class="btn btn-ghost">Save this scan</button>
+        <div class="supporting-context">
+          <div class="supporting-card supporting-health" title="Repository architectural health score based on cycle stability, rule compliance, and risk distribution">
+            <div class="supporting-head">
+              <span class="supporting-label">Health Score</span>
+              <span id="health-badge" class="badge-pill">Analyzing</span>
+            </div>
+            <div class="supporting-val">
+              <span id="health-score" class="score-num">—</span>
+              <span class="score-denom">/100</span>
+            </div>
+            <p id="health-explain" class="explain"></p>
+          </div>
+          <div class="summary-memory">
+            <div id="memory-line" class="memory-line">Not saved yet</div>
+            <button id="save-btn" class="btn btn-ghost btn-sm">Save this scan</button>
+          </div>
         </div>
       </div>
 
@@ -126,19 +139,25 @@
         <div class="pane pane-list">
           <div class="pane-head">
             <h2>Change with care</h2>
-            <input id="filter-input" type="search" placeholder="Filter files…" aria-label="Filter files">
+            <input id="filter-input" type="search" placeholder="Filter files… (/ to search)" aria-label="Filter files">
           </div>
           <ol id="risk-list" class="risk-list"></ol>
-          <p id="list-empty" class="pane-note" hidden>No files match that filter.</p>
+          <div id="list-empty" class="pillar-empty-state" hidden>
+            <div class="empty-icon">🔍</div>
+            <h3>No files match that filter</h3>
+            <p class="empty-why">No analyzed files match "<span id="filter-query-text"></span>".</p>
+            <p class="empty-action">Try searching by file basename or clear the filter to view all ranked files.</p>
+            <button id="clear-filter-btn" class="btn btn-ghost btn-sm">Clear Filter</button>
+          </div>
         </div>
 
         <div class="pane pane-detail">
           <div class="pane-head">
             <h2 id="detail-title">Select a file</h2>
             <div class="pane-actions" id="detail-actions" hidden>
-              <button id="btn-jump-graph" class="btn btn-ghost btn-sm" title="View in Dependency Graph">🕸 Graph</button>
-              <button id="btn-jump-studio" class="btn btn-ghost btn-sm" title="Send to Agent Studio">⚡ Studio</button>
-              <button id="btn-jump-auditor" class="btn btn-ghost btn-sm" title="Audit this file">🛡 Audit</button>
+              <button id="btn-jump-graph" class="btn btn-ghost btn-sm" title="View in Dependency Graph [2]">🕸 Graph</button>
+              <button id="btn-jump-studio" class="btn btn-ghost btn-sm" title="Send to Agent Studio [3]">⚡ Studio</button>
+              <button id="btn-jump-auditor" class="btn btn-ghost btn-sm" title="Audit this file [4]">🛡 Audit</button>
             </div>
             <nav class="tabs" id="detail-tabs" hidden>
               <button class="tab is-active" data-tab="why">Why</button>
@@ -147,9 +166,11 @@
             </nav>
           </div>
 
-          <div id="detail-placeholder" class="pane-note">
-            Pick a file on the left to see why it scored that way, read it, or copy a
-            briefing for your coding agent.
+          <div id="detail-placeholder" class="pillar-empty-state">
+            <div class="empty-icon">📄</div>
+            <h3>No file selected</h3>
+            <p class="empty-why">Detailed complexity breakdown, caller dependencies, and safe edit guidance appear here once a file is selected.</p>
+            <p class="empty-action">Click any file from the risk list on the left to inspect its risk factors or copy an agent brief.</p>
           </div>
 
           <div id="tab-why" class="tab-panel" hidden></div>
@@ -221,6 +242,13 @@
       </div>
 
       <div class="graph-stage">
+        <div id="graph-empty-state" class="pillar-empty-state graph-empty-overlay" hidden>
+          <div class="empty-icon">🕸️</div>
+          <h3>No graph nodes to display</h3>
+          <p class="empty-why">Either the repository has no detected module dependencies or the current filter excludes all nodes.</p>
+          <p class="empty-action">Switch granularity to Files, choose 'All Modules', or scan a repository with Python imports.</p>
+          <button id="graph-reload-btn" class="btn btn-primary btn-sm">Reload Graph</button>
+        </div>
         <svg id="topology-svg" class="topology-svg"></svg>
         <div id="graph-inspector" class="graph-inspector" hidden>
           <div class="inspector-head">
@@ -351,7 +379,12 @@
           <div class="anomalies-section">
             <h4>Detected Anomalies &amp; Policy Signals</h4>
             <div id="auditor-anomalies-list" class="anomalies-list">
-              <p class="pane-note">No anomalies to report. Run audit to check target.</p>
+              <div class="pillar-empty-state mini-empty-state">
+                <div class="empty-icon">🛡️</div>
+                <h3>Safety gate ready</h3>
+                <p class="empty-why">Target file or sandbox code has not yet been audited against syntax drift and architectural policy rules.</p>
+                <p class="empty-action">Click 'Run Code Safety Audit' above to evaluate the target before making changes.</p>
+              </div>
             </div>
           </div>
         </div>

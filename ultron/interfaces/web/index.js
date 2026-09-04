@@ -239,6 +239,30 @@ function render(data, healthData) {
   }
 }
 
+function updatePrimaryVerdict() {
+  const highCount = (state.risks || []).filter(r => (r.level || "").toUpperCase() === "HIGH").length;
+  const titleEl = $("primary-verdict-title");
+  const countEl = $("primary-risky-count");
+  const descEl = $("primary-verdict-desc");
+  if (countEl) countEl.textContent = highCount;
+  if (titleEl) {
+    if (highCount === 0) {
+      titleEl.innerHTML = 'No files are risky to change right now — codebase is stable. <span id="primary-risky-count" hidden>0</span>';
+    } else if (highCount === 1) {
+      titleEl.innerHTML = 'This <span id="primary-risky-count">1</span> file is risky to change — here\'s why.';
+    } else {
+      titleEl.innerHTML = `These <span id="primary-risky-count">${highCount}</span> files are risky to change — here's why.`;
+    }
+  }
+  if (descEl) {
+    if (highCount === 0) {
+      descEl.textContent = "Branch complexity and caller fan-out are balanced within normal operating thresholds across all analyzed modules.";
+    } else {
+      descEl.textContent = "High branch complexity combined with caller fan-out means changes to these files carry the widest blast radius across your repository.";
+    }
+  }
+}
+
 function renderSummary(data, healthData) {
   const h = (healthData && healthData.health_score != null)
     ? { score: healthData.health_score, explanation: healthData.explanation }
@@ -278,6 +302,9 @@ function renderSummary(data, healthData) {
   $("count-files").textContent = s.total_files || 0;
   $("count-violations").textContent = state.violations.length;
   $("count-cycles").textContent = state.cycles.length;
+
+  // Update primary verdict dynamic headline
+  updatePrimaryVerdict();
 
   // Signal confidence basis chip
   const sigs = s.signals || {};
@@ -562,6 +589,8 @@ function applyFilter() {
   state.filtered = q
     ? state.risks.filter((r) => String(r.file || r.file_path || "").toLowerCase().includes(q))
     : state.risks.slice();
+  const filterQueryText = $("filter-query-text");
+  if (filterQueryText) filterQueryText.textContent = $("filter-input").value.trim();
   renderList();
 }
 
@@ -840,6 +869,8 @@ function renderTopologyGraph() {
         });
       });
     } else {
+      const emptyState = $("graph-empty-state");
+      if (emptyState) emptyState.hidden = false;
       return;
     }
   }
@@ -852,6 +883,16 @@ function renderTopologyGraph() {
     nodes = rawNodes.filter((n) => n.level === "HIGH");
   } else if (state.graphFilter === "core") {
     nodes = rawNodes.filter((n) => (n.role && n.role.toUpperCase() !== "INTERNAL") || n.level === "HIGH");
+  }
+
+  const emptyState = $("graph-empty-state");
+  if (nodes.length === 0) {
+    if (emptyState) emptyState.hidden = false;
+    const countLabel = $("graph-count-label");
+    if (countLabel) countLabel.textContent = "Showing 0 files";
+    return;
+  } else {
+    if (emptyState) emptyState.hidden = true;
   }
 
   const totalFiltered = nodes.length;
@@ -1295,9 +1336,88 @@ async function openPicker(startPath) {
   }
 }
 
+/* ---------------- keyboard navigation ---------------- */
+
+function setupKeyboardShortcuts() {
+  window.addEventListener("keydown", (e) => {
+    // Modifier guard: don't intercept browser/system shortcuts (Cmd+R, Ctrl+C, Alt+Tab, etc.)
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+    // Active element guard: don't intercept normal typing in inputs/textareas/selects/contenteditables
+    const active = document.activeElement;
+    const isEditing = active && (
+      ["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName) ||
+      active.isContentEditable
+    );
+
+    // Escape handling hierarchy: works even if editing an input
+    if (e.key === "Escape") {
+      // 1. If currently editing an input, blur it first
+      if (isEditing) {
+        active.blur();
+        return;
+      }
+      // 2. Close violations drawer if open
+      const violationsDrawer = $("violations-drawer");
+      if (violationsDrawer && !violationsDrawer.hidden) {
+        violationsDrawer.hidden = true;
+        return;
+      }
+      // 3. Close graph inspector if open
+      const graphInspector = $("graph-inspector");
+      if (graphInspector && !graphInspector.hidden) {
+        graphInspector.hidden = true;
+        return;
+      }
+      // 4. Close picker modal if open
+      const picker = $("picker");
+      if (picker && !picker.hidden) {
+        picker.hidden = true;
+        return;
+      }
+      // 5. If detail pane is showing a selected file, clear selection
+      if (state.selected) {
+        state.selected = null;
+        renderList();
+        resetDetail();
+        return;
+      }
+      return;
+    }
+
+    // If editing in an input, ignore all other single-key shortcuts
+    if (isEditing) return;
+
+    // Pillar switching: 1-4
+    if (e.key === "1") {
+      e.preventDefault();
+      switchView("dashboard");
+    } else if (e.key === "2") {
+      e.preventDefault();
+      switchView("graph");
+    } else if (e.key === "3") {
+      e.preventDefault();
+      switchView("studio");
+    } else if (e.key === "4") {
+      e.preventDefault();
+      switchView("auditor");
+    } else if (e.key === "/") {
+      // Quick filter focus
+      const filterInput = $("filter-input");
+      if (filterInput && state.activeView === "dashboard") {
+        e.preventDefault();
+        filterInput.focus();
+        filterInput.select();
+      }
+    }
+  });
+}
+
 /* ---------------- wiring ---------------- */
 
 function wire() {
+  setupKeyboardShortcuts();
+
   $("nav-tabs").addEventListener("click", (e) => {
     const btn = e.target.closest(".nav-tab");
     if (btn && btn.dataset.view) switchView(btn.dataset.view);
@@ -1309,6 +1429,28 @@ function wire() {
   $("save-btn").addEventListener("click", saveScan);
   $("banner-dismiss").addEventListener("click", () => banner(""));
   $("filter-input").addEventListener("input", applyFilter);
+
+  const clearFilterBtn = $("clear-filter-btn");
+  if (clearFilterBtn) {
+    clearFilterBtn.addEventListener("click", () => {
+      $("filter-input").value = "";
+      applyFilter();
+      $("filter-input").focus();
+    });
+  }
+
+  const graphReloadBtn = $("graph-reload-btn");
+  if (graphReloadBtn) {
+    graphReloadBtn.addEventListener("click", async () => {
+      try {
+        const graphData = await api("/api/dependency-graph", { repo: state.repo, granularity: state.graphGranularity });
+        state.graphData = graphData.nodes ? graphData : null;
+        renderTopologyGraph();
+      } catch (err) {
+        showToast("Failed to reload graph: " + err.message);
+      }
+    });
+  }
 
   $("repo-input").addEventListener("keydown", (e) => {
     if (e.key === "Enter") scan();
