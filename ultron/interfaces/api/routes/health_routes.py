@@ -6,11 +6,13 @@ import sys
 import os
 from datetime import datetime, timezone
 from typing import Any
+from ultron.interfaces.api.router import APIRouter
 
+@APIRouter.register("/api/v1/health", "GET", aliases=["/api/health"])
 def handle_v1_health(handler: Any) -> None:
     """GET /api/v1/health handler."""
     try:
-        db_path = os.path.normpath(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".ultron", "rkm.db")))
+        db_path = os.path.normpath(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".ultron", "repository.db")))
         db_exists = os.path.exists(db_path)
 
         payload = {

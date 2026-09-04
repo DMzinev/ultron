@@ -21,11 +21,14 @@ class TestFaultInjection(unittest.TestCase):
 
     def test_fault_injection_invalid_json(self):
         """Fault Injection: Invalid JSON body returned by get_request_data."""
-        self.handler.get_request_data.return_value = None
-        handle_v1_analyze(self.handler)
+        from ultron.interfaces.server import UltronAPIHandler
+        handler = UltronAPIHandler.__new__(UltronAPIHandler)
+        handler.get_request_data = lambda: None
+        handler.send_json_response = MagicMock()
+        handler.handle_v1_analyze()
 
-        self.handler.send_json_response.assert_called_once()
-        status_code = self.handler.send_json_response.call_args[0][0]
+        handler.send_json_response.assert_called_once()
+        status_code = handler.send_json_response.call_args[0][0]
         self.assertEqual(status_code, 400)
 
     def test_fault_injection_sqlite_locked(self):

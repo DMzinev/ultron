@@ -55,8 +55,13 @@ def get_code_complexity(code):
     try:
         tree = ast.parse(code)
         complexity = 1
+        branch_types = (ast.If, ast.For, ast.While, ast.ExceptHandler, ast.With, ast.BoolOp, ast.Try, ast.IfExp)
+        if hasattr(ast, "match_case"):
+            branch_types += (ast.match_case,)
+        if hasattr(ast, "MatchCase"):
+            branch_types += (ast.MatchCase,)
         for node in ast.walk(tree):
-            if isinstance(node, (ast.If, ast.For, ast.While, ast.ExceptHandler, ast.With, ast.BoolOp, ast.Try)):
+            if isinstance(node, branch_types):
                 complexity += 1
         return complexity
     except Exception:

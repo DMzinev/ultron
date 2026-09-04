@@ -150,79 +150,69 @@ def log_calibration_experiment(predicted_risk, actual_failures, prediction_error
     write_ledger(ledger)
     print(f"[Meta-Ultron] logged calibration to ledger: precision={precision:.2f}, recall={recall:.2f}, f1={f1:.2f}")
 
-def run_threshold_calibration(repo_path):
-    from ultron.core import classifier
-    from ultron.core import analyzer
+def synthesize_calibration_pairs(names):
+    """Synthesizes positive (typo mutations) and negative (exact/distinct) word pairs for calibration."""
     import random
-    
-    print(f"[Meta-Ultron] Starting threshold sweep auto-calibration on repo: {repo_path}")
-    
-    # 1. Build models
-    res = classifier.build_models(repo_path)
-    names = res[0] if isinstance(res, (tuple, list)) else res
-    if not names:
-        names = {"process", "init_db", "query", "close_db"}
-    
-    # 2. Synthesize spelling test set
+    name_list = list(names)[:20] if names else ["process", "init_db", "query", "close_db"]
     pos_words = []
-    for name in list(names)[:20]:
+    for name in name_list:
         if len(name) > 3:
-            # Inject single-character substitution typo
             idx = random.randint(0, len(name) - 1)
             typo_char = chr(97 + (ord(name[idx]) - 97 + 1) % 26)
             typo = name[:idx] + typo_char + name[idx+1:]
             pos_words.append((typo, name))
-            
+
     neg_words = []
-    for name in list(names)[:20]:
+    for name in name_list:
         neg_words.append((name, name))
-        
-    # 3. Sweep spelling thresholds (T_typo)
+
+    for i in range(len(name_list)):
+        for j in range(i + 1, min(i + 4, len(name_list))):
+            neg_words.append((name_list[i], name_list[j]))
+
+    return pos_words, neg_words
+
+
+def evaluate_threshold_metrics(pos_words, neg_words, t_val, sim_fn):
+    """Evaluates precision, recall, and F1 score for a candidate threshold."""
+    tp = sum(1 for called, correct in pos_words if t_val <= sim_fn(called, correct) < 1.0)
+    fn = len(pos_words) - tp
+
+    fp = sum(1 for called, correct in neg_words if t_val <= sim_fn(called, correct) < 1.0)
+    tn = len(neg_words) - fp
+
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
+
+    return precision, recall, f1
+
+
+def run_threshold_calibration(repo_path):
+    from ultron.core import classifier
+    print(f"[Meta-Ultron] Starting threshold sweep auto-calibration on repo: {repo_path}")
+
+    res = classifier.build_models(repo_path)
+    names = res[0] if isinstance(res, (tuple, list)) else res
+    pos_words, neg_words = synthesize_calibration_pairs(names)
+
     best_typo_t = 0.75
     best_typo_f1 = 0.0
     sweep_history = []
-    
+
     for t_val in [0.50, 0.60, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95]:
-        tp = 0
-        fp = 0
-        fn = 0
-        tn = 0
-        
-        for called, correct in pos_words:
-            sim = classifier.string_similarity(called, correct)
-            is_anomaly = (t_val <= sim < 1.0)
-            if is_anomaly:
-                tp += 1
-            else:
-                fn += 1
-                
-        for called, correct in neg_words:
-            sim = classifier.string_similarity(called, correct)
-            is_anomaly = (t_val <= sim < 1.0)
-            if is_anomaly:
-                fp += 1
-            else:
-                tn += 1
-                
-        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
-        
+        p, r, f1 = evaluate_threshold_metrics(pos_words, neg_words, t_val, classifier.string_similarity)
         if f1 >= best_typo_f1:
             best_typo_f1 = f1
             best_typo_t = t_val
-            
         sweep_history.append({
             "typo_threshold": t_val,
-            "precision": precision,
-            "recall": recall,
+            "precision": p,
+            "recall": r,
             "f1_score": f1
         })
-        
-    # 4. Define sequence probability threshold (deprecated)
-    best_prob_t = 0.0
-    
-    # 5. Log calibration to evolution ledger
+
+    # Log to evolution ledger
     ledger = read_ledger()
     ledger["evolution_cycles"] += 1
     ledger["last_updated"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -230,18 +220,18 @@ def run_threshold_calibration(repo_path):
         "timestamp": ledger["last_updated"],
         "experiment_type": "Auto-Calibration Sweep",
         "optimal_typo_threshold": best_typo_t,
-        "optimal_prob_threshold": best_prob_t,
+        "optimal_prob_threshold": 0.0,
         "max_f1": best_typo_f1,
         "sweep_details": sweep_history
     })
     write_ledger(ledger)
-    
+
     print(f"[Meta-Ultron] Calibration completed. Optimal T_typo: {best_typo_t}, F1: {best_typo_f1:.2f}")
-    
+
     return {
         "success": True,
         "optimal_typo_threshold": best_typo_t,
-        "optimal_prob_threshold": best_prob_t,
+        "optimal_prob_threshold": 0.0,
         "max_f1": best_typo_f1,
         "sweep_history": sweep_history
     }

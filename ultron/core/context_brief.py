@@ -11,7 +11,7 @@ def generate_directory_tree(dirpath):
     if not dirpath:
         raise ValueError("Directory path must not be empty.")
     tree_lines = []
-    ignore_dirs = {'.git', 'venv', 'env', '__pycache__', '.synapse', '.agents', 'study_materials', 'study_portal_qa'}
+    ignore_dirs = {'.git', '.venv', 'venv', 'env', '__pycache__', '.synapse', '.agents', 'study_materials', 'study_portal_qa', 'node_modules', 'dist', 'build'}
     
     def walk_dir(current_path, prefix=""):
         if not current_path:
@@ -49,41 +49,35 @@ def parse_roadmap_gaps(repo_path):
             content = f.read()
     except Exception as e:
         return {"Error": f"Could not read ROADMAP.md: {e}"}
-        
+
     gaps = {}
     current_header = None
     header_content = []
-    
     target_headers = [
         "working, not yet validated",
         "silently inert",
         "dormant — working code",
         "documented, not implemented"
     ]
-    
+
+    def _flush_header():
+        nonlocal current_header, header_content
+        if current_header and header_content:
+            gaps[current_header] = "\n".join(header_content).strip()
+        header_content = []
+
     for line in content.splitlines():
         if line.startswith("## "):
-            if current_header and header_content:
-                gaps[current_header] = "\n".join(header_content).strip()
-            
-            header_name = line[3:].strip().lower()
-            current_header = None
-            for th in target_headers:
-                if th in header_name:
-                    current_header = line[3:].strip()
-                    header_content = []
-                    break
+            _flush_header()
+            hdr = line[3:].strip()
+            current_header = hdr if any(th in hdr.lower() for th in target_headers) else None
         elif line.startswith("---") or line.startswith("# "):
-            if current_header and header_content:
-                gaps[current_header] = "\n".join(header_content).strip()
+            _flush_header()
             current_header = None
-        else:
-            if current_header is not None:
-                header_content.append(line)
-                
-    if current_header and header_content:
-        gaps[current_header] = "\n".join(header_content).strip()
-        
+        elif current_header is not None:
+            header_content.append(line)
+
+    _flush_header()
     return gaps
 
 def get_attr(obj, attr_name, default=0.0):
@@ -95,6 +89,111 @@ def get_attr(obj, attr_name, default=0.0):
     elif isinstance(obj, dict):
         return obj.get(attr_name, default)
     return default
+
+def _format_risk_row(r, bug_fixes, feedback):
+    filepath = get_attr(r, 'file_path', get_attr(r, 'file', ''))
+    level = get_attr(r, 'level', 'LOW')
+    impact = get_attr(r, 'impact_score', 0.0)
+
+    arch_role = get_attr(r, 'architectural_role', None)
+    role_display = arch_role.display_name if hasattr(arch_role, 'display_name') else get_attr(r, 'boundary_type', 'Internal')
+
+    strategy = get_attr(r, 'change_strategy', None)
+    strategy_display = strategy.display_name if hasattr(strategy, 'display_name') else "Safe internal edits"
+
+    comp = get_attr(r, 'max_complexity', get_attr(r, 'complexity', 1))
+    coup = get_attr(r, 'coupling', 0)
+
+    row_lines = [f"| `{filepath}` | **{level}** | {role_display} | {strategy_display} | {impact:.2f} | {comp} | {coup} |"]
+
+    n_fixes = bug_fixes.get(filepath, 0)
+    rec_conf = min(95.0, max(50.0, 50.0 + (0.25 * float(comp)) + (0.25 * float(coup)) + (10.0 * min(2, n_fixes))))
+
+    if level in ["HIGH", "CRITICAL", "MEDIUM"]:
+        row_lines.append(f"  - **Evidence Chain**: `AST Complexity: {comp}` | `Call Coupling: {coup}` | `Impact Score: {impact:.2f}`")
+        row_lines.append(f"    - *Recommendation Confidence*: {rec_conf:.1f}% (Basis: AST Metrics 40%, Bug History 35%, Coupling Graph 25%)")
+        row_lines.append(f"    - *Why*: High function complexity or coupling density detected across module AST.")
+        row_lines.append(f"    - *Impact*: Changes in `{filepath}` risk ripple-effect regressions across dependent modules.")
+
+    return row_lines
+
+
+def _format_risk_profile_section(sorted_risks, bug_fixes, feedback):
+    lines = [
+        "## 2. File Risk Profiles & Explainable Evidence Chains",
+        "| File | Risk Tier | Role | Change Strategy | Impact Score | Complexity | Coupling |",
+        "| --- | --- | --- | --- | --- | --- | --- |"
+    ]
+    for r in sorted_risks:
+        lines.extend(_format_risk_row(r, bug_fixes, feedback))
+    lines.append("")
+    return lines
+
+
+def _format_hubs_and_leaves_section(hubs, leaves):
+    lines = [
+        "## 3. High-Level Dependency Graph",
+        "### Central Hubs (highly coupled)"
+    ]
+    if hubs:
+        for file_path, coupling_count in hubs:
+            lines.append(f"*   **{file_path}** (referenced by {coupling_count} other files)")
+    else:
+        lines.append("*   None detected")
+    lines.append("")
+
+    lines.append("### Leaf Modules (safe to change)")
+    if leaves:
+        for file_path in leaves:
+            lines.append(f"*   **{file_path}**")
+    else:
+        lines.append("*   None detected")
+    lines.append("")
+    return lines
+
+
+def _format_rkm_violations_section(repo_path):
+    lines = []
+    db_path = os.path.join(repo_path, ".ultron", "repository.db")
+    if not os.path.exists(db_path):
+        return lines
+
+    from ultron.core.rkm.store import RepositoryStore
+    try:
+        store = RepositoryStore(db_path)
+        meta = store.get_metadata()
+        if meta and meta.latest_analysis_run_id:
+            violations = store.get_violations(meta.latest_analysis_run_id)
+            instances = store.get_rule_instances()
+            inst_map = {inst.rule_id: inst for inst in instances}
+
+            if violations:
+                lines.append("## 5. Architectural Rule Violations")
+                lines.append("| Rule ID | Severity | File | Details | Remediation |")
+                lines.append("| --- | --- | --- | --- | --- |")
+                remediation_map = {
+                    "complexity_limit": "Simplify code structures, extract methods, or split class responsibilities.",
+                    "coupling_limit": "Reduce direct dependencies, inject abstractions, or decouple modules.",
+                    "layer_restriction": "Remove invalid import layer crossing. Depend on abstractions or decouple layers."
+                }
+                for vio, rule, _ in violations:
+                    inst = inst_map.get(rule.id)
+                    severity = inst.severity if inst else "warning"
+                    f_path = "Repository"
+                    if vio.file_id:
+                        f_cursor = store.conn.execute("SELECT path FROM rkm_files WHERE id = ?", (vio.file_id,)).fetchone()
+                        if f_cursor:
+                            f_path = f_cursor["path"]
+                    remediation = remediation_map.get(rule.id, "Remediate according to rule definition details.")
+                    lines.append(f"| {rule.id} | {severity.upper()} | {f_path} | {vio.details} | {remediation} |")
+                lines.append("")
+        store.close()
+    except Exception as e:
+        import sys
+        sys.stderr.write(f"[Ultron] Warning: failed to load constraint violations for brief: {e}\n")
+
+    return lines
+
 
 def compile_brief(repo_path):
     if not repo_path:
@@ -187,102 +286,13 @@ def compile_brief(repo_path):
     lines.append("- **Scan Boundaries & Limitations**:")
     lines.append("  - Static AST evaluation — dynamic runtime reflection not monitored")
     lines.append("  - Incremental AST caching active")
-    lines.append("## 2. File Risk Profiles & Explainable Evidence Chains")
-    lines.append("| File | Risk Tier | Role | Change Strategy | Impact Score | Complexity | Coupling |")
-    lines.append("| --- | --- | --- | --- | --- | --- | --- |")
-    for r in sorted_risks:
-        filepath = get_attr(r, 'file_path', get_attr(r, 'file', ''))
-        level = get_attr(r, 'level', 'LOW')
-        impact = get_attr(r, 'impact_score', 0.0)
-        # Prefer new enum display; fall back to legacy boundary_type
-        arch_role = get_attr(r, 'architectural_role', None)
-        if hasattr(arch_role, 'display_name'):
-            role_display = arch_role.display_name
-        else:
-            role_display = get_attr(r, 'boundary_type', 'Internal')
-        strategy = get_attr(r, 'change_strategy', None)
-        if hasattr(strategy, 'display_name'):
-            strategy_display = strategy.display_name
-        else:
-            strategy_display = "Safe internal edits"
-            
-        comp = get_attr(r, 'max_complexity', get_attr(r, 'complexity', 1))
-        coup = get_attr(r, 'coupling', 0)
-        lines.append(f"| `{filepath}` | **{level}** | {role_display} | {strategy_display} | {impact:.2f} | {comp} | {coup} |")
-        
-        # Calculate Dynamic Per-Recommendation Confidence Score
-        n_fixes = bug_fixes.get(filepath, 0)
-        rec_conf = min(95.0, max(50.0, 50.0 + (0.25 * float(comp)) + (0.25 * float(coup)) + (10.0 * min(2, n_fixes))))
-        
-        # Add explicit Explainable Evidence Chain & Confidence Breakdown for High/Medium risk files
-        if level in ["HIGH", "CRITICAL", "MEDIUM"]:
-            lines.append(f"  - **Evidence Chain**: `AST Complexity: {comp}` | `Call Coupling: {coup}` | `Impact Score: {impact:.2f}`")
-            lines.append(f"    - *Recommendation Confidence*: {rec_conf:.1f}% (Basis: AST Metrics 40%, Bug History 35%, Coupling Graph 25%)")
-            lines.append(f"    - *Why*: High function complexity or coupling density detected across module AST.")
-            lines.append(f"    - *Impact*: Changes in `{filepath}` risk ripple-effect regressions across dependent modules.")
-        
-        # Check if git-history or feedback adjustment changed the outcome
-        n_fixes = bug_fixes.get(filepath, 0)
-        feedback_accurate = feedback.get(filepath, None)
-        
-        base_high = 10.0
-        base_med = 3.0
-        base_level = 'HIGH' if impact >= base_high else ('MEDIUM' if impact >= base_med else 'LOW')
-        
-        note = ""
-        if level != base_level:
-            adjust_reasons = []
-            if n_fixes > 0:
-                adjust_reasons.append(f"{n_fixes} bug-fix commit{'s' if n_fixes > 1 else ''}")
-            if feedback_accurate is True:
-                adjust_reasons.append("accurate human feedback")
-            elif feedback_accurate is False:
-                adjust_reasons.append("inaccurate human feedback")
-                
-            reasons_str = " and ".join(adjust_reasons)
-            
-            # Re-calculate thresholds
-            high_t = 10.0 - 1.5 * n_fixes
-            if feedback_accurate is True:
-                high_t -= 2.0
-            elif feedback_accurate is False:
-                high_t += 3.0
-            high_t = max(3.0, min(15.0, high_t))
-            
-            med_t = 3.0 - 0.5 * n_fixes
-            if feedback_accurate is True:
-                med_t -= 1.0
-            elif feedback_accurate is False:
-                med_t += 1.5
-            med_t = max(1.0, min(8.0, med_t))
-            
-            target_t = high_t if level == 'HIGH' or base_level == 'HIGH' else med_t
-            
-            note = f" (adjusted: {reasons_str} lowered {level} threshold to {target_t:.1f})"
-            
-        complexity = get_attr(r, 'complexity', 1)
-        coupling = get_attr(r, 'coupling_score', get_attr(r, 'coupling', 0))
-        lines.append(f"| {filepath} | {level}{note} | {role_display} | {strategy_display} | {impact:.2f} | {complexity} | {coupling} |")
+    # 2. File Risk Profiles
+    lines.extend(_format_risk_profile_section(sorted_risks, bug_fixes, feedback))
 
-    lines.append("")
-    
-    lines.append("## 3. High-Level Dependency Graph")
-    lines.append("### Central Hubs (highly coupled)")
-    if hubs:
-        for file_path, coupling_count in hubs:
-            lines.append(f"*   **{file_path}** (referenced by {coupling_count} other files)")
-    else:
-        lines.append("*   None detected")
-    lines.append("")
-    
-    lines.append("### Leaf Modules (safe to change)")
-    if leaves:
-        for file_path in leaves:
-            lines.append(f"*   **{file_path}**")
-    else:
-        lines.append("*   None detected")
-    lines.append("")
-    
+    # 3. High-Level Dependency Graph
+    lines.extend(_format_hubs_and_leaves_section(hubs, leaves))
+
+    # 4. Known Open Issues & Gaps
     lines.append("## 4. Known Open Issues & Gaps (from ROADMAP.md)")
     if roadmap_gaps:
         for section, content in roadmap_gaps.items():
@@ -294,45 +304,8 @@ def compile_brief(repo_path):
     lines.append("")
 
     # 5. Rule Violations from RKM
-    db_path = os.path.join(repo_path, ".ultron", "repository.db")
-    if os.path.exists(db_path):
-        from ultron.core.rkm.store import RepositoryStore
-        try:
-            store = RepositoryStore(db_path)
-            meta = store.get_metadata()
-            if meta and meta.latest_analysis_run_id:
-                violations = store.get_violations(meta.latest_analysis_run_id)
-                instances = store.get_rule_instances()
-                inst_map = {inst.rule_id: inst for inst in instances}
-                
-                if violations:
-                    lines.append("## 5. Architectural Rule Violations")
-                    lines.append("| Rule ID | Severity | File | Details | Remediation |")
-                    lines.append("| --- | --- | --- | --- | --- |")
-                    for vio, rule, evidences in violations:
-                        inst = inst_map.get(rule.id)
-                        severity = inst.severity if inst else "warning"
-                        f_path = "Repository"
-                        if vio.file_id:
-                            f_cursor = store.conn.execute("SELECT path FROM rkm_files WHERE id = ?", (vio.file_id,)).fetchone()
-                            if f_cursor:
-                                f_path = f_cursor["path"]
-                        
-                        remediation = "Remediate according to rule definition details."
-                        if rule.id == "complexity_limit":
-                            remediation = "Simplify code structures, extract methods, or split class responsibilities."
-                        elif rule.id == "coupling_limit":
-                            remediation = "Reduce direct dependencies, inject abstractions, or decouple modules."
-                        elif rule.id == "layer_restriction":
-                            remediation = "Remove invalid import layer crossing. Depend on abstractions or decouple layers."
-                            
-                        lines.append(f"| {rule.id} | {severity.upper()} | {f_path} | {vio.details} | {remediation} |")
-                    lines.append("")
-            store.close()
-        except Exception as e:
-            import sys
-            sys.stderr.write(f"[Ultron] Warning: failed to load constraint violations for brief: {e}\n")
-        
+    lines.extend(_format_rkm_violations_section(repo_path))
+
     return "\n".join(lines)
 
 def compile_brief_data(repo_path):

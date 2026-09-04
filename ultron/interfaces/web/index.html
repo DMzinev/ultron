@@ -33,6 +33,14 @@
                 <span class="mode-label" id="label-engineer">Engineer</span>
             </div>
 
+            <!-- Workspace Selector & Monorepo Switcher -->
+            <div id="workspace-selector-container" class="glass" style="margin-bottom: 12px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.3);">
+                <label for="select-active-workspace" style="display: block; font-size: 10px; text-transform: uppercase; font-weight: 700; color: #38bdf8; margin-bottom: 4px; letter-spacing: 0.5px;">Active Workspace</label>
+                <select id="select-active-workspace" style="width: 100%; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255, 255, 255, 0.15); color: #f8fafc; font-size: 11px; border-radius: 4px; padding: 4px 6px; font-family: var(--font-mono); outline: none;">
+                    <option value="">📁 Default Workspace</option>
+                </select>
+            </div>
+
             <!-- Campaign 6: Privacy & Security Trust Badge -->
             <div class="privacy-badge glass" title="Privacy Guarantee: 100% local analysis. Zero cloud telemetry uploads.">
                 <span class="privacy-dot"></span>
@@ -47,23 +55,7 @@
                         <rect x="14" y="14" width="7" height="7"></rect>
                         <rect x="3" y="14" width="7" height="7"></rect>
                     </svg>
-                    <span>Dashboard</span>
-                </button>
-                <button class="nav-btn" data-tab="prompt-tab" id="nav-prompt">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                    </svg>
-                    <span class="engineer-only">Prompt Builder</span>
-                    <span class="creator-only">Vision Planner</span>
-                </button>
-                <button class="nav-btn" data-tab="auditor-tab" id="nav-auditor">
-                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                        <line x1="12" y1="9" x2="12" y2="13"></line>
-                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                    </svg>
-                    <span class="engineer-only">Auditor</span>
-                    <span class="creator-only">Health Check</span>
+                    <span>Overview</span>
                 </button>
                 <button class="nav-btn" data-tab="graph-tab" id="nav-graph">
                     <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -71,95 +63,115 @@
                         <path d="M3 20a9 9 0 0 1 18 0"></path>
                         <path d="M21 12V3a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9"></path>
                     </svg>
-                    <span>Dependency Graph</span>
+                    <span>Structure</span>
+                </button>
+                <button class="nav-btn" data-tab="work-tab" id="nav-work">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 11l3 3L22 4"></path>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                    <span>Work &amp; Plan</span>
+                </button>
+                <button class="nav-btn" data-tab="prompt-tab" id="nav-prompt">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span>Agent Context</span>
+                </button>
+                <button class="nav-btn" data-tab="auditor-tab" id="nav-auditor">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span>Verify &amp; Safety</span>
                 </button>
             </nav>
             
             <div class="sidebar-footer">
-                <span class="version-tag">v1.1.0</span>
-                <span id="system-status-indicator" class="status-indicator online" style="display: inline-flex; align-items: center;"><span id="system-status-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #34d399; display: inline-block; margin-right: 6px;"></span><span id="system-status-text">System Ready</span></span>
+                <span class="version-tag">v2.7.0</span>
+                <span id="system-status-indicator" class="status-indicator online">
+                    <span id="system-status-text">System Ready</span>
+                </span>
             </div>
         </aside>
 
         <!-- Main Content Area -->
         <main class="main-content">
-
-        <!-- Executive Data Summary Hero Banner -->
-        <div class="summary-hero-card" style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 12px; padding: 24px; margin-bottom: 24px; backdrop-filter: blur(12px);">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 16px; margin-bottom: 16px;">
-                <div>
-                    <h2 style="margin: 0; color: #f8fafc; font-family: 'Outfit', sans-serif; font-size: 1.5rem; font-weight: 700;">Executive Repository Intelligence Summary</h2>
-                    <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 0.9rem;">Single-View Health &amp; Architectural Forces Dashboard</p>
-                </div>
-                <div style="text-align: right;">
-                    <div id="hero-health-score" style="font-size: 2.2rem; font-weight: 800; color: #38bdf8; font-family: 'Outfit', sans-serif;">-- / 100</div>
-                    <div id="hero-health-status" style="font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Connect project to analyze</div>
-                </div>
-            </div>
-            
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
-                <div style="background: rgba(30, 41, 59, 0.6); padding: 16px; border-radius: 8px; border-left: 4px solid #38bdf8;">
-                    <h4 style="margin: 0 0 8px 0; color: #38bdf8; font-size: 0.95rem;">Top Risk Force #1</h4>
-                    <p id="hero-top-risk-1-file" style="margin: 0; color: #f1f5f9; font-weight: 600; font-size: 0.9rem;">Awaiting analysis...</p>
-                    <span id="hero-top-risk-1-score" style="color: #94a3b8; font-size: 0.8rem;">Select folder to scan</span>
-                </div>
-                <div style="background: rgba(30, 41, 59, 0.6); padding: 16px; border-radius: 8px; border-left: 4px solid #f59e0b;">
-                    <h4 style="margin: 0 0 8px 0; color: #f59e0b; font-size: 0.95rem;">Top Risk Force #2</h4>
-                    <p id="hero-top-risk-2-file" style="margin: 0; color: #f1f5f9; font-weight: 600; font-size: 0.9rem;">Awaiting analysis...</p>
-                    <span id="hero-top-risk-2-score" style="color: #94a3b8; font-size: 0.8rem;">Select folder to scan</span>
-                </div>
-                <div style="background: rgba(30, 41, 59, 0.6); padding: 16px; border-radius: 8px; border-left: 4px solid #10b981;">
-                    <h4 style="margin: 0 0 8px 0; color: #10b981; font-size: 0.95rem;">Proven Evidence Trust Chain</h4>
-                    <p id="hero-trust-chain-title" style="margin: 0; color: #f1f5f9; font-weight: 600; font-size: 0.9rem;">100% Deterministic AST Facts</p>
-                    <span id="hero-trust-chain-sub" style="color: #10b981; font-size: 0.8rem;">✓ Empirical Verification Matrix</span>
-                </div>
-            </div>
-        </div>
-
             <!-- Global Config Header -->
-            <header class="top-header glass">
-                <div class="input-group">
-                    <label for="global-repo" class="engineer-only">Repository Path</label>
-                    <label for="global-repo" class="creator-only">Project Directory</label>
+            <header class="top-header glass" style="padding: 10px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                <!-- Workspace HUD Identity (Active Folder Cockpit) -->
+                <div class="workspace-hud-identity" style="display: flex; align-items: center; gap: 8px;">
+                    <div style="background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); padding: 5px 12px; border-radius: 8px; display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 15px;">📁</span>
+                        <div>
+                            <span id="hud-repo-name" style="font-weight: 700; font-size: 13px; color: #f8fafc; font-family: var(--font-mono);">cost accounting</span>
+                            <span id="hud-repo-path" style="font-size: 11px; color: #94a3b8; margin-left: 6px; font-family: var(--font-mono); max-width: 200px; display: inline-block; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom;" title="Current Workspace Path">.</span>
+                        </div>
+                        <button id="btn-copy-repo-path" class="btn secondary btn-small" style="padding: 2px 6px; font-size: 10px;" title="Copy Absolute Workspace Path">📋</button>
+                    </div>
+                </div>
+
+                <!-- Repository Path Input (Audited Form Control) -->
+                <div class="input-group" style="margin: 0; min-width: 220px; flex: 1; max-width: 380px;">
+                    <label for="global-repo" class="engineer-only" style="display: none;">Repository Path</label>
+                    <label for="global-repo" class="creator-only" style="display: none;">Project Directory</label>
                     <div style="display:flex; gap:6px; width:100%;">
-                        <input type="text" id="global-repo" placeholder="e.g. C:/Users/Name/Desktop/project" value="." style="flex:1;">
-                        <button id="btn-browse-folder" class="btn secondary" style="padding: 10px 12px; font-size: 13px;" title="Browse Windows Folder">
+                        <input type="text" id="global-repo" placeholder="e.g. C:/Users/Name/Desktop/project" value="." style="flex:1; padding: 6px 10px; font-size: 12px;">
+                        <button id="btn-browse-folder" class="btn secondary" style="padding: 6px 10px; font-size: 12px;" title="Select or Paste Directory Path">
                             📂 <span>Browse...</span>
                         </button>
                     </div>
                 </div>
-                <button id="btn-load-repo" class="btn primary">
-                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
-                    </svg>
-                    <span>Connect Project</span>
-                </button>
-                <button id="btn-load-playground" class="btn secondary" style="border-color: var(--neon-cyan); color: var(--neon-cyan);">
-                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                        <polyline points="2 17 12 22 22 17"></polyline>
-                    </svg>
-                    <span>Demo Playground</span>
-                </button>
-                <button id="btn-open-tour" class="btn secondary" style="padding: 12px 14px;" title="Quick Tour">
-                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                    </svg>
-                </button>
-                <div class="session-bar" id="session-bar" style="margin-left:auto; display:flex; align-items:center; gap:8px;">
-                    <div id="env-health-badge" class="glass" style="display:flex; align-items:center; gap:6px; padding: 4px 10px; border-radius: 12px; font-size: 11px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);" title="Checking environment health...">
-                        <span id="env-health-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #e2e8f0; display: inline-block;"></span>
-                        <span id="env-health-label" style="font-weight: 600; color: #94a3b8;">Checking...</span>
+
+                <!-- 1-Click Quick Actions (Building Command Bar) -->
+                <div class="quick-actions-bar" style="display: flex; align-items: center; gap: 6px;">
+                    <button id="btn-quick-run-gate" class="btn secondary" style="background: rgba(16, 185, 129, 0.15); border-color: #10b981; color: #34d399; font-weight: 700; font-size: 11.5px; padding: 6px 12px;" title="Run CI Quality Gate Verification">
+                        ⚡ <span>Run Gate</span>
+                    </button>
+                    <button id="btn-quick-fix-top" class="btn secondary" style="background: rgba(245, 158, 11, 0.15); border-color: #f59e0b; color: #fbbf24; font-weight: 700; font-size: 11.5px; padding: 6px 12px;" title="Target top architectural hotspot for fix">
+                        🔧 <span>Fix Top Risk</span>
+                    </button>
+                    <button id="btn-load-repo" class="btn primary" style="font-size: 11.5px; padding: 6px 12px;" title="Trigger immediate AST rescan">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 13px; height: 13px;">
+                            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                        </svg>
+                        <span>Refresh Scan</span>
+                    </button>
+                    <button id="btn-load-playground" class="btn secondary" style="border-color: var(--neon-cyan); color: var(--neon-cyan); font-size: 11.5px; padding: 6px 10px;">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 13px; height: 13px;">
+                            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                            <polyline points="2 17 12 22 22 17"></polyline>
+                        </svg>
+                        <span>Demo</span>
+                    </button>
+                </div>
+
+                <!-- Session & Control Utilities -->
+                <div class="session-bar" id="session-bar" style="margin-left:auto; display:flex; align-items:center; gap:6px;">
+                    <button id="btn-export-report" class="btn secondary utility-btn" title="Export HTML, Markdown, or JSON Architecture Report">
+                        📥 <span>Export</span>
+                    </button>
+                    <button id="btn-watch-mode-toggle" class="btn secondary utility-btn" title="Toggle Real-Time Filesystem Watch Mode">
+                        👁️ <span>Watch: OFF</span>
+                    </button>
+                    <button id="btn-open-tour" class="btn secondary utility-btn" title="Quick Tour">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                    </button>
+                    <div id="env-health-badge" class="glass" style="display:flex; align-items:center; gap:6px; padding: 6px 12px; border-radius: 8px; font-size: 11px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);" title="Checking environment health...">
+                        <span id="env-health-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #34d399; display: inline-block;"></span>
+                        <span id="env-health-label" style="font-weight: 600; color: #34d399;">Engine Ready</span>
                     </div>
-                    <button id="btn-start-session" class="btn secondary btn-small">
-                        <span>Start Study Session</span>
+                    <button id="btn-mcp-connect" class="btn secondary utility-btn" style="display:flex; align-items:center; gap:6px; background:rgba(15,23,42,0.8); border: 1px solid rgba(52,211,153,0.4); color:#34d399; font-weight:600;" title="1-Click Connect your IDE via MCP">
+                        🔗 <span>Connect IDE</span>
                     </button>
-                    <button id="btn-stop-session" class="btn alert btn-small hidden">
-                        <span>Stop & Export Logs</span>
+                    <button id="btn-open-omnibar" class="btn secondary utility-btn" style="display:flex; align-items:center; gap:6px; background:rgba(15,23,42,0.8); border: 1px solid rgba(56,189,248,0.3); color:#cbd5e1;" title="Search codebase files, definitions & risks (Ctrl+K)">
+                        🔍 <span>Search</span> <kbd style="font-family: var(--font-mono); font-size: 10px; background: rgba(255,255,255,0.1); padding: 1px 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); color: #38bdf8;">Ctrl+K</kbd>
                     </button>
-                    <span id="session-timer" class="session-timer hidden" style="font-family:var(--font-mono); font-size:14px; color:var(--text-color); margin-left:8px;">00:00</span>
                 </div>
             </header>
             
@@ -176,10 +188,41 @@
                 <div id="repo-error-message" style="margin-top:6px; color:#cbd5e1;"></div>
             </div>
 
-            <!-- TAB 1: DASHBOARD -->
+            <!-- TAB 1: DASHBOARD (Overview Home) -->
             <section id="dashboard-tab" class="tab-content active">
+                <!-- Empty / Connect Repository Onboarding Banner (Milestone 1 First Launch) -->
+                <div id="overview-empty-state" class="overview-empty-container glass" style="padding: 40px 24px; text-align: center;">
+                    <div style="font-size: 2.4rem; margin-bottom: 12px;">🌌</div>
+                    <h2 style="margin: 0 0 10px 0; color: #f8fafc; font-size: 1.8rem; font-family: 'Outfit', sans-serif; font-weight: 800; letter-spacing: -0.5px;">ULTRON</h2>
+                    <p style="margin: 0 auto 24px auto; max-width: 540px; color: #cbd5e1; font-size: 1.05rem; line-height: 1.6; font-weight: 400;">
+                        Understand your codebase. Give your AI agent the right context. Verify what actually happened.
+                    </p>
+                    <div style="display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap;">
+                        <button id="btn-empty-connect-repo" class="btn primary" style="padding: 12px 26px; font-size: 14px; font-weight: 700; background: linear-gradient(135deg, #0284c7, #38bdf8); color: #0f172a; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);">
+                            📂 <span>Connect Repository</span>
+                        </button>
+                        <button id="btn-empty-demo" class="btn secondary" style="padding: 12px 24px; font-size: 14px; font-weight: 600; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8; border-radius: 8px; cursor: pointer;">
+                            🌌 <span>Try Demo</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Compact Project Identity & Severity Provenance Header (Hidden to remove horizontal barrier; IDs preserved for JS bindings) -->
+                <div id="overview-project-header" style="display: none;">
+                    <span id="overview-repo-title">Active Project</span>
+                    <span id="overview-branch-badge">Local</span>
+                    <span id="hero-trust-chain-title">Analysis: Complete · Verified Locally · Zero Cloud Uploads</span>
+                    <div id="overview-scan-severity-badge">100% ANALYZED</div>
+                </div>
+
+                <!-- Partial Scan Severity Alert Banner -->
+                <div id="overview-scan-warning" class="hidden glass" style="margin-bottom: 16px; padding: 12px 18px; border-radius: 8px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); color: #fef08a; display: flex; align-items: center; gap: 10px; font-size: 12.5px;">
+                    <span style="font-size: 16px;">⚠️</span>
+                    <div><strong>Partial Scan Notice:</strong> <span id="overview-scan-warning-text">Some files had parse/analysis warnings. Facts are grounded in successfully parsed modules.</span></div>
+                </div>
+
                 <!-- Progress & Active Job UI -->
-                <div id="analysis-progress-card" class="glass hidden" style="margin-bottom: 20px; padding: 15px; border: 1px solid var(--neon-cyan); box-shadow: 0 0 10px rgba(0, 242, 254, 0.25);">
+                <div id="analysis-progress-card" class="glass hidden" style="margin-bottom: 16px; padding: 15px; border: 1px solid var(--neon-cyan); box-shadow: 0 0 10px rgba(0, 242, 254, 0.25);">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                         <span style="font-weight: 600; color: var(--neon-cyan);">Pipeline Active Job: <span id="progress-step-text">Scanning repository</span></span>
                         <button id="btn-cancel-analysis" class="btn alert btn-small" style="padding: 4px 8px;">Cancel</button>
@@ -189,12 +232,232 @@
                     </div>
                 </div>
 
-                <!-- Run Selector -->
-                <div class="run-selector-card glass" style="margin-bottom: 20px; padding: 12px 16px; display:flex; align-items:center; gap:12px;">
-                    <span style="font-weight: 600; color: var(--text-color);">Selected Run:</span>
-                    <select id="run-select-dropdown" style="background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: var(--text-color); padding: 6px 12px; border-radius: 4px; font-family: var(--font-mono); outline: none;">
-                        <option value="latest">Latest Analysis Run</option>
-                    </select>
+                <!-- Container for all post-analysis dashboard cards (revealed after repository scan or demo load) -->
+                <div id="overview-analyzed-content" class="hidden">
+                    <!-- 1. PRIMARY HERO: CURRENT WORK COMMAND SURFACE -->
+                    <div class="glass" id="overview-work-state-card" style="margin-bottom: 20px; padding: 20px 24px; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(15, 23, 42, 0.85);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+                        <div style="flex: 1; min-width: 260px;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #38bdf8; letter-spacing: 0.5px;">Current Work</span>
+                                <span id="current-work-pillar-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-weight: 700;">FUNCTIONAL</span>
+                                <span id="current-work-state-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.2); color: #10b981; font-weight: 700;">IDLE</span>
+                                <span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.06); color: #94a3b8; font-family: var(--font-mono);">Local</span>
+                                <span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);">100% ANALYZED</span>
+                            </div>
+                            <h3 id="current-work-issue-title" style="margin: 6px 0 4px 0; color: #f8fafc; font-size: 1.3rem;">
+                                <span id="overview-objective-title">Repository Idle — Ready to discover next improvement</span>
+                            </h3>
+                            <p style="margin: 0; font-size: 0.88rem; color: #94a3b8;">Why: <span id="current-work-why-text" style="color: #cbd5e1; font-weight: 600;">Continuous development orchestration ready.</span></p>
+
+                            <!-- 1-Click AI Prompt Export Strip -->
+                            <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 10px 14px; margin-top: 12px;">
+                                <div style="font-size: 11px; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span>⚡ 1-Click Copy AI Prompt</span>
+                                    <span style="font-size: 10px; color: #94a3b8; text-transform: none;">Instant clipboard copy with grounded constraints</span>
+                                </div>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 8px;">
+                                    <button class="btn secondary btn-small btn-quick-prompt" data-provider="cursor" style="border-color: rgba(56,189,248,0.4); color: #38bdf8; font-weight: 700; padding: 6px 8px; font-size: 11.5px;" title="Copy prompt formatted for Cursor Composer (@codebase)">
+                                        ⚡ Cursor
+                                    </button>
+                                    <button class="btn secondary btn-small btn-quick-prompt" data-provider="windsurf" style="border-color: rgba(6,182,212,0.4); color: #06b6d4; font-weight: 700; padding: 6px 8px; font-size: 11.5px;" title="Copy prompt formatted for Windsurf Cascade (.windsurfrules)">
+                                        🌊 Windsurf
+                                    </button>
+                                    <button class="btn secondary btn-small btn-quick-prompt" data-provider="claude" style="border-color: rgba(192,132,252,0.4); color: #c084fc; font-weight: 700; padding: 6px 8px; font-size: 11.5px;" title="Copy prompt formatted for Claude Code CLI (claude -p)">
+                                        🟣 Claude
+                                    </button>
+                                    <button class="btn secondary btn-small btn-quick-prompt" data-provider="antigravity" style="border-color: rgba(52,211,153,0.4); color: #34d399; font-weight: 700; padding: 6px 8px; font-size: 11.5px;" title="Copy prompt formatted for Antigravity & UMAGS">
+                                        🚀 Antigravity
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                            <button id="btn-current-work-action" class="btn primary btn-small btn-primary-action">
+                                🚀 Start Issue Discovery
+                            </button>
+                            <button id="btn-current-work-checkpoint" class="btn secondary btn-small" style="display: none; background: linear-gradient(135deg, #10b981, #059669); border-color: #10b981; color: #ffffff; font-weight: 700; padding: 8px 16px; font-size: 12px;">
+                                ✨ Save Verified Checkpoint
+                            </button>
+                            <button id="btn-current-work-repair" class="btn secondary btn-small" style="display: none; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border-color: rgba(245, 158, 11, 0.4); font-weight: 700; padding: 8px 14px; font-size: 12px;">
+                                🔧 Apply Diagnostic Repair
+                            </button>
+                            <button id="btn-current-work-expand-scope" class="btn secondary btn-small" style="display: none; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); font-weight: 700; padding: 8px 14px; font-size: 12px;">
+                                ➕ Expand Allowed Scope
+                            </button>
+                            <button id="btn-current-work-revert-scope" class="btn secondary btn-small" style="display: none; background: rgba(244, 63, 94, 0.15); color: #f43f5e; border-color: rgba(244, 63, 94, 0.3); font-weight: 700; padding: 8px 14px; font-size: 12px;">
+                                ↩️ Revert Out-of-Scope Files
+                            </button>
+                            <button id="btn-current-work-rollback" class="btn secondary btn-small" style="display: none; background: rgba(244, 63, 94, 0.15); color: #f43f5e; border-color: rgba(244, 63, 94, 0.3); font-weight: 700; padding: 8px 14px; font-size: 12px;">
+                                🛡️ Restore Checkpoint
+                            </button>
+                            <button id="btn-toggle-diagnostic-detail" class="btn secondary btn-small btn-secondary-action">
+                                📋 Diagnostic Detail
+                            </button>
+                            <button id="btn-toggle-visual-evidence" class="btn secondary btn-small btn-secondary-action">
+                                👁️ Visual Delta
+                            </button>
+                            <button id="btn-current-work-push-agent" class="btn secondary btn-small btn-agent-handoff">
+                                🚀 Send to Agent Context
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Human Judgment Evaluation Palette -->
+                    <div id="human-judgment-card" style="display: none; margin-top: 12px; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 14px;">
+                        <div style="font-size: 0.85rem; font-weight: 700; color: #f8fafc; margin-bottom: 8px;">🧑‍⚖️ Is this actually better?</div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                            <button class="btn-judgment" data-rating="BETTER" style="padding: 8px 16px; font-size: 12px; border-radius: 6px; border: 1px solid rgba(16,185,129,0.5); background: rgba(16,185,129,0.15); color: #34d399; cursor: pointer; font-weight: 700;">👍 Better</button>
+                            <button class="btn-judgment" data-rating="NO_DIFFERENCE" style="padding: 8px 16px; font-size: 12px; border-radius: 6px; border: 1px solid rgba(148,163,184,0.4); background: rgba(148,163,184,0.1); color: #94a3b8; cursor: pointer; font-weight: 700;">😐 No Diff</button>
+                            <button class="btn-judgment" data-rating="WORSE" style="padding: 8px 16px; font-size: 12px; border-radius: 6px; border: 1px solid rgba(244,63,94,0.5); background: rgba(244,63,94,0.15); color: #f43f5e; cursor: pointer; font-weight: 700;">👎 Worse</button>
+                            <input id="input-judgment-rationale" type="text" placeholder="Short reason (optional)" style="flex: 1; min-width: 160px; padding: 8px 12px; font-size: 12px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #e2e8f0;">
+                            <button id="btn-submit-judgment" class="btn secondary btn-small" style="padding: 8px 16px; font-size: 12px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); font-weight: 700; cursor: pointer;">Submit</button>
+                        </div>
+                        <div id="judgment-feedback" style="margin-top: 6px; font-size: 0.78rem; color: #94a3b8;"></div>
+                    </div>
+
+                    <!-- THREE-PILLAR VERIFICATION SURFACE (Self-Explaining, 5th-Grade Clarity) -->
+                    <div id="current-work-pillar-matrix" style="margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; font-size: 0.82rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+                        <div class="pillar-card" style="background: rgba(0,0,0,0.35); padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #34d399;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #94a3b8;">🧪 Functionality</span>
+                                <span id="pillar-functional-badge" style="font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: rgba(52,211,153,0.15); color: #34d399;">READY</span>
+                            </div>
+                            <div id="pillar-functional-status" style="margin-top: 6px; font-size: 12px; color: #f1f5f9; font-weight: 600;">Code runs and passes syntax/test validation cleanly</div>
+                        </div>
+                        <div class="pillar-card" style="background: rgba(0,0,0,0.35); padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #38bdf8;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #94a3b8;">🔗 System Safety</span>
+                                <span id="pillar-connectivity-badge" style="font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: rgba(56,189,248,0.15); color: #38bdf8;">ALIGNED</span>
+                            </div>
+                            <div id="pillar-connectivity-status" style="margin-top: 6px; font-size: 12px; color: #f1f5f9; font-weight: 600;">Changes strictly confined to target area (0 boundary breaches)</div>
+                        </div>
+                        <div class="pillar-card" style="background: rgba(0,0,0,0.35); padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); border-left: 4px solid #c084fc;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #94a3b8;">👁️ Visual &amp; Interface</span>
+                                <span id="pillar-human-badge" style="font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: rgba(192,132,252,0.15); color: #c084fc;">VERIFIED</span>
+                            </div>
+                            <div id="pillar-human-status" style="margin-top: 6px; font-size: 12px; color: #f1f5f9; font-weight: 600;">Interface layout clean with 0 console errors</div>
+                        </div>
+                    </div>
+
+                    <!-- Live Prioritized Work Queue Backlog -->
+                    <div id="overview-work-queue-card" style="margin-top: 14px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 12px 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #94a3b8; letter-spacing: 0.5px;">📋 Prioritized Work Queue (Backlog)</span>
+                            <span id="work-queue-count" style="font-size: 11px; color: #38bdf8; font-family: var(--font-mono); font-weight: 700;">0 tasks</span>
+                        </div>
+                        <div id="work-queue-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto;">
+                            <div style="color: #94a3b8; font-size: 11.5px; font-style: italic; padding: 10px 0; text-align: center;">Scanning repository to prioritize tasks...</div>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Diagnostic Detail Panel (Collapsible) -->
+                    <div id="diagnostic-detail-panel" style="display: none; margin-top: 12px; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 12px 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #38bdf8;">📋 Issue Diagnostic &amp; Dependency Blast Radius</span>
+                            <button id="btn-close-diagnostic-detail" class="btn secondary btn-small" style="padding: 2px 8px; font-size: 10px;">✕ Close</button>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; font-size: 0.8rem;">
+                            <div>
+                                <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #94a3b8; display: block;">Reproduction Command:</span>
+                                <code id="diagnostic-reproduction-cmd" style="display: block; margin-top: 3px; font-family: var(--font-mono); font-size: 11px; color: #fbbf24; background: rgba(0,0,0,0.4); padding: 4px 8px; border-radius: 4px; overflow-x: auto;">python -m unittest ultron/tests/test_version_integrity.py</code>
+                            </div>
+                            <div>
+                                <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #94a3b8; display: block;">Affected Blast Radius:</span>
+                                <div id="diagnostic-blast-radius-list" style="margin-top: 3px; color: #cbd5e1; font-family: var(--font-mono); font-size: 11px;">ultron/interfaces/server.py</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visual Reality Delta Pane (Collapsible) -->
+                    <div id="visual-delta-pane" style="display: none; margin-top: 12px; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 8px; padding: 12px 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #c084fc;">👁️ Browser Visual Delta &amp; Layout Observation</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-size: 0.8rem;">
+                            <div>
+                                <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #94a3b8; display: block;">Viewport Consistency:</span>
+                                <span id="visual-viewport-status" style="color: #34d399; font-weight: 600;">1440x900 @1.0 (Identical)</span>
+                            </div>
+                            <div>
+                                <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #94a3b8; display: block;">DOM Elements Added:</span>
+                                <span id="visual-elements-added" style="color: #38bdf8; font-weight: 600;">0 elements</span>
+                            </div>
+                            <div>
+                                <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #94a3b8; display: block;">Layout Hierarchy:</span>
+                                <span id="visual-hierarchy-status" style="color: #34d399; font-weight: 600;">Clean (0 conflicts)</span>
+                            </div>
+                            <div>
+                                <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #94a3b8; display: block;">Evidence Directory:</span>
+                                <code id="visual-evidence-dir" style="font-family: var(--font-mono); font-size: 10.5px; color: #94a3b8;">.ultron/evidence/</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Work State Details Grid -->
+                    <div style="margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-size: 0.82rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+                        <div>
+                            <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #94a3b8; display: block;">Target Area:</span>
+                            <span id="current-work-target-files" style="color: #38bdf8; font-weight: 600;">All Modules</span>
+                        </div>
+                        <div>
+                            <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #94a3b8; display: block;">Verification Evidence:</span>
+                            <span id="current-work-evidence-status" style="color: #e2e8f0;">Three-Pillar validation active</span>
+                        </div>
+                    </div>
+
+                    <!-- Attempt Telemetry Row -->
+                    <div id="current-work-telemetry-row" style="margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; font-size: 0.8rem; background: rgba(0,0,0,0.25); padding: 8px 12px; border-radius: 6px;">
+                        <div>
+                            <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #94a3b8; display: block;">What Changed:</span>
+                            <span id="current-work-what-changed" style="color: #e2e8f0;">None yet</span>
+                        </div>
+                        <div>
+                            <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #94a3b8; display: block;">What Improved:</span>
+                            <span id="current-work-what-improved" style="color: #34d399;">In progress</span>
+                        </div>
+                        <div>
+                            <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #94a3b8; display: block;">Regressions:</span>
+                            <span id="current-work-what-worse" style="color: #cbd5e1;">None detected</span>
+                        </div>
+                        <div>
+                            <span style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #94a3b8; display: block;">Active Snapshot:</span>
+                            <span id="current-work-snapshot-id" style="color: #38bdf8; font-family: var(--font-mono); font-size: 11px;">snap-idle</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 12px; width: 100%; height: 5px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden;">
+                        <div id="overview-progress-bar" style="width: 0%; height: 100%; background: #38bdf8; transition: width 0.3s ease;"></div>
+                    </div>
+
+                    <!-- Clean Expandable Attempt Details -->
+                    <details id="current-work-details" style="margin-top: 12px; font-size: 0.8rem; color: #94a3b8;">
+                        <summary style="cursor: pointer; color: #38bdf8; font-weight: 600;">🔍 Attempt Details &amp; Operational Telemetry</summary>
+                        <pre id="current-work-attempt-json" style="margin-top: 8px; background: rgba(0,0,0,0.4); padding: 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 11px; color: #e2e8f0; max-height: 160px; overflow-y: auto;">No active execution attempt.</pre>
+                    </details>
+                </div>
+
+                <!-- 2. SUPPORTING PROJECT VITAL STATUS CARD -->
+                <div class="summary-hero-card glass" id="overview-vital-card" style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px 20px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #94a3b8; letter-spacing: 0.5px;">Architectural Health &amp; Stability</div>
+                            <div id="hero-health-status" style="font-size: 0.85rem; color: #34d399; font-weight: 600; margin-top: 2px;">HEALTHY (STABLE)</div>
+                        </div>
+                        <div style="text-align: right; display: flex; align-items: center; gap: 14px;">
+                            <div>
+                                <div id="hero-health-score" style="font-size: 1.6rem; font-weight: 800; color: #38bdf8; font-family: 'Outfit', sans-serif;">85 / 100</div>
+                            </div>
+                            <button id="btn-health-score-info" class="btn secondary btn-small" style="padding: 4px 8px; font-size: 11px; border-color: rgba(56,189,248,0.4); color: #38bdf8;" title="How is this Health Score calculated?">
+                                ℹ️ Info
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Visual Health Gauge Bar -->
+                    <div id="hero-health-gauge-bar" style="width: 100%; height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; margin-top: 10px; overflow: hidden;">
+                        <div id="hero-health-gauge-fill" style="width: 85%; height: 100%; background: linear-gradient(90deg, #0284c7, #34d399); transition: width 0.4s ease, background 0.4s ease;"></div>
+                    </div>
                 </div>
 
                 <div class="stats-grid">
@@ -215,16 +478,53 @@
                     </div>
                 </div>
 
-                <!-- NEW: Interactive Codebase Topology SVG Graph -->
-                <div class="graph-card glass">
-                    <div class="card-header">
-                        <h2>System Interaction Topology Map</h2>
-                        <span class="subtitle">Visual representation of code interaction. Nodes indicate files, lines represent import dependencies (glowing nodes represent high risk zones).</span>
+                <!-- 3. WHAT MATTERS: Prominent High-Impact Decision Surface (Visible in both Creator and Engineer Modes) -->
+                <div id="what-matters-decision-card" class="glass" style="margin-bottom: 20px; padding: 18px 22px; border-radius: 10px; border: 1px solid rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.05); display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+                        <div style="flex: 1; min-width: 280px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span class="badge" style="background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.4); font-weight: 800; font-size: 11px; letter-spacing: 0.5px;">RECOMMENDED STARTING POINT</span>
+                                <span id="decision-target-file" style="font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: #f1f5f9;">-</span>
+                            </div>
+                            <div id="decision-what-wrong" style="margin-top: 8px; font-size: 13.5px; color: #f8fafc; font-weight: 600;">
+                                Central routing module with high coupling.
+                            </div>
+                            <div style="margin-top: 6px; font-size: 12px; color: #cbd5e1; line-height: 1.5;">
+                                <strong>What it affects:</strong> <span id="decision-consequence">Modifications may affect downstream dependents across the application.</span><br>
+                                <strong>Why not alternatives:</strong> <span id="decision-why-not-alternatives">Higher complexity but lower architectural centrality.</span><br>
+                                <strong>Confidence / evidence:</strong> <span id="decision-confidence-evidence">HIGH · Direct AST call-graph verification</span>
+                            </div>
+                            <div id="decision-supporting-evidence" style="margin-top: 8px; font-size: 11px; color: #94a3b8; font-family: var(--font-mono);">
+                                Supporting Evidence: Decision Branches: - · Connected Callers: -
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                            <button id="btn-decision-prepare-mission" class="btn secondary btn-small btn-agent-handoff" style="padding: 10px 18px; font-weight: 700;">
+                                🚀 Accept & Prepare Mission
+                            </button>
+                            <button id="btn-decision-mark-plausible" class="btn secondary btn-small" style="padding: 8px 14px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35);">
+                                ⚡ Mark Plausible
+                            </button>
+                            <button id="btn-decision-dismiss-wrong" class="btn secondary btn-small" style="padding: 8px 14px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35);">
+                                ✗ Dismiss as Wrong
+                            </button>
+                            <button id="btn-decision-view-graph" class="btn secondary btn-small btn-secondary-action" style="padding: 8px 14px;">
+                                👁️ View Impact Halo
+                            </button>
+                        </div>
                     </div>
-                    <div class="graph-container">
-                        <svg id="dependency-graph" width="100%" height="320">
-                            <!-- SVG elements generated dynamically -->
-                        </svg>
+                </div>
+
+                <!-- 3. What Matters Most: High-Leverage Plain-English Insights & Top Recommendations -->
+                <div class="card glass" id="overview-insights-card" style="margin-bottom: 24px; padding: 20px; border: 1px solid rgba(56, 189, 248, 0.3);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 16px;">
+                        <div>
+                            <h3 style="margin: 0; color: #f8fafc; font-family: 'Outfit', sans-serif; font-size: 1.2rem; font-weight: 700;">What Matters Most (Architectural Insights)</h3>
+                            <span style="font-size: 0.85rem; color: #94a3b8;">High-leverage risk hotspots and plain-English agent guidance</span>
+                        </div>
+                    </div>
+                    <div id="plain-english-insights-container" style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="color: #94a3b8; font-size: 0.9rem; font-style: italic;">Scan repository to extract architectural insights.</div>
                     </div>
                 </div>
 
@@ -245,91 +545,350 @@
                     </div>
                     
                     <!-- AI Export Handoff Quick Actions -->
-                    <div style="margin-top: 16px; pt: 16px; border-top: 1px dashed rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                        <span style="font-size: 0.85rem; color: #cbd5e1; font-weight: 600;">Export Context Brief for AI Coding Agent:</span>
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <span style="font-size: 0.85rem; color: #cbd5e1; font-weight: 600;">AI Assistant Collaboration Handoff:</span>
+                            <span style="font-size: 0.75rem; color: #94a3b8; display: block;">Export grounded structural context directly to your agent prompt or API</span>
+                        </div>
                         <div style="display: flex; gap: 8px;">
-                            <button class="btn secondary btn-small btn-export-ai" data-format="claude" style="border-color: #38bdf8; color: #38bdf8;">Copy for Claude</button>
-                            <button class="btn secondary btn-small btn-export-ai" data-format="codex" style="border-color: #10b981; color: #10b981;">Copy for Codex</button>
-                            <button class="btn secondary btn-small btn-export-ai" data-format="antigravity" style="border-color: #a855f7; color: #a855f7;">Copy for Antigravity</button>
+                            <button id="btn-copy-context-brief" class="btn secondary btn-small">
+                                📋 View &amp; Copy Context Brief
+                            </button>
+                            <button id="btn-query-agent-api" class="btn secondary btn-small" style="border-color: #a855f7; color: #c084fc;">
+                                ⚡ Query Agent API
+                            </button>
                         </div>
+                    </div>
+
+                    <!-- Inline Context Brief Viewer Box -->
+                    <div id="inline-brief-box" class="hidden" style="margin-top: 12px; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 12px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                            <span id="inline-brief-title" style="font-size: 0.8rem; font-weight: 700; color: #38bdf8;">Grounded Context Brief</span>
+                            <button id="btn-close-inline-brief" class="btn secondary btn-small" style="padding: 2px 8px; font-size: 0.75rem;">Close</button>
+                        </div>
+                        <pre id="inline-brief-content" style="font-family: var(--font-mono); font-size: 0.78rem; color: #e2e8f0; white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto; margin: 0;"></pre>
                     </div>
                 </div>
 
-                <!-- Detailed File Datagrid Table (Shown in Engineer Mode) -->
-                <div class="grid-card glass engineer-only">
-                    <div class="card-header">
-                        <h2>Codebase Risk Matrix</h2>
-                        <span class="subtitle">System Impact Score: I(N) = Complexity &times; ln(e + Coupling)</span>
-                    </div>
-                    
-                    <div class="table-container">
-                        <table id="file-risk-table">
-                            <thead>
-                                <tr>
-                                    <th>File Module</th>
-                                    <th>Code Complexity <span style="font-size: 9px; opacity: 0.6; display: block; font-weight: normal; margin-top: 2px;">(McCabe Complexity)</span></th>
-                                    <th>Class Connections <span style="font-size: 9px; opacity: 0.6; display: block; font-weight: normal; margin-top: 2px;">(Coupling / Callers)</span></th>
-                                    <th>Overall Risk Impact <span style="font-size: 9px; opacity: 0.6; display: block; font-weight: normal; margin-top: 2px;">(Composite Score)</span></th>
-                                    <th>Risk Classification</th>
-                                    <th>Confidence</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="file-risk-tbody">
-                                <tr>
-                                    <td colspan="7" class="table-empty">Connect and scan a repository to load metrics.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <!-- 4. Progressive Disclosure: Advanced Engineering Intelligence Drawer -->
+                <details class="advanced-diagnostics-drawer glass" id="overview-advanced-diagnostics">
+                    <summary>
+                        <span>🔬 Advanced Engineering Diagnostics (Modularity, ROI, Anti-Patterns, Calibration)</span>
+                    </summary>
+                    <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 18px;">
+                        <!-- Interactive Codebase Topology Mini SVG (Preserved) -->
+                        <div class="graph-card glass" style="margin: 0;">
+                            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                <div>
+                                    <h2>System Interaction Topology Map</h2>
+                                    <span class="subtitle">Visual representation of code interaction. Clustered by architectural domains.</span>
+                                </div>
+                                <div class="filter-pills-group" style="display: flex; gap: 6px; align-items: center;">
+                                    <span style="font-size: 11px; color: #94a3b8; font-weight: 600;">LOD:</span>
+                                    <button id="pill-graph-system" class="filter-pill active" data-level="system" style="font-size: 11px; padding: 3px 10px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-weight: 600; cursor: pointer;">System View</button>
+                                    <button id="pill-graph-module" class="filter-pill" data-level="module" style="font-size: 11px; padding: 3px 10px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: #94a3b8; font-weight: 600; cursor: pointer;">Module View</button>
+                                    <button id="pill-graph-file" class="filter-pill" data-level="file" style="font-size: 11px; padding: 3px 10px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: #94a3b8; font-weight: 600; cursor: pointer;">File View</button>
+                                </div>
+                            </div>
+                            <div class="graph-container">
+                                <svg id="dependency-graph" width="100%" height="240">
+                                    <!-- SVG elements generated dynamically -->
+                                </svg>
+                            </div>
+                        </div>
 
-                <!-- Simplified Component Impact Heatmap (Shown in Creator Mode) -->
-                <div class="grid-card glass creator-only">
-                    <div class="card-header">
-                        <h2>Component Safety Rating</h2>
-                        <span class="subtitle">High-level risk zones mapping how easily you can modify parts of your system.</span>
-                    </div>
-                    <div class="heatmap-grid" id="creator-heatmap-grid">
-                        <div class="table-empty">Connect and scan a repository to load metrics.</div>
-                    </div>
-                </div>
+                        <!-- Detailed File Datagrid Table & Supporting Matrix -->
+                        <div class="grid-card glass engineer-only" style="margin: 0;">
 
-                <!-- Calibration & Verification Report Panel -->
-                <div class="grid-card glass" style="margin-top: 20px;">
-                    <div class="card-header">
-                        <h2>Calibration & Grounding Verification Report</h2>
-                        <span class="subtitle">Aggregated AI grounding metrics, prediction errors, and calibration curve bin details.</span>
+                            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                <div>
+                                    <h2>What Matters (Decisions &amp; Supporting Matrix)</h2>
+                                    <span class="subtitle">Ranked by Downstream Consequence &amp; Blast Radius</span>
+                                </div>
+                            </div>
+                            
+                            <div class="table-container">
+                                <table id="file-risk-table">
+                                    <thead>
+                                        <tr>
+                                            <th>File Module</th>
+                                            <th>Code Complexity</th>
+                                            <th>Class Connections</th>
+                                            <th>Overall Risk Impact</th>
+                                            <th>Risk Classification</th>
+                                            <th>Confidence</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="file-risk-tbody">
+                                        <tr>
+                                            <td colspan="7" class="table-empty">Connect and scan a repository to load metrics.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <!-- Risk Matrix Table Pagination Bar -->
+                            <div id="risk-table-pagination" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding: 8px 14px; background: rgba(15, 23, 42, 0.5); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; font-size: 12px; flex-wrap: wrap; gap: 8px;">
+                                <div id="risk-pagination-info" style="color: #94a3b8; font-family: var(--font-mono); font-size: 11px;">
+                                    Showing 0-0 of 0 modules
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <button id="btn-risk-page-prev" class="btn secondary btn-small" style="padding: 3px 10px; font-size: 11px;" disabled title="Previous page">◀ Prev</button>
+                                    <span id="risk-page-indicator" style="color: #38bdf8; font-weight: 700; font-family: var(--font-mono); font-size: 11px; min-width: 70px; text-align: center;">Page 1 of 1</span>
+                                    <button id="btn-risk-page-next" class="btn secondary btn-small" style="padding: 3px 10px; font-size: 11px;" disabled title="Next page">Next ▶</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Refactoring Opportunity Matrix -->
+                        <div id="refactoring-roi-card" class="grid-card glass engineer-only" style="margin: 0;">
+                            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                <div>
+                                    <h2>🎯 Refactoring Opportunity Matrix</h2>
+                                    <span class="subtitle">High-Leverage Quick Wins &amp; Estimated LOC Effort ROI</span>
+                                </div>
+                                <span class="badge low" style="font-size: 11px; padding: 4px 10px;">AST Deterministic</span>
+                            </div>
+                            <div class="table-container">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Target Module</th>
+                                            <th style="text-align: center;">Leverage ROI</th>
+                                            <th style="text-align: center;">Effort Estimate</th>
+                                            <th style="text-align: center;">Projected Risk Reduction</th>
+                                            <th style="text-align: right;">Opportunity Tier</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="refactoring-roi-tbody">
+                                        <tr>
+                                            <td colspan="5" class="table-empty">Connect and scan repository to calculate refactoring ROI.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- AST Modularity & Separation-of-Concerns Health Scorecard -->
+                        <div id="modularity-scorecard-card" class="grid-card glass engineer-only" style="margin: 0;">
+                            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                <div>
+                                    <h2>🏛️ Architectural Modularity &amp; SoC Scorecard</h2>
+                                    <span class="subtitle">Robert C. Martin Instability (I = Ce / (Ca + Ce)) &amp; Main Sequence Distance (D = |A + I - 1|)</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span id="modularity-health-grade" class="badge low" style="font-size: 13px; font-weight: 800; padding: 4px 12px;">Grade A</span>
+                                    <span id="modularity-health-score" style="font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: #38bdf8;">100.0 / 100</span>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
+                                <div class="stat-card glass" style="flex: 1; min-width: 140px; background: rgba(30, 41, 59, 0.4); padding: 10px 14px; border-radius: 8px;">
+                                    <span class="stat-label" style="font-size: 11px; color: #94a3b8;">Mean Instability (I)</span>
+                                    <span class="stat-val" id="modularity-mean-instability" style="font-size: 1.1rem; color: #38bdf8; font-family: var(--font-mono); font-weight: 700;">-</span>
+                                </div>
+                                <div class="stat-card glass" style="flex: 1; min-width: 140px; background: rgba(30, 41, 59, 0.4); padding: 10px 14px; border-radius: 8px;">
+                                    <span class="stat-label" style="font-size: 11px; color: #94a3b8;">Mean Distance (D)</span>
+                                    <span class="stat-val" id="modularity-mean-distance" style="font-size: 1.1rem; color: #a855f7; font-family: var(--font-mono); font-weight: 700;">-</span>
+                                </div>
+                                <div class="stat-card glass" style="flex: 1; min-width: 140px; background: rgba(30, 41, 59, 0.4); padding: 10px 14px; border-radius: 8px;">
+                                    <span class="stat-label" style="font-size: 11px; color: #94a3b8;">Balanced Modules</span>
+                                    <span class="stat-val" id="modularity-zone-main-seq" style="font-size: 1.1rem; color: #10b981; font-family: var(--font-mono); font-weight: 700;">-</span>
+                                </div>
+                                <div class="stat-card glass" style="flex: 1; min-width: 140px; background: rgba(30, 41, 59, 0.4); padding: 10px 14px; border-radius: 8px;">
+                                    <span class="stat-label" style="font-size: 11px; color: #94a3b8;">Zone of Pain</span>
+                                    <span class="stat-val" id="modularity-zone-pain" style="font-size: 1.1rem; color: #f43f5e; font-family: var(--font-mono); font-weight: 700;">-</span>
+                                </div>
+                                <div class="stat-card glass" style="flex: 1; min-width: 140px; background: rgba(30, 41, 59, 0.4); padding: 10px 14px; border-radius: 8px;">
+                                    <span class="stat-label" style="font-size: 11px; color: #94a3b8;">Zone of Uselessness</span>
+                                    <span class="stat-val" id="modularity-zone-useless" style="font-size: 1.1rem; color: #fbbf24; font-family: var(--font-mono); font-weight: 700;">-</span>
+                                </div>
+                            </div>
+
+                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 12px;">
+                                <h4 style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px;">Top Coupling Bottlenecks (Zone of Pain Candidates)</h4>
+                                <div id="modularity-pain-modules-list">
+                                    <div style="color: #94a3b8; font-size: 11px; font-style: italic;">Connect repository to evaluate architectural modularity.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Anti-Pattern Detection Matrix -->
+                        <div id="anti-pattern-alert-card" class="grid-card glass engineer-only" style="margin: 0;">
+                            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                <div>
+                                    <h2>🛡️ Architectural Anti-Patterns &amp; Drift Alerts</h2>
+                                    <span class="subtitle">Automated structural smell detection: God Objects, Feature Envy, Shotgun Surgery, and Dead Abstractions.</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span id="anti-pattern-count-badge" class="badge low" style="font-size: 11px; padding: 3px 8px;">0 Detected</span>
+                                    <span id="anti-pattern-count-high" class="badge high" style="font-size: 11px; padding: 3px 8px;">0 High</span>
+                                    <span id="anti-pattern-count-med" class="badge med" style="font-size: 11px; padding: 3px 8px;">0 Med</span>
+                                    <span id="anti-pattern-count-low" class="badge low" style="font-size: 11px; padding: 3px 8px;">0 Low</span>
+                                </div>
+                            </div>
+                            <div class="table-container">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Severity</th>
+                                            <th>Smell / Target Module</th>
+                                            <th>Diagnostic Description</th>
+                                            <th>Remediation Playbook</th>
+                                            <th style="text-align: right;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="anti-pattern-tbody">
+                                        <tr>
+                                            <td colspan="5" class="table-empty">Connect and scan repository to run anti-pattern detection.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Historical Snapshot Time-Travel Card -->
+                        <div id="snapshot-drift-card" class="grid-card glass engineer-only" style="margin: 0;">
+                            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                <div>
+                                    <h2>⏳ Historical Snapshot Time-Travel &amp; Architectural Drift</h2>
+                                    <span class="subtitle">Observe structural complexity, coupling, and modularity drift across time series scans.</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span id="snapshot-count-badge" class="badge low" style="font-size: 11px; padding: 3px 8px;">0 Snapshots</span>
+                                    <span id="drift-direction-badge" class="badge low" style="font-size: 11px; padding: 3px 8px;">STABLE</span>
+                                    <button id="btn-take-snapshot" class="btn secondary btn-small" style="padding: 4px 10px; font-size: 11px; border-color: #38bdf8; color: #38bdf8;">
+                                        📸 Take Snapshot
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span id="snapshot-active-label" style="font-size: 12px; font-weight: 700; color: #38bdf8;">Scan Snapshot #1 (Baseline)</span>
+                                    <span id="snapshot-active-timestamp" style="font-size: 11px; font-family: var(--font-mono); color: #94a3b8;">-</span>
+                                </div>
+                                <input type="range" id="snapshot-timeline-slider" min="0" max="0" value="0" style="width: 100%; cursor: pointer; accent-color: #38bdf8;" title="Drag timeline slider to time-travel through historical scan snapshots">
+                            </div>
+
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                                <div class="stat-card glass" style="flex: 1; min-width: 130px; background: rgba(30, 41, 59, 0.4); padding: 10px 14px; border-radius: 8px;">
+                                    <span class="stat-label" style="font-size: 11px; color: #94a3b8;">&Delta; Health Score</span>
+                                    <span class="stat-val" id="drift-delta-health" style="font-size: 1.1rem; color: #10b981; font-family: var(--font-mono); font-weight: 700;">-</span>
+                                </div>
+                                <div class="stat-card glass" style="flex: 1; min-width: 130px; background: rgba(30, 41, 59, 0.4); padding: 10px 14px; border-radius: 8px;">
+                                    <span class="stat-label" style="font-size: 11px; color: #94a3b8;">&Delta; Complexity</span>
+                                    <span class="stat-val" id="drift-delta-complexity" style="font-size: 1.1rem; color: #94a3b8; font-family: var(--font-mono); font-weight: 700;">-</span>
+                                </div>
+                                <div class="stat-card glass" style="flex: 1; min-width: 130px; background: rgba(30, 41, 59, 0.4); padding: 10px 14px; border-radius: 8px;">
+                                    <span class="stat-label" style="font-size: 11px; color: #94a3b8;">&Delta; Coupling Fanout</span>
+                                    <span class="stat-val" id="drift-delta-coupling" style="font-size: 1.1rem; color: #94a3b8; font-family: var(--font-mono); font-weight: 700;">-</span>
+                                </div>
+                                <div class="stat-card glass" style="flex: 1; min-width: 130px; background: rgba(30, 41, 59, 0.4); padding: 10px 14px; border-radius: 8px;">
+                                    <span class="stat-label" style="font-size: 11px; color: #94a3b8;">Drift Velocity %</span>
+                                    <span class="stat-val" id="drift-velocity-pct" style="font-size: 1.1rem; color: #38bdf8; font-family: var(--font-mono); font-weight: 700;">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Architectural Governance Policy Compliance Card -->
+                        <div id="policy-governance-card" class="grid-card glass engineer-only" style="margin: 0;">
+                            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                <div>
+                                    <h2>📜 Architectural Governance &amp; Policy Compliance</h2>
+                                    <span class="subtitle">Enforce team boundary rules: forbidden layer dependencies, complexity ceilings, and clean architecture contracts.</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span id="policy-status-badge" class="badge low" style="font-size: 11px; padding: 3px 8px;">COMPLIANT</span>
+                                    <span id="policy-violations-count" class="badge low" style="font-size: 11px; padding: 3px 8px;">0 Violations</span>
+                                </div>
+                            </div>
+                            <div class="table-container">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Severity</th>
+                                            <th>Policy Rule</th>
+                                            <th>Violating Entity / Edge</th>
+                                            <th>Remediation Contract</th>
+                                            <th style="text-align: right;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="policy-governance-tbody">
+                                        <tr>
+                                            <td colspan="5" class="table-empty">Connect repository to evaluate architectural governance policies.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Creator Heatmap Grid -->
+                        <div class="grid-card glass creator-only" style="margin: 0;">
+                            <div class="card-header">
+                                <h2>Component Safety Rating</h2>
+                                <span class="subtitle">High-level risk zones mapping how easily you can modify parts of your system.</span>
+                            </div>
+                            <div class="heatmap-grid" id="creator-heatmap-grid">
+                                <div class="table-empty">Connect and scan a repository to load metrics.</div>
+                            </div>
+                        </div>
+
+                        <!-- Calibration & Verification Report Panel -->
+                        <div class="grid-card glass engineer-only" style="margin: 0;">
+                            <div class="card-header">
+                                <h2>Calibration &amp; Grounding Verification Report</h2>
+                                <span class="subtitle">Aggregated AI grounding metrics, prediction errors, and calibration curve bin details.</span>
+                            </div>
+                            <div style="display: flex; gap: 20px; flex-wrap: wrap; padding: 15px 0;">
+                                <div class="stat-card glass" style="flex: 1; min-width: 150px; background: rgba(30, 41, 59, 0.4);">
+                                    <span class="stat-label">Pledge Success Rate</span>
+                                    <span class="stat-val" id="report-pledge-rate" style="color: var(--accent-primary);">-</span>
+                                </div>
+                                <div class="stat-card glass" style="flex: 1; min-width: 150px; background: rgba(30, 41, 59, 0.4);">
+                                    <span class="stat-label">Mean Prediction Error</span>
+                                    <span class="stat-val" id="report-mean-error" style="color: var(--warning);">-</span>
+                                </div>
+                                <div class="stat-card glass" style="flex: 1; min-width: 150px; background: rgba(30, 41, 59, 0.4);">
+                                    <span class="stat-label">Active / Total Pledges</span>
+                                    <span class="stat-val" id="report-pledge-counts">-</span>
+                                </div>
+                            </div>
+                            <div class="table-container">
+                                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                                    <thead>
+                                        <tr>
+                                            <th style="text-align: left;">Risk Prediction Range</th>
+                                            <th style="text-align: center;">Telemetry Sample Count</th>
+                                            <th style="text-align: center;">Empirical Precision</th>
+                                            <th style="text-align: center;">Empirical Recall</th>
+                                            <th style="text-align: center;">Calibration F1 Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="report-calibration-tbody">
+                                        <tr>
+                                            <td colspan="5" class="table-empty" style="text-align: center; padding: 16px; color: #94a3b8;">Calibration history is empty. Run analysis to compute metric precision.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
-                    <div style="display: flex; gap: 20px; flex-wrap: wrap; padding: 15px 0;">
-                        <div class="stat-card glass" style="flex: 1; min-width: 150px; background: rgba(30, 41, 59, 0.4);">
-                            <span class="stat-label">Pledge Success Rate</span>
-                            <span class="stat-val" id="report-pledge-rate" style="color: var(--accent-primary);">-</span>
-                        </div>
-                        <div class="stat-card glass" style="flex: 1; min-width: 150px; background: rgba(30, 41, 59, 0.4);">
-                            <span class="stat-label">Mean Prediction Error</span>
-                            <span class="stat-val" id="report-mean-error" style="color: var(--warning);">-</span>
-                        </div>
-                        <div class="stat-card glass" style="flex: 1; min-width: 150px; background: rgba(30, 41, 59, 0.4);">
-                            <span class="stat-label">Active / Total Pledges</span>
-                            <span class="stat-val" id="report-pledge-counts">-</span>
-                        </div>
-                    </div>
-                    <div class="table-container">
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                            <thead>
-                                <tr>
-                                    <th>Risk Prediction Range</th>
-                                    <th>Telemetry Sample Count</th>
-                                    <th>Observed Failure Rate</th>
-                                </tr>
-                            </thead>
-                            <tbody id="report-calibration-tbody">
-                                <tr>
-                                    <td colspan="3" class="table-empty">Calibration history is empty. Run tests to generate data.</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                </details>
+                </div>
+            </section>
+
+            <!-- TAB: WORK & PLAN -->
+            <section id="work-tab" class="tab-content">
+                <div id="objective-planner-container">
+                    <div id="objective-planner-empty" style="padding: 40px 24px; text-align: center; color: #94a3b8; background: rgba(15,23,42,0.6); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.1); max-width: 520px; margin: 40px auto;">
+                        <div style="font-size: 2.2rem; margin-bottom: 10px;">📋</div>
+                        <div style="font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">No Active Development Objective Yet</div>
+                        <div style="font-size: 0.88rem; color: #94a3b8; margin-bottom: 18px; line-height: 1.5;">Scan a repository to discover architectural risks, select a high-impact target, and generate a 7-stage bounded development mission.</div>
+                        <button id="btn-work-empty-connect" class="btn primary btn-primary-action" style="padding: 9px 20px; font-size: 12.5px;">
+                            🔌 Connect Repository
+                        </button>
                     </div>
                 </div>
             </section>
@@ -349,7 +908,10 @@
                         <div class="form-group">
                             <label for="prompt-files" class="engineer-only">Target Files to Modify</label>
                             <label for="prompt-files" class="creator-only">Target Modules (Optional)</label>
-                            <input type="text" id="prompt-files" placeholder="Select from Dashboard or write file paths (e.g. math_ops.py)">
+                            <select id="prompt-file-select" style="width: 100%; background: rgba(15, 23, 42, 0.8); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.15); padding: 8px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 6px;">
+                                <option value="">-- Select Analyzed File --</option>
+                            </select>
+                            <input type="text" id="prompt-files" placeholder="Select from dropdown or write file paths (e.g. math_ops.py)">
                         </div>
                         <!-- Real-time Risk Assistant Container -->
                         <div id="creator-risk-assistant" class="glass" style="margin-top: 8px; margin-bottom: 12px; padding: 12px; border: 1px dashed var(--border-color); border-radius: 8px; display: none;">
@@ -368,18 +930,67 @@
                     </div>
 
                     <div class="display-panel glass">
-                        <div class="panel-header">
-                            <h2 class="engineer-only">Optimized Prompt Context</h2>
-                            <h2 class="creator-only">Instructions for your AI Pilot</h2>
-                            <button id="btn-copy-prompt" class="btn secondary">
+                        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                            <div>
+                                <h2 style="margin: 0; font-size: 1.1rem;">Agent Context Brief</h2>
+                                <div class="provider-pills-group" style="display: flex; gap: 4px; margin-top: 6px;">
+                                    <button id="pill-agent-md" class="btn-preset-provider active" data-provider="markdown" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.15); color: #38bdf8; cursor: pointer;">Markdown</button>
+                                    <button id="pill-agent-claude" class="btn-preset-provider" data-provider="claude" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: #94a3b8; cursor: pointer;">Claude</button>
+                                    <button id="pill-agent-cursor" class="btn-preset-provider" data-provider="cursor" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: #94a3b8; cursor: pointer;">Cursor</button>
+                                    <button id="pill-agent-agy" class="btn-preset-provider" data-provider="antigravity" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: #94a3b8; cursor: pointer;">Antigravity</button>
+                                    <button id="pill-agent-aider" class="btn-preset-provider" data-provider="aider" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: #94a3b8; cursor: pointer;">Aider</button>
+                                </div>
+                            </div>
+                            <button id="btn-copy-prompt" class="btn secondary btn-small" style="padding: 8px 16px;">
                                 <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                 </svg>
-                                <span>Copy Text</span>
+                                <span>📋 COPY MISSION</span>
                             </button>
                         </div>
-                        <pre class="prompt-output" id="prompt-output-box">Generated instructions will appear here. Feed this directly to any AI coding assistant to guarantee a clean build.</pre>
+
+                        <!-- Mission Validity Status Banner (KANBAN-04) -->
+                        <div id="mission-validity-banner" style="margin-top: 12px; margin-bottom: 12px; padding: 10px 14px; border-radius: 8px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span id="mission-validity-icon" style="font-size: 14px; color: #10b981;">✓</span>
+                                <span id="mission-validity-text" style="font-size: 12px; font-weight: 600; color: #f8fafc;">MISSION READY · Compiler bounded &amp; verified</span>
+                            </div>
+                            <span id="mission-validity-badge" style="font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.2); color: #10b981; text-transform: uppercase;">READY</span>
+                        </div>
+
+                        <!-- Structured Compiler Cards (Stage D) -->
+                        <div id="compiler-cards-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 14px;">
+                            <div class="glass" style="padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.3); background: rgba(15, 23, 42, 0.6);">
+                                <div style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #38bdf8;">🎯 Target</div>
+                                <div id="card-target-file" style="font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: #f8fafc; margin-top: 4px;">ultron/interfaces/server.py</div>
+                            </div>
+                            <div class="glass" style="padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.3); background: rgba(15, 23, 42, 0.6);">
+                                <div style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #f59e0b;">💡 Why</div>
+                                <div id="card-why-reason" style="font-size: 11.5px; color: #cbd5e1; margin-top: 4px;">Central dependency; isolate request dispatch.</div>
+                            </div>
+                            <div class="glass" style="padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.3); background: rgba(15, 23, 42, 0.6);">
+                                <div style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #10b981;">⚡ Change</div>
+                                <div id="card-change-intent" style="font-size: 11.5px; color: #cbd5e1; margin-top: 4px;">Modularize routing with zero runtime side-effects.</div>
+                            </div>
+                            <div class="glass" style="padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.3); background: rgba(15, 23, 42, 0.6);">
+                                <div style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #f87171;">🚫 Do Not Touch</div>
+                                <div id="card-do-not-touch" style="font-family: var(--font-mono); font-size: 11px; color: #fca5a5; margin-top: 4px;">ultron/core/types.py, .ultron/issues/</div>
+                            </div>
+                            <div class="glass" style="padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(168, 85, 247, 0.3); background: rgba(15, 23, 42, 0.6);">
+                                <div style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #c084fc;">🔍 Evidence</div>
+                                <div id="card-evidence-summary" style="font-size: 11.5px; color: #cbd5e1; margin-top: 4px;">Execution trace active · Blast radius verified</div>
+                            </div>
+                            <div class="glass" style="padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.3); background: rgba(15, 23, 42, 0.6);">
+                                <div style="font-size: 10px; text-transform: uppercase; font-weight: 700; color: #38bdf8;">🛡️ Verify</div>
+                                <code id="card-verify-cmd" style="font-family: var(--font-mono); font-size: 11px; color: #38bdf8; margin-top: 4px; display: block;">python verify_release.py</code>
+                            </div>
+                        </div>
+
+                        <details open style="margin-top: 6px;">
+                            <summary style="cursor: pointer; font-size: 11.5px; color: #94a3b8; margin-bottom: 6px; font-weight: 600;">Compiled Provider Output</summary>
+                            <pre class="prompt-output" id="prompt-output-box" style="font-family: var(--font-mono); font-size: 12px; line-height: 1.5; color: #f8fafc; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 16px; min-height: 180px; white-space: pre-wrap; overflow-y: auto;">Generated compiler-bounded instructions will appear here. Feed this directly to any AI coding assistant to guarantee a clean build.</pre>
+                        </details>
                     </div>
                 </div>
             </section>
@@ -394,6 +1005,7 @@
                         <div class="explorer-section">
                             <h2 class="engineer-only">File Explorer</h2>
                             <h2 class="creator-only">Project Modules</h2>
+                            <input type="text" id="file-search-input" placeholder="Filter files..." style="width: 100%; background: rgba(15, 23, 42, 0.8); color: #f8fafc; border: 1px solid rgba(255, 255, 255, 0.15); padding: 6px 10px; border-radius: 6px; font-size: 12px; margin: 6px 0 8px 0;">
                             <div id="file-explorer-tree" class="file-tree">
                                 <div class="table-empty">Connect a repository.</div>
                             </div>
@@ -410,19 +1022,10 @@
                         </div>
 
                         <div class="config-section" style="border-top: 1px solid var(--border-color); padding-top: 16px;">
-                            <h2 class="engineer-only">Parameters</h2>
-                            <div class="form-group engineer-only" style="margin-top: 8px;">
-                                <label for="slider-typo">Typo Sim: <span id="val-typo">75%</span></label>
-                                <input type="range" id="slider-typo" min="50" max="95" value="75">
-                            </div>
-                            <div class="form-group engineer-only">
-                                <label for="slider-prob">Transition Prob: <span id="val-prob">0.0%</span></label>
-                                <input type="range" id="slider-prob" min="0" max="20" value="0" step="1">
-                            </div>
                             <!-- Auto-Calibration Widget -->
-                            <div class="calibration-widget engineer-only" style="margin-top: 16px; border-top: 1px dashed var(--border-color); padding-top: 12px;">
-                                <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--neon-cyan); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Auto-Calibration</h3>
-                                <button id="btn-calibrate" class="btn secondary btn-small full-width" style="margin-top: 8px; padding: 8px 12px; font-size: 0.85rem;">
+                            <div class="calibration-widget engineer-only" style="padding-top: 4px;">
+                                <h3 style="font-size: 0.9rem; font-weight: 600; color: var(--neon-cyan); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Grounding &amp; Calibration</h3>
+                                <button id="btn-calibrate" class="btn secondary btn-small full-width" style="margin-top: 4px; padding: 8px 12px; font-size: 0.85rem;">
                                     <span>Calibrate Thresholds</span>
                                 </button>
                                 <div id="calibration-results" class="calibration-results-container" style="display: none; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; font-family: var(--font-mono); font-size: 11px; margin-top: 8px; max-height: 180px; overflow-y: auto;">
@@ -441,20 +1044,36 @@
                                 <span id="editor-unsaved-badge" class="unsaved-badge hidden">Unsaved</span>
                                 <span id="editor-diff-badge" class="diff-badge hidden" style="background:rgba(255,0,85,0.15); border:1px solid #ff0055; color:#ff0055; font-family:var(--font-mono); font-size:11px; padding:2px 6px; border-radius:4px; margin-left:8px; font-weight:700;">ΔI: 0.00</span>
                             </div>
-                            <button id="btn-save-file" class="btn primary btn-small disabled" disabled>
-                                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                                    <polyline points="7 3 7 8 15 8"></polyline>
-                                </svg>
-                                <span>Save Changes</span>
-                            </button>
+                            <div style="display: flex; gap: 8px;">
+                                <button id="btn-editor-refactor-patch" class="btn secondary btn-small" style="font-size: 11px; padding: 4px 10px; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">
+                                    <span>⚡ Refactor Patch</span>
+                                </button>
+                                <button id="btn-save-file" class="btn secondary btn-small disabled" disabled>
+                                    <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                        <polyline points="7 3 7 8 15 8"></polyline>
+                                    </svg>
+                                    <span>Save Changes</span>
+                                </button>
+                            </div>
                         </div>
                         <div class="editor-body">
                             <div class="line-gutter" id="editor-gutter">
                                 <span>1</span>
                             </div>
                             <textarea id="sandbox-editor" class="code-editor" placeholder="# Select a python file from the explorer on the left or paste code to begin..."></textarea>
+                        </div>
+                        <div id="editor-status-bar" class="editor-status-bar" style="display:flex; justify-content:space-between; align-items:center; background:rgba(15,23,42,0.85); padding:4px 12px; font-family:var(--font-mono); font-size:11px; color:#94a3b8; border-top:1px solid rgba(255,255,255,0.08);">
+                            <div style="display:flex; gap:12px; align-items:center;">
+                                <span>Lines: <strong id="editor-line-count" style="color:#f8fafc;">0</strong></span>
+                                <span>Chars: <strong id="editor-char-count" style="color:#f8fafc;">0</strong></span>
+                                <span style="background:rgba(56,189,248,0.15); color:#38bdf8; padding:1px 6px; border-radius:4px; border:1px solid rgba(56,189,248,0.3);">Python</span>
+                            </div>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <span title="Shortcut: Press Ctrl+S / Cmd+S to Save">Ctrl+S Save</span>
+                                <span id="editor-status-msg" style="color:#34d399;">Ready</span>
+                            </div>
                         </div>
                         <div class="editor-footer">
                             <button id="btn-run-audit" class="btn alert full-width">
@@ -489,13 +1108,12 @@
                             </div>
                             
                             <div class="anomaly-report-area" id="anomaly-reports" style="height: 140px;">
-                                <div class="report-empty">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="empty-icon">
-                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                    </svg>
-                                    <p class="engineer-only">Run an audit to check for anomalies.</p>
-                                    <p class="creator-only">Click safety check to verify code.</p>
+                                <div class="report-empty" style="text-align: center; padding: 16px;">
+                                    <div style="font-size: 1.6rem; margin-bottom: 4px;">🛡️</div>
+                                    <p style="margin: 0 0 8px 0; font-size: 12px; color: #cbd5e1;">Nothing has been verified yet. Run tests to prove repository health delta.</p>
+                                    <button id="btn-verify-empty-run" class="btn secondary btn-small" style="padding: 5px 12px; font-size: 11.5px; border-color: rgba(56,189,248,0.4); color: #38bdf8;">
+                                        ⚡ Run Tests Now
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -511,6 +1129,52 @@
                             </div>
                         </div>
 
+                        <!-- Safe to Continue Decision Gate -->
+                        <div class="safety-gate-section" style="border-top: 1px solid var(--border-color); padding-top: 14px; display:flex; flex-direction:column; gap:8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #94a3b8; letter-spacing: 0.5px;">Continuation Readiness</span>
+                                    <div id="safety-gate-semantics" style="font-size: 10.5px; color: #64748b; margin-top: 2px;">Evaluates configured blocking gates (tests, boundaries, cycles)</div>
+                                </div>
+                                <span id="safety-gate-badge" style="font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 700; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">AWAITING RUN</span>
+                            </div>
+                            <div id="safety-checklist-container" style="display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; font-family: var(--font-mono);">
+                                <div style="color: #94a3b8; font-style: italic;">Run tests or audit to evaluate build continuation readiness.</div>
+                            </div>
+
+                            <!-- Repository Health Delta Display (Stage E) -->
+                            <div id="repo-health-delta-card" style="margin-top: 10px; background: rgba(0,0,0,0.35); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); padding: 12px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #38bdf8;">Repository Health Delta</span>
+                                    <span id="health-delta-status-badge" style="font-size: 10.5px; font-weight: 700; color: #34d399;">NO REGRESSIONS</span>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 11px;">
+                                    <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 6px; padding: 6px 8px;">
+                                        <div style="color: #34d399; font-weight: 700;">✨ WHAT GOT BETTER</div>
+                                        <div id="delta-what-better" style="color: #cbd5e1; margin-top: 2px;">Complexity reduced, 0 unexpected files touched</div>
+                                    </div>
+                                    <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 6px; padding: 6px 8px;">
+                                        <div style="color: #f87171; font-weight: 700;">⚠️ WHAT GOT WORSE</div>
+                                        <div id="delta-what-worse" style="color: #cbd5e1; margin-top: 2px;">0 broken gates detected</div>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 8px; font-size: 11.5px; color: #94a3b8; display: flex; justify-content: space-between;">
+                                    <span>Can I continue?</span>
+                                    <strong id="delta-can-continue" style="color: #34d399;">✓ SAFE TO ADVANCE</strong>
+                                </div>
+                            </div>
+
+                            <!-- Authoritative Checkpoint Creation Gate (KANBAN-05) -->
+                            <div id="checkpoint-action-container" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+                                <button id="btn-create-checkpoint" class="btn primary full-width hidden" style="background: linear-gradient(135deg, #059669, #10b981); color: #0f172a; font-weight: 700; border: none; padding: 10px 16px;">
+                                    🛡️ Create Verified Checkpoint &amp; Continue Building
+                                </button>
+                                <button id="btn-review-failing-gates" class="btn secondary full-width" style="border-color: rgba(239, 68, 68, 0.4); color: #f87171; display: flex; justify-content: center; align-items: center; gap: 6px;">
+                                    <span>🔍 Review Failing Gates &amp; Fix Code</span>
+                                </button>
+                            </div>
+                        </div>
+
                         <!-- Live Terminal Console -->
                         <div class="terminal-section" style="border-top: 1px solid var(--border-color); padding-top: 16px; flex-grow:1; display:flex; flex-direction:column; gap:8px;">
                             <h2>Live Test Runner Console</h2>
@@ -522,15 +1186,16 @@
                 </div>
             </section>
 
-            <!-- TAB 4: DEPENDENCY GRAPH -->
-            <section id="graph-tab" class="tab-content" style="height:calc(100vh - 120px);">
-                <div class="graph-card glass" style="height:100%; display:flex; flex-direction:column;">
+            <!-- TAB 2: STRUCTURE GRAPH -->
+            <section id="graph-tab" class="tab-content" style="height:calc(100vh - 180px); min-height:500px; box-sizing:border-box;">
+                <div class="graph-card glass" style="height:100%; display:flex; flex-direction:column; box-sizing:border-box;">
                     <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:12px; gap: 16px; flex-wrap: wrap;">
                         <div>
-                            <h2>Repository Dependency Graph Explorer</h2>
-                            <span class="subtitle">Interactive visualization of codebase imports and call trees. Glow indicates McCabe complexity / coupling centrality.</span>
+                            <h2>Structure &amp; Consequence Impact</h2>
+                            <span class="subtitle">Interactive Dependency Topology &amp; Blast Radius Halos</span>
                         </div>
-                        <div class="graph-controls-wrapper" style="display:flex; gap:10px; align-items:center;">
+                        <div class="graph-controls-wrapper" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                            <input type="text" id="graph-search-input" placeholder="Search node path..." style="background:rgba(15,23,42,0.8); color:#f8fafc; border:1px solid rgba(255,255,255,0.15); padding:6px 10px; border-radius:6px; font-size:12px; width:160px;">
                             <select id="graph-filter-risk" class="graph-select" style="background:rgba(15,23,42,0.8); color:#f8fafc; border:1px solid rgba(255,255,255,0.15); padding:6px 10px; border-radius:6px; font-size:12px;">
                                 <option value="ALL">All Risk Levels</option>
                                 <option value="HIGH">🔴 High Risk Only</option>
@@ -546,29 +1211,39 @@
                                 <button id="btn-zoom-in" class="btn secondary btn-small" title="Zoom In">+</button>
                                 <button id="btn-zoom-out" class="btn secondary btn-small" title="Zoom Out">-</button>
                                 <button id="btn-zoom-reset" class="btn secondary btn-small" title="Reset View">Reset</button>
+                                <button id="btn-zoom-fit" class="btn secondary btn-small" title="Fit to Screen">Fit</button>
                             </div>
+                            <button id="btn-highlight-cycles" class="btn secondary btn-small" style="border-color: rgba(236, 72, 153, 0.4); color: #ec4899;" title="Detect and Highlight Circular Dependencies / Circular Imports">
+                                <span>🔄 Cycles</span>
+                            </button>
                             <button id="btn-refresh-graph" class="btn secondary">
                                 <span>Refresh Graph</span>
                             </button>
                         </div>
                     </div>
-                    <div class="graph-container" style="flex-grow:1; position:relative; overflow:hidden; background:rgba(0,0,0,0.15); border-radius:8px;">
+                    <div class="graph-container" style="flex-grow:1; position:relative; overflow:hidden; background:rgba(0,0,0,0.15); border-radius:8px; box-sizing:border-box;">
                         <!-- Interactive Graph Legend Overlay -->
                         <div class="graph-legend-overlay" style="position:absolute; top:12px; left:12px; z-index:10; background:rgba(15,23,42,0.85); backdrop-filter:blur(8px); padding:8px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); display:flex; gap:14px; font-size:11px; color:#cbd5e1;">
                             <div style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:50%; background:#38bdf8; display:inline-block;"></span> File</div>
                             <div style="display:flex; align-items:center; gap:6px;"><span style="width:8px; height:8px; border-radius:50%; background:#c084fc; display:inline-block;"></span> Function</div>
                             <div style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:50%; background:#f43f5e; box-shadow:0 0 6px #f43f5e; display:inline-block;"></span> High Risk</div>
+                            <div style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:50%; background:#ec4899; box-shadow:0 0 6px #ec4899; display:inline-block;"></span> Cycle Loop</div>
                             <div style="display:flex; align-items:center; gap:6px;"><span style="width:16px; height:2px; background:#9aa0a6; display:inline-block;"></span> Import Link</div>
                         </div>
                         
                         <!-- Empty State Overlay -->
-                        <div id="graph-empty-state" class="graph-empty-overlay hidden" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:10; color:#94a3b8; font-size:14px; text-align:center; background:rgba(15,23,42,0.9); padding:16px 24px; border-radius:8px; border:1px solid rgba(255,255,255,0.1);">
-                            No graph nodes match the selected filters.
+                        <div id="graph-empty-state" class="graph-empty-overlay hidden" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:10; color:#94a3b8; text-align:center; background:rgba(15,23,42,0.95); padding:24px 32px; border-radius:12px; border:1px solid rgba(56,189,248,0.3); max-width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                            <div style="font-size: 2rem; margin-bottom: 8px;">🕸️</div>
+                            <div style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">Understand What Your Repository Looks Like</div>
+                            <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 16px; line-height: 1.5;">Connect a repository to visualize dependencies, detect circular loops, and explore downstream impact halos.</div>
+                            <button id="btn-graph-empty-connect" class="btn primary btn-primary-action" style="padding: 8px 18px; font-size: 12.5px;">
+                                🔌 Connect Repository
+                            </button>
                         </div>
 
                         <svg id="dependency-graph-full" width="100%" height="100%" style="cursor:grab; user-select:none;">
                             <defs>
-                                <marker id="arrow" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                                     <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--text-color)" opacity="0.5" />
                                 </marker>
                             </defs>
@@ -576,43 +1251,93 @@
                         </svg>
 
                         <!-- Campaign 1: Non-blocking Interactive Graph Detail Drawer Sidebar -->
-                        <div id="graph-detail-drawer" class="drawer-sidebar glass hidden" style="position:absolute; top:0; right:0; width:340px; height:100%; z-index:20; background:rgba(15,23,42,0.95); backdrop-filter:blur(12px); border-left:1px solid rgba(56,189,248,0.3); padding:20px; box-shadow:-8px 0 24px rgba(0,0,0,0.5); display:flex; flex-direction:column; gap:16px; overflow-y:auto; transition:transform 0.3s ease;">
+                        <div id="graph-detail-drawer" class="drawer-sidebar glass hidden" style="position:absolute; top:0; right:0; width:340px; height:100%; z-index:20; background:rgba(15,23,42,0.95); backdrop-filter:blur(12px); border-left:1px solid rgba(56,189,248,0.3); padding:20px; box-sizing:border-box; box-shadow:-8px 0 24px rgba(0,0,0,0.5); display:flex; flex-direction:column; gap:16px; overflow-y:auto; transition:transform 0.3s ease;">
                             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
-                                <div>
-                                    <h3 id="drawer-node-label" style="margin:0; color:#f8fafc; font-size:1.1rem; font-weight:700;">Node Details</h3>
+                                <div style="min-width:0; flex:1;">
+                                    <h3 id="drawer-node-label" style="margin:0; color:#f8fafc; font-size:1.1rem; font-weight:700; word-break:break-word; overflow-wrap:break-word;">Node Details</h3>
                                     <span id="drawer-node-type" style="font-size:0.8rem; color:#38bdf8;">File Node</span>
                                 </div>
-                                <button id="btn-close-drawer" class="btn-close" style="font-size:20px; background:none; border:none; color:#94a3b8; cursor:pointer;">&times;</button>
+                                <button id="btn-close-drawer" class="btn-close" style="font-size:20px; background:none; border:none; color:#94a3b8; cursor:pointer; padding:0 4px; line-height:1;">&times;</button>
                             </div>
                             
                             <div style="display:flex; gap:10px;">
                                 <div class="metric-card glass" style="flex:1; padding:10px; text-align:center;">
-                                    <span style="font-size:0.75rem; color:#94a3b8; display:block;">Impact Score</span>
+                                    <span style="font-size:0.75rem; color:#94a3b8; display:block;">Change Risk</span>
                                     <span id="drawer-impact-score" style="font-size:1.2rem; font-weight:700; color:#f43f5e;">12.40</span>
                                 </div>
                                 <div class="metric-card glass" style="flex:1; padding:10px; text-align:center;">
-                                    <span style="font-size:0.75rem; color:#94a3b8; display:block;">McCabe CC</span>
+                                    <span style="font-size:0.75rem; color:#94a3b8; display:block;">Decision Branches</span>
                                     <span id="drawer-complexity" style="font-size:1.2rem; font-weight:700; color:#c084fc;">14</span>
                                 </div>
                                 <div class="metric-card glass" style="flex:1; padding:10px; text-align:center;">
-                                    <span style="font-size:0.75rem; color:#94a3b8; display:block;">Coupling</span>
+                                    <span style="font-size:0.75rem; color:#94a3b8; display:block;">Blast Radius</span>
                                     <span id="drawer-coupling" style="font-size:1.2rem; font-weight:700; color:#38bdf8;">6</span>
                                 </div>
                             </div>
 
-                            <div>
-                                <h4 style="margin:0 0 6px 0; color:#cbd5e1; font-size:0.85rem;">Architectural Role & Strategy</h4>
-                                <p id="drawer-strategy" style="margin:0; font-size:0.8rem; color:#94a3b8; line-height:1.4;">Safe internal edits. Low risk of ripple effects across adjacent components.</p>
+                            <!-- Grounded Architectural Consequence & Evidence Breakdown -->
+                            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+                                <div style="font-size: 11px; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">Change Consequence &amp; Blast Radius</div>
+                                
+                                <div style="display: flex; gap: 8px;">
+                                    <div class="stat-card glass" style="flex: 1; padding: 6px 10px; background: rgba(30, 41, 59, 0.4); text-align: center;">
+                                        <span style="font-size: 10px; color: #94a3b8; display: block;">Dependents</span>
+                                        <span id="drawer-dependents-count" style="font-size: 1.1rem; font-weight: 700; color: #f43f5e; font-family: var(--font-mono);">-</span>
+                                    </div>
+                                    <div class="stat-card glass" style="flex: 1; padding: 6px 10px; background: rgba(30, 41, 59, 0.4); text-align: center;">
+                                        <span style="font-size: 10px; color: #94a3b8; display: block;">Dependencies</span>
+                                        <span id="drawer-dependencies-count" style="font-size: 1.1rem; font-weight: 700; color: #38bdf8; font-family: var(--font-mono);">-</span>
+                                    </div>
+                                </div>
+
+                                <div style="font-size: 12px; line-height: 1.45; background: rgba(15, 23, 42, 0.5); padding: 8px 10px; border-radius: 6px; border-left: 3px solid #38bdf8; word-break: break-word;">
+                                    <strong style="color: #38bdf8; font-size: 10.5px; text-transform: uppercase; display: block; margin-bottom: 2px;">Change Consequence:</strong>
+                                    <span id="drawer-change-impact" style="color: #f8fafc; font-weight: 600;">Changing this module is likely to affect localized components.</span>
+                                </div>
+
+                                <div style="font-size: 11.5px; line-height: 1.4; word-break: break-word;">
+                                    <span style="color: #94a3b8; font-weight: 600;">Why It Matters: </span>
+                                    <span id="drawer-strategy" style="color: #cbd5e1;">Safe localized modifications.</span>
+                                </div>
+
+                                <div style="font-size: 11.5px; line-height: 1.4; word-break: break-word;">
+                                    <span style="color: #f87171; font-weight: 600;">What Could Break: </span>
+                                    <span id="drawer-what-could-break" style="color: #f1f5f9; font-family: var(--font-mono); font-size: 11px;">Direct callers / dependent tests</span>
+                                </div>
+
+                                <div style="font-size: 10.5px; color: #64748b; font-family: var(--font-mono); border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 6px; word-break: break-word;">
+                                    <span>Evidence: </span><span id="drawer-consequence-evidence">Dependency edges: 0 · Fan-out: 0 · Cycle: None</span>
+                                </div>
                             </div>
 
                             <div>
                                 <h4 style="margin:0 0 6px 0; color:#cbd5e1; font-size:0.85rem;">AI Architectural Critique</h4>
-                                <div id="drawer-ai-content" style="background:rgba(0,0,0,0.3); padding:12px; border-radius:6px; font-size:0.8rem; color:#cbd5e1; font-family:monospace; line-height:1.4; min-height:80px;">
+                                <!-- Circular Dependency Alert Box -->
+                                <div id="drawer-cycle-alert-box" class="hidden" style="background: rgba(236, 72, 153, 0.1); border: 1px solid rgba(236, 72, 153, 0.4); border-radius: 8px; padding: 12px; margin-bottom: 10px;">
+                                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                                        <span style="font-size: 14px;">⚠️</span>
+                                        <span style="font-size: 11px; font-weight: 700; color: #ec4899; text-transform: uppercase;">Circular Dependency Loop</span>
+                                    </div>
+                                    <div id="drawer-cycle-sequence" style="font-family: var(--font-mono); font-size: 11px; color: #f8fafc; line-height: 1.4; word-break: break-word; margin-bottom: 8px;"></div>
+                                    <div id="drawer-cycle-recommendation" style="font-size: 11px; color: #cbd5e1; background: rgba(15, 23, 42, 0.6); padding: 6px 8px; border-radius: 4px; border-left: 2px solid #ec4899; word-break: break-word;"></div>
+                                </div>
+
+                                <div id="drawer-ai-content" style="background:rgba(0,0,0,0.3); padding:12px; border-radius:6px; font-size:0.8rem; color:#cbd5e1; font-family:monospace; line-height:1.4; min-height:80px; max-height:220px; overflow-y:auto; word-break:break-word; white-space:pre-wrap;">
                                     Click "Explain with AI" for grounded architectural feedback.
                                 </div>
-                                <button id="btn-drawer-ai-critique" class="btn primary btn-small" style="width:100%; margin-top:10px; display:flex; justify-content:center; align-items:center; gap:6px;">
-                                    <span>⚡ Explain with Local AI</span>
-                                </button>
+                                <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+                                    <div style="display:flex; gap:8px;">
+                                        <button id="btn-drawer-focus-node" class="btn secondary btn-small" style="flex:1; display:flex; justify-content:center; align-items:center; gap:4px; border-color:rgba(56,189,248,0.4); color:#38bdf8;">
+                                            <span>🎯 Focus Node</span>
+                                        </button>
+                                        <button id="btn-drawer-ai-critique" class="btn secondary btn-small" style="flex:1; display:flex; justify-content:center; align-items:center; gap:6px;">
+                                            <span>⚡ Explain AI</span>
+                                        </button>
+                                    </div>
+                                    <button id="btn-drawer-push-agent" class="btn primary btn-small" style="width:100%; display:flex; justify-content:center; align-items:center; gap:6px; background:linear-gradient(135deg, #0284c7, #38bdf8); color:#0f172a; font-weight:700; border:none; padding:10px 14px; cursor:pointer;">
+                                        <span>🚀 Prepare Agent Mission for this Node</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -643,9 +1368,9 @@
                     <p><strong>Step 2: Connect and Preview.</strong> Ultron maps your description to target files and automatically outlines structural risks and mitigations before code is touched.</p>
                 </div>
                 <div class="tour-slide" data-slide="2">
-                    <h3>Engineer Mode (Developers & QA)</h3>
-                    <p><strong>Step 3: Analyze Codebase Topology.</strong> View the System Interaction Topology map to inspect McCabe complexity, coupling dependencies, and code pathways.</p>
-                    <p><strong>Step 4: Run Audits.</strong> Adjust spelling typo and Markov causal sequence thresholds, run automated anomaly sweeps, and check predictive impact before committing changes.</p>
+                    <h3>Developer Mode (Builders &amp; QA)</h3>
+                    <p><strong>Step 3: Analyze Codebase Connections.</strong> View the Project Connection Map to inspect decision branches, connected callers, and code pathways.</p>
+                    <p><strong>Step 4: Run Audits.</strong> Check architecture boundaries, verify regression-free changes, and preview blast radius before touching code.</p>
                 </div>
             </div>
             <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; margin-top:20px; border-top:1px solid var(--border-color); padding-top:16px;">
@@ -670,18 +1395,47 @@
             <div class="modal-body" style="display:flex; flex-direction:column; gap:16px; margin-top:15px;">
                 <div style="display:flex; gap:12px; flex-wrap:wrap;">
                     <div class="stat-card glass" style="flex: 1; min-width: 120px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);">
-                        <span class="stat-label" style="font-size: 11px;">Code Complexity <span style="font-size: 9px; opacity: 0.6; display: block; font-weight: normal; margin-top: 2px;">(McCabe Complexity)</span></span>
+                        <span class="stat-label" style="font-size: 11px;">Decision Paths <span style="font-size: 9px; opacity: 0.6; display: block; font-weight: normal; margin-top: 2px;">(Branches &amp; Complexity)</span></span>
                         <span class="stat-val" id="detail-complexity" style="font-size: 24px; color: var(--neon-cyan);">-</span>
                     </div>
                     <div class="stat-card glass" style="flex: 1; min-width: 120px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);">
-                        <span class="stat-label" style="font-size: 11px;">Class Connections <span style="font-size: 9px; opacity: 0.6; display: block; font-weight: normal; margin-top: 2px;">(Coupling In/Out)</span></span>
+                        <span class="stat-label" style="font-size: 11px;">Blast Radius <span style="font-size: 9px; opacity: 0.6; display: block; font-weight: normal; margin-top: 2px;">(Connected Callers)</span></span>
                         <span class="stat-val" id="detail-coupling" style="font-size: 24px; color: var(--neon-cyan);">-</span>
                     </div>
                 </div>
                 <div>
-                    <h3 style="color: var(--neon-cyan); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Code Interactions <span style="font-size: 9px; opacity: 0.6; display: block; font-weight: normal; text-transform: none; margin-top: 2px; color: var(--text-secondary);">(Incoming & Outgoing Dependencies)</span></h3>
+                    <h3 style="color: var(--neon-cyan); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Code Interactions <span style="font-size: 9px; opacity: 0.6; display: block; font-weight: normal; text-transform: none; margin-top: 2px; color: var(--text-secondary);">(Incoming &amp; Outgoing Dependencies)</span></h3>
                     <div id="detail-dependencies-list" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); padding: 10px 14px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; max-height: 120px; overflow-y:auto; color: var(--text-color);">
                         None
+                    </div>
+                </div>
+
+                <!-- Interactive Blast Radius & Path Finder Panel -->
+                <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 12px; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">💥 Blast-Radius Impact</span>
+                        <div style="display: flex; gap: 6px;">
+                            <button id="btn-drawer-trace-blast" class="btn secondary btn-small" style="font-size: 11px; padding: 3px 8px; border-color: rgba(245, 158, 11, 0.4); color: #f59e0b;" title="Highlight upstream callers and downstream dependents in SVG Graph">
+                                💥 Trace Blast
+                            </button>
+                            <button id="btn-drawer-clear-blast" class="btn secondary btn-small" style="font-size: 11px; padding: 3px 8px;" title="Reset graph coloring">
+                                ✕ Reset
+                            </button>
+                        </div>
+                    </div>
+                    <div id="blast-radius-summary-box" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; text-align: center; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                        <div>
+                            <div style="font-size: 9px; color: #94a3b8; text-transform: uppercase;">Upstream</div>
+                            <div id="blast-upstream-count" style="font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: #38bdf8;">0</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 9px; color: #94a3b8; text-transform: uppercase;">Downstream</div>
+                            <div id="blast-downstream-count" style="font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: #f59e0b;">0</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 9px; color: #94a3b8; text-transform: uppercase;">Total Impact</div>
+                            <div id="blast-total-count" style="font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: #ef4444;">0</div>
+                        </div>
                     </div>
                 </div>
                 <div>
@@ -690,59 +1444,383 @@
                         <span style="opacity: 0.5; font-size: 13px;">No active violations for this entity.</span>
                     </div>
                 </div>
-                <div>
-                    <h3 style="color: var(--neon-cyan); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Code Evolution History <span style="font-size: 9px; opacity: 0.6; display: block; font-weight: normal; text-transform: none; margin-top: 2px; color: var(--text-secondary);">(Historical Trends)</span></h3>
-                    <div id="detail-trends-list" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); padding: 10px 14px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; color: var(--text-color);">
-                        Complexity: Stable <br> Coupling: Stable
-                    </div>
+
+                <!-- Actionable Mission Transition -->
+                <div style="margin-top: 12px; display: flex; gap: 8px;">
+                    <button id="btn-modal-prepare-mission" class="btn primary" style="flex: 1; padding: 10px 16px; font-weight: 700; font-size: 13px; background: linear-gradient(135deg, #0284c7, #38bdf8); color: #0f172a; border: none; border-radius: 6px; cursor: pointer;">
+                        🚀 <span>Prepare Agent Mission for this Module</span>
+                    </button>
                 </div>
-                <div>
-                    <h3 style="color: var(--neon-cyan); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Trust Chain <span style="font-size: 9px; opacity: 0.6; display: block; font-weight: normal; text-transform: none; margin-top: 2px; color: var(--text-secondary);">(Evidence Provenance)</span></h3>
-                    <div id="detail-trust-chain-box" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); padding: 10px 14px; border-radius: 6px; font-size: 12px; color: var(--text-color);">
-                        No trust chain data available.
+            </div>
+        </div>
+    <!-- Health Score Explanation Modal -->
+    <div id="modal-health-score-info" class="modal-overlay hidden" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9999;">
+        <div class="glass" style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 12px; padding: 28px; max-width: 560px; width: 90%; color: #f8fafc;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 16px;">
+                <h3 style="margin: 0; font-family: 'Outfit', sans-serif; color: #38bdf8; font-size: 1.25rem;">Repository Health Score Guide</h3>
+                <button id="btn-close-health-modal" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <div style="font-size: 0.9rem; line-height: 1.6; color: #cbd5e1; display: flex; flex-direction: column; gap: 14px;">
+                <p style="margin: 0;">Ultron scores your codebase health from <strong>0 to 100</strong> based on verified local code facts:</p>
+                
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; padding: 8px 12px;">
+                        <span style="font-size: 18px;">🟢</span>
+                        <div><strong>90 – 100 (Excellent)</strong>: Clean modular code, low branching complexity, minimal circular dependencies.</div>
                     </div>
-                </div>
-                <div>
-                    <h3 style="color: var(--neon-cyan); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Repair Simulation <span style="font-size: 9px; opacity: 0.6; display: block; font-weight: normal; text-transform: none; margin-top: 2px; color: var(--text-secondary);">(What-If Refactoring Analysis)</span></h3>
-                    <div id="detail-repair-simulation-box" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); padding: 10px 14px; border-radius: 6px; font-size: 12px; color: var(--text-color);">
-                        No repair simulation data available.
+                    <div style="display: flex; align-items: center; gap: 10px; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 8px 12px;">
+                        <span style="font-size: 18px;">🔵</span>
+                        <div><strong>75 – 89 (Good)</strong>: Healthy architecture with a few isolated hotspots ready for refactoring.</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 6px; padding: 8px 12px;">
+                        <span style="font-size: 18px;">🟡</span>
+                        <div><strong>60 – 74 (Warning)</strong>: Several critical hubs with high blast radius require decomposition.</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; padding: 8px 12px;">
+                        <span style="font-size: 18px;">🔴</span>
+                        <div><strong>&lt; 60 (Critical)</strong>: Entangled dependencies or parse errors require immediate remediation.</div>
                     </div>
                 </div>
 
-                <!-- Audience Persona Translation Bar -->
-                <div id="persona-translation-container">
-                    <h3 style="color: var(--neon-cyan); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
-                        <span>Human Machine Translation Layer</span>
-                        <span id="persona-active-badge" class="badge low" style="font-size: 10px; font-weight: normal; text-transform: none;">👨‍💻 Developer</span>
-                    </h3>
-                    <div id="persona-tabs-bar" style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px;">
-                        <button id="btn-persona-dev" class="btn secondary btn-small persona-tab active" data-persona="developer" style="font-size: 11px; padding: 4px 10px;">👨‍💻 Developer</button>
-                        <button id="btn-persona-manager" class="btn secondary btn-small persona-tab" data-persona="manager" style="font-size: 11px; padding: 4px 10px;">📊 Manager</button>
-                        <button id="btn-persona-founder" class="btn secondary btn-small persona-tab" data-persona="founder" style="font-size: 11px; padding: 4px 10px;">🚀 Founder</button>
-                        <button id="btn-persona-security" class="btn secondary btn-small persona-tab" data-persona="security" style="font-size: 11px; padding: 4px 10px;">🛡️ Security</button>
-                        <button id="btn-persona-ai" class="btn secondary btn-small persona-tab" data-persona="ai_agent" style="font-size: 11px; padding: 4px 10px;">🤖 AI Agent</button>
+                <div style="font-size: 0.8rem; color: #94a3b8; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+                    <strong>Components Evaluated:</strong> Syntax parsing coverage, decision path density, module connection fanout, and architectural boundary rules.
+                </div>
+            </div>
+            <div style="margin-top: 20px; text-align: right;">
+                <button id="btn-dismiss-health-modal" class="btn secondary btn-small">Got it</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multi-Agent Handoff & Tool Integration Modal -->
+    <div id="modal-agent-handoff" class="modal-overlay hidden" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9999;">
+        <div class="glass" style="background: rgba(15, 23, 42, 0.96); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 12px; padding: 24px; max-width: 720px; width: 92%; max-height: 85vh; display: flex; flex-direction: column; color: #f8fafc;">
+            <!-- Modal Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.4rem;">🤖</span>
+                    <div>
+                        <h3 style="margin: 0; font-family: 'Outfit', sans-serif; color: #38bdf8; font-size: 1.2rem;">Push to Coding Agent</h3>
+                        <p id="agent-handoff-subtitle" style="margin: 0; font-size: 0.8rem; color: #94a3b8;">Target: Full Repository Context</p>
                     </div>
+                </div>
+                <button id="btn-close-agent-modal" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+
+            <!-- Tab Navigation Bar -->
+            <div style="display: flex; gap: 6px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 8px; margin-bottom: 14px;">
+                <button id="tab-btn-agent-brief" class="btn secondary btn-small agent-tab-btn active" style="font-size: 11px; padding: 4px 10px;">📋 Targeted Brief</button>
+                <button id="tab-btn-agent-cli" class="btn secondary btn-small agent-tab-btn" style="font-size: 11px; padding: 4px 10px;">💻 CLI Presets</button>
+                <button id="tab-btn-agent-mcp" class="btn secondary btn-small agent-tab-btn" style="font-size: 11px; padding: 4px 10px;">🔌 MCP Config</button>
+                <button id="tab-btn-agent-json" class="btn secondary btn-small agent-tab-btn" style="font-size: 11px; padding: 4px 10px;">📦 API JSON</button>
+            </div>
+
+            <!-- Tab 1: Targeted Markdown Brief -->
+            <div id="agent-tab-content-brief" class="agent-tab-pane" style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                <div style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 6px;">Copy this structured engineering context directly into Claude, ChatGPT, Cursor, or your AI IDE prompt:</div>
+                <pre id="agent-brief-display" style="flex: 1; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 12px; font-family: var(--font-mono); font-size: 11.5px; color: #38bdf8; overflow-y: auto; white-space: pre-wrap; margin: 0; max-height: 320px;"></pre>
+                <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
+                    <button id="btn-copy-agent-brief" class="btn primary btn-small" style="background: #38bdf8; color: #0f172a; font-weight: 700; border: none;">📋 Copy Markdown Brief</button>
+                </div>
+            </div>
+
+            <!-- Tab 2: CLI Presets (Antigravity, Claude Code, Cursor, Aider) -->
+            <div id="agent-tab-content-cli" class="agent-tab-pane hidden" style="flex: 1; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; max-height: 360px;">
+                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <span style="font-weight:700; font-size:12px; color:#38bdf8;">Antigravity CLI (agy)</span>
+                        <button class="btn secondary btn-small btn-copy-cli-snippet" data-cli="agy" style="padding:2px 8px; font-size:10px;">Copy</button>
+                    </div>
+                    <code id="cli-cmd-agy" style="font-family:var(--font-mono); font-size:11px; color:#f8fafc; word-break:break-all;">agy "Refactor codebase according to Ultron architecture metrics"</code>
                 </div>
 
-                <div style="display: flex; gap: 8px; margin-top: 2px;">
-                    <button id="btn-detail-ai-explain" class="btn secondary" style="flex: 1; font-size: 11px; padding: 8px 12px;">
-                        <span>Translate Risk</span>
-                    </button>
-                    <button id="btn-auto-push-ai" class="btn primary" style="flex: 2; background: linear-gradient(135deg, var(--neon-cyan), #38bdf8); border: none; color: #0d1b2a; font-weight: 800; font-size: 12px;">
-                        <span>⚡ Auto-Push to AI Assistant</span>
-                    </button>
+                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <span style="font-weight:700; font-size:12px; color:#c084fc;">Claude Code CLI</span>
+                        <button class="btn secondary btn-small btn-copy-cli-snippet" data-cli="claude" style="padding:2px 8px; font-size:10px;">Copy</button>
+                    </div>
+                    <code id="cli-cmd-claude" style="font-family:var(--font-mono); font-size:11px; color:#f8fafc; word-break:break-all;">claude -p "Refactor according to Ultron AST analysis"</code>
                 </div>
-                <div id="detail-ai-explanation-box" class="glass hidden" style="padding: 12px; font-size: 12px; line-height: 1.5; background: rgba(0,242,254,0.05); border: 1px solid rgba(0,242,254,0.3); border-radius: 6px; font-family: var(--font-mono); max-height: 150px; overflow-y: auto; color: var(--text-color);">
-                    Awaiting explanation...
+
+                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <span style="font-weight:700; font-size:12px; color:#34d399;">Cursor Composer / Agent</span>
+                        <button class="btn secondary btn-small btn-copy-cli-snippet" data-cli="cursor" style="padding:2px 8px; font-size:10px;">Copy</button>
+                    </div>
+                    <code id="cli-cmd-cursor" style="font-family:var(--font-mono); font-size:11px; color:#f8fafc; word-break:break-all;">@codebase Refactor high-risk hotspots identified by Ultron</code>
                 </div>
-                <div id="ai-collaboration-workspace" class="glass hidden" style="margin-top: 10px; padding: 12px; border: 1px dashed var(--neon-cyan); border-radius: 6px; display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,0.3);">
-                    <div style="font-size: 11px; font-weight: bold; color: var(--neon-cyan); margin-bottom: 2px;">Manual Copy Fallback:</div>
-                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                        <button id="btn-copy-claude" class="btn secondary btn-small" style="flex: 1; font-size: 10px; padding: 4px 8px; border-color: rgba(255,255,255,0.15);">Copy for Claude</button>
-                        <button id="btn-copy-gpt" class="btn secondary btn-small" style="flex: 1; font-size: 10px; padding: 4px 8px; border-color: rgba(255,255,255,0.15);">Copy for ChatGPT</button>
-                        <button id="btn-copy-gemini" class="btn secondary btn-small" style="flex: 1; font-size: 10px; padding: 4px 8px; border-color: rgba(255,255,255,0.15);">Copy for Gemini</button>
+
+                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <span style="font-weight:700; font-size:12px; color:#f59e0b;">Aider CLI</span>
+                        <button class="btn secondary btn-small btn-copy-cli-snippet" data-cli="aider" style="padding:2px 8px; font-size:10px;">Copy</button>
+                    </div>
+                    <code id="cli-cmd-aider" style="font-family:var(--font-mono); font-size:11px; color:#f8fafc; word-break:break-all;">aider --message "Refactor high-coupling dependencies"</code>
+                </div>
+            </div>
+
+            <!-- Tab 3: MCP Quick-Connect Config -->
+            <div id="agent-tab-content-mcp" class="agent-tab-pane hidden" style="flex: 1; display: flex; flex-direction: column;">
+                <div style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 6px;">Add Ultron's Model Context Protocol (MCP) server to your IDE configuration (<code>.cursor/mcp.json</code> or <code>claude_desktop_config.json</code>):</div>
+                <pre id="agent-mcp-display" style="flex: 1; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 12px; font-family: var(--font-mono); font-size: 11.5px; color: #34d399; overflow-y: auto; margin: 0; max-height: 240px;"></pre>
+                <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
+                    <button id="btn-copy-agent-mcp" class="btn primary btn-small" style="background: #34d399; color: #0f172a; font-weight: 700; border: none;">🔌 Copy MCP Configuration</button>
+                </div>
+            </div>
+
+            <!-- Tab 4: API JSON Handoff -->
+            <div id="agent-tab-content-json" class="agent-tab-pane hidden" style="flex: 1; display: flex; flex-direction: column;">
+                <div style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 6px;">Raw JSON payload returned by <code>POST /api/v1/agent/handoff</code>:</div>
+                <pre id="agent-json-display" style="flex: 1; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 12px; font-family: var(--font-mono); font-size: 11.5px; color: #f8fafc; overflow-y: auto; margin: 0; max-height: 240px;"></pre>
+                <div style="display: flex; justify-content: flex-end; margin-top: 12px;">
+                    <button id="btn-copy-agent-json" class="btn secondary btn-small" style="border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">📦 Copy Raw JSON</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Automated Refactoring Patch Preview Modal -->
+    <div id="modal-diff-preview" class="modal-overlay hidden" style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9999;">
+        <div class="glass" style="background: rgba(15, 23, 42, 0.96); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 12px; padding: 24px; max-width: 800px; width: 92%; max-height: 85vh; display: flex; flex-direction: column; color: #f8fafc;">
+            <!-- Modal Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 14px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.4rem;">⚡</span>
+                    <div>
+                        <h3 style="margin: 0; font-family: 'Outfit', sans-serif; color: #38bdf8; font-size: 1.2rem;">Automated Refactoring Patch</h3>
+                        <p id="diff-preview-subtitle" style="margin: 0; font-size: 0.8rem; color: #94a3b8;">Target: module.py</p>
                     </div>
                 </div>
+                <button id="btn-close-diff-modal" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+
+            <!-- Metrics Delta Summary Bar -->
+            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;">
+                <div class="stat-card glass" style="flex: 1; min-width: 130px; background: rgba(30, 41, 59, 0.4); padding: 8px 12px; border-radius: 6px;">
+                    <span class="stat-label" style="font-size: 10px; color: #94a3b8;">Complexity (Before)</span>
+                    <span class="stat-val" id="diff-complexity-before" style="font-size: 1rem; color: #f43f5e; font-family: var(--font-mono); font-weight: 700;">-</span>
+                </div>
+                <div class="stat-card glass" style="flex: 1; min-width: 130px; background: rgba(30, 41, 59, 0.4); padding: 8px 12px; border-radius: 6px;">
+                    <span class="stat-label" style="font-size: 10px; color: #94a3b8;">Complexity (After)</span>
+                    <span class="stat-val" id="diff-complexity-after" style="font-size: 1rem; color: #34d399; font-family: var(--font-mono); font-weight: 700;">-</span>
+                </div>
+                <div class="stat-card glass" style="flex: 1; min-width: 130px; background: rgba(30, 41, 59, 0.4); padding: 8px 12px; border-radius: 6px;">
+                    <span class="stat-label" style="font-size: 10px; color: #94a3b8;">Complexity Delta</span>
+                    <span class="stat-val" id="diff-complexity-delta" style="font-size: 1rem; color: #38bdf8; font-family: var(--font-mono); font-weight: 700;">-</span>
+                </div>
+                <div class="stat-card glass" style="flex: 1; min-width: 130px; background: rgba(30, 41, 59, 0.4); padding: 8px 12px; border-radius: 6px;">
+                    <span class="stat-label" style="font-size: 10px; color: #94a3b8;">Projected Reduction</span>
+                    <span class="stat-val" id="diff-reduction-pct" style="font-size: 1rem; color: #10b981; font-family: var(--font-mono); font-weight: 700;">-</span>
+                </div>
+            </div>
+
+            <!-- Unified Diff Content Box -->
+            <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; margin-bottom: 14px;">
+                <div style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 6px;">Unified Diff Preview (<code>diff -u</code>):</div>
+                <div id="diff-preview-content" style="flex: 1; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px; overflow-y: auto; max-height: 300px;">
+                    <div class="diff-line" style="color: #94a3b8; font-style: italic;">Loading diff preview...</div>
+                </div>
+            </div>
+
+            <!-- Action Buttons Footer -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+                <div style="display: flex; gap: 8px;">
+                    <button id="btn-copy-unified-diff" class="btn secondary btn-small" style="font-size: 11px; padding: 6px 14px;">📋 Copy Unified Diff</button>
+                    <button id="btn-diff-hand-off-agent" class="btn secondary btn-small" style="font-size: 11px; padding: 6px 14px;">🤖 Hand Off to Agent</button>
+                </div>
+                <button id="btn-dismiss-diff-modal" class="btn primary btn-small" style="background: #38bdf8; color: #0f172a; font-weight: 700; border: none; padding: 6px 16px;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Reports Hub Modal (HTML, Markdown Dossier, JSON) -->
+    <div id="modal-export-reports" class="modal-backdrop hidden" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.75); backdrop-filter:blur(8px); z-index:999; display:flex; align-items:center; justify-content:center;">
+        <div class="glass" style="width: 90%; max-width: 580px; background: #0f172a; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 12px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <div>
+                    <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #38bdf8;">📥 Export Architecture Reports</h3>
+                    <span style="font-size: 0.8rem; color: #94a3b8;">Generate offline-ready executive briefs, dossiers, or structured telemetry</span>
+                </div>
+                <button id="btn-close-export-modal" class="btn secondary btn-small" style="padding: 4px 10px; font-size: 0.8rem;">✕</button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+                <!-- Option 1: Standalone HTML -->
+                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 13px; color: #f8fafc;">📄 Standalone Interactive HTML</div>
+                        <div style="font-size: 11px; color: #94a3b8;">Zero-dependency, styled HTML audit report with datagrid &amp; smell alerts.</div>
+                    </div>
+                    <button id="btn-download-export-html" class="btn primary btn-small" style="background: linear-gradient(135deg, #0284c7, #38bdf8); color: #0f172a; font-weight: 700; border: none; padding: 6px 14px;">
+                        Download .html
+                    </button>
+                </div>
+
+                <!-- Option 2: Executive Markdown Dossier -->
+                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 13px; color: #f8fafc;">📝 Executive Markdown Dossier</div>
+                        <div style="font-size: 11px; color: #94a3b8;">GitHub/GitLab/Notion-ready Markdown tables and remediation playbooks.</div>
+                    </div>
+                    <button id="btn-download-export-md" class="btn secondary btn-small" style="border-color: #a855f7; color: #c084fc; font-weight: 700; padding: 6px 14px;">
+                        Download .md
+                    </button>
+                </div>
+
+                <!-- Option 3: Full JSON Telemetry Bundle -->
+                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 14px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 700; font-size: 13px; color: #f8fafc;">📊 Canonical JSON Telemetry</div>
+                        <div style="font-size: 11px; color: #94a3b8;">Machine-readable AST metrics, dependency graphs, and risk scores.</div>
+                    </div>
+                    <button id="btn-download-export-json" class="btn secondary btn-small" style="border-color: #34d399; color: #34d399; font-weight: 700; padding: 6px 14px;">
+                        Download .json
+                    </button>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end;">
+                <button id="btn-dismiss-export-modal" class="btn secondary btn-small" style="padding: 6px 16px;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Omnibar Modal Palette (Ctrl+K / Cmd+K) -->
+    <div id="modal-omnibar" class="modal-backdrop hidden" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.75); backdrop-filter:blur(10px); z-index:1000; display:flex; align-items:flex-start; justify-content:center; padding-top:12vh;">
+        <div class="glass" style="width: 100%; max-width: 620px; background: #0f172a; border: 1px solid rgba(56,189,248,0.4); border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); overflow: hidden; display: flex; flex-direction: column;">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(30,41,59,0.5);">
+                <span style="font-size: 18px; color: #38bdf8;">🔍</span>
+                <input type="text" id="omnibar-input" placeholder="Search files, functions, classes, or risks (e.g. scoring, HIGH, fn)..." style="flex: 1; background: transparent; border: none; outline: none; font-size: 14px; color: #f8fafc; font-family: var(--font-mono);" autocomplete="off" spellcheck="false">
+                <kbd style="font-family: var(--font-mono); font-size: 11px; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; color: #94a3b8; border: 1px solid rgba(255,255,255,0.15);">ESC</kbd>
+            </div>
+            <div id="omnibar-results-container" style="max-height: 380px; overflow-y: auto; padding: 8px;">
+                <div id="omnibar-results-list" style="display: flex; flex-direction: column; gap: 4px;">
+                    <div class="omnibar-empty" style="text-align: center; padding: 24px; color: #94a3b8; font-size: 13px;">Type to search codebase architecture...</div>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(15,23,42,0.9); border-top: 1px solid rgba(255,255,255,0.05); font-size: 11px; color: #64748b;">
+                <span><kbd style="color:#94a3b8;">↑</kbd> <kbd style="color:#94a3b8;">↓</kbd> Navigate &nbsp;•&nbsp; <kbd style="color:#94a3b8;">↵</kbd> Select &nbsp;•&nbsp; <kbd style="color:#94a3b8;">ESC</kbd> Close</span>
+                <span id="omnibar-match-count">0 matches</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive Architecture Evidence Drawer (Side Inspector) -->
+    <div id="evidence-drawer-backdrop" class="drawer-backdrop hidden"></div>
+    <aside id="evidence-drawer" class="evidence-drawer hidden">
+        <div class="drawer-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 16px;">🔍</span>
+                <div>
+                    <h3 id="drawer-file-name" style="margin:0; font-size: 14px; font-weight: 700; color: #f8fafc; font-family: var(--font-mono);">Evidence Inspector</h3>
+                    <div id="drawer-file-path" style="font-size: 11px; color: #94a3b8; word-break: break-all;">Select a module to view architectural signals</div>
+                </div>
+            </div>
+            <button id="btn-close-evidence-drawer" class="btn secondary btn-small" style="padding: 4px 8px; border-radius: 6px;" title="Close Evidence Inspector">✕</button>
+        </div>
+
+        <div class="drawer-body">
+            <!-- Architectural Role Badge -->
+            <div id="drawer-role-badge-container" style="margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                <span id="drawer-role-badge" style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">Service Core</span>
+                <span id="drawer-risk-level-badge" style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">HIGH RISK</span>
+            </div>
+
+            <!-- Key Signals Strip -->
+            <div class="drawer-section">
+                <div class="drawer-section-title">Code Health Signals</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+                    <div class="signal-card">
+                        <span class="signal-label">Change Risk</span>
+                        <span id="drawer-signal-impact" class="signal-val" style="color: #ef4444;">-</span>
+                    </div>
+                    <div class="signal-card">
+                        <span class="signal-label">Decision Branches</span>
+                        <span id="drawer-signal-complexity" class="signal-val" style="color: #f59e0b;">-</span>
+                    </div>
+                    <div class="signal-card">
+                        <span class="signal-label">Blast Radius</span>
+                        <span id="drawer-signal-coupling" class="signal-val" style="color: #38bdf8;">-</span>
+                    </div>
+                    <div class="signal-card">
+                        <span class="signal-label">Symbols / Functions</span>
+                        <span id="drawer-signal-defs" class="signal-val" style="color: #34d399;">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Plain-English Rationale -->
+            <div class="drawer-section">
+                <div class="drawer-section-title">Plain-English Architectural Risk</div>
+                <div id="drawer-rationale-text" class="drawer-rationale-box">
+                    High decision complexity with multiple connected callers. Refactor to isolate branching logic.
+                </div>
+            </div>
+
+            <!-- Afferent & Efferent Dependency Links -->
+            <div class="drawer-section">
+                <div class="drawer-section-title">Connected Files (Blast Radius)</div>
+                <div id="drawer-dependencies-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 140px; overflow-y: auto;">
+                    <div style="color: #94a3b8; font-size: 11px; font-style: italic;">No external dependencies.</div>
+                </div>
+            </div>
+
+            <!-- Direct Terminal Fix Command -->
+            <div class="drawer-section" style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 10px 12px;">
+                <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Terminal Fix Command</div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <code id="drawer-fix-cmd" style="flex: 1; font-family: var(--font-mono); font-size: 11px; color: #34d399; background: rgba(0,0,0,0.4); padding: 5px 8px; border-radius: 4px; overflow-x: auto; white-space: nowrap;">python launcher.py fix --target math_ops.py</code>
+                    <button id="btn-drawer-copy-fix-cmd" class="btn secondary btn-small" style="padding: 4px 8px; font-size: 10px;" title="Copy terminal command">📋</button>
+                </div>
+            </div>
+
+            <!-- AI Coding Agent Handoff (1-Click Prompt Suite) -->
+            <div class="drawer-section" style="background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; padding: 12px;">
+                <div style="font-size: 12px; font-weight: 700; color: #38bdf8; display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                    <span>🤖 1-Click AI Fix Prompts</span>
+                    <span style="font-size: 10px; background: rgba(56, 189, 248, 0.15); padding: 2px 6px; border-radius: 4px; color: #7dd3fc;">Bounded Scope</span>
+                </div>
+                <div style="font-size: 11px; color: #94a3b8; margin-bottom: 10px;">
+                    Copy prompt bounded to this module with interface contracts and acceptance tests.
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px;">
+                    <button class="btn secondary btn-small btn-drawer-quick-prompt" data-provider="cursor" style="border-color: rgba(56,189,248,0.4); color: #38bdf8; font-weight: 700; font-size: 11px; padding: 6px 8px;">
+                        ⚡ Cursor
+                    </button>
+                    <button class="btn secondary btn-small btn-drawer-quick-prompt" data-provider="windsurf" style="border-color: rgba(6,182,212,0.4); color: #06b6d4; font-weight: 700; font-size: 11px; padding: 6px 8px;">
+                        🌊 Windsurf
+                    </button>
+                    <button class="btn secondary btn-small btn-drawer-quick-prompt" data-provider="claude" style="border-color: rgba(192,132,252,0.4); color: #c084fc; font-weight: 700; font-size: 11px; padding: 6px 8px;">
+                        🟣 Claude
+                    </button>
+                    <button class="btn secondary btn-small btn-drawer-quick-prompt" data-provider="antigravity" style="border-color: rgba(52,211,153,0.4); color: #34d399; font-weight: 700; font-size: 11px; padding: 6px 8px;">
+                        🚀 Antigravity
+                    </button>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <button id="btn-drawer-copy-agent-prompt" class="btn primary btn-small" style="flex: 1; padding: 5px 8px; font-size: 10.5px;">
+                        📋 Full Mission Context
+                    </button>
+                    <button id="btn-drawer-copy-scrambled-prompt" class="btn secondary btn-small" style="flex: 1; padding: 5px 8px; font-size: 10.5px; border-color: #a855f7; color: #c084fc;">
+                        🔒 Scrambled
+                    </button>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+
+    <!-- MCP Connect IDE Modal -->
+    <div id="modal-mcp-connect" class="modal-overlay hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; display:none; align-items:center; justify-content:center;">
+        <div class="glass" style="max-width:560px; width:90%; padding:24px; border-radius:12px; border:1px solid rgba(52,211,153,0.3);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h3 style="margin:0; color:#34d399; font-size:16px;">🔗 Connect IDE via MCP</h3>
+                <button id="btn-mcp-modal-close" style="background:none; border:none; color:#94a3b8; font-size:20px; cursor:pointer;">&times;</button>
+            </div>
+            <p style="color:#94a3b8; font-size:12px; margin-bottom:12px;">Copy this config into your IDE's MCP settings file:</p>
+            <pre id="mcp-config-display" style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px; color:#e2e8f0; font-size:11px; overflow-x:auto; white-space:pre; font-family:var(--font-mono);"></pre>
+            <div style="display:flex; gap:8px; margin-top:12px;">
+                <button id="btn-mcp-copy-config" class="btn primary btn-small" style="flex:1;">📋 Copy to Clipboard</button>
             </div>
         </div>
     </div>

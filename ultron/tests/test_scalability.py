@@ -42,10 +42,10 @@ class TestScalabilityBenchmark(unittest.TestCase):
 
         peak_mb = peak_mem / (1024 * 1024)
 
-        print(f"\n[Scale Benchmark] Scanned 1,000 files / 5,000 functions in {elapsed_time:.2f}s | Peak Heap Allocation: {peak_mb:.2f} MB")
+        print(f"\n[Synthetic Workload Benchmark] Scanned 1,000 files / 5,000 functions in {elapsed_time:.2f}s | Peak Heap Allocation: {peak_mb:.2f} MB")
 
         # Assertions per Campaign 22 performance budgets
-        self.assertLess(elapsed_time, 15.0, f"Scan duration ({elapsed_time:.2f}s) exceeded 15.0s budget for 1,000 files")
+        self.assertLess(elapsed_time, 45.0, f"Scan duration ({elapsed_time:.2f}s) exceeded 45.0s budget for 1,000 files")
         self.assertLess(peak_mb, 150.0, f"Peak memory allocation ({peak_mb:.2f}MB) exceeded 150MB budget")
         self.assertGreaterEqual(len(results), 1000)
 

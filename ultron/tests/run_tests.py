@@ -30,6 +30,7 @@ from ultron.tests.test_temporal_query import TestTemporalQuery
 from ultron.tests.test_rkm_hardening import TestRkmHardening
 from ultron.tests.test_rule_engine import TestRuleEngine
 from ultron.tests.test_evolution import TestEvolution
+from ultron.tests.test_agent_query import TestAgentQueryProtocol
 
 
 
@@ -557,7 +558,7 @@ class TestSample(unittest.TestCase):
         
         # Test MEDIUM risk translation
         packet_med = AnalysisPacket(
-            file_path="ultron/core/pledge.py",
+            file_path="ultron/core/prompt.py",
             impact_score=6.0,
             coupling_score=2.0,
             mk_r=1.0,
@@ -566,7 +567,7 @@ class TestSample(unittest.TestCase):
             level="MEDIUM"
         )
         summary_med = translate.plain_language_summary(packet_med)
-        self.assertIn("ultron/core/pledge.py - Moderate risk.", summary_med)
+        self.assertIn("ultron/core/prompt.py - Moderate risk.", summary_med)
         self.assertNotIn("6.0", summary_med)
         
         # Test LOW risk translation
@@ -769,6 +770,8 @@ Another gap.
                 self.post_data = post_data
                 self.status_code = None
                 self.response = None
+            def get_request_data(self):
+                return self.post_data
             def get_post_data(self):
                 return self.post_data
             def send_json_response(self, code, data):
@@ -794,6 +797,8 @@ Another gap.
                 self.post_data = post_data
                 self.status_code = None
                 self.response = None
+            def get_request_data(self):
+                return self.post_data
             def get_post_data(self):
                 return self.post_data
             def send_json_response(self, code, data):
@@ -826,6 +831,8 @@ Another gap.
                     self.post_data = post_data
                     self.status_code = None
                     self.response = None
+                def get_request_data(self):
+                    return self.post_data
                 def get_post_data(self):
                     return self.post_data
                 def send_json_response(self, code, data):
@@ -863,6 +870,8 @@ Another gap.
                     self.post_data = post_data
                     self.status_code = None
                     self.response = None
+                def get_request_data(self):
+                    return self.post_data
                 def get_post_data(self):
                     return self.post_data
                 def send_json_response(self, code, data):
@@ -893,6 +902,8 @@ Another gap.
                 self.post_data = post_data
                 self.status_code = None
                 self.response = None
+            def get_request_data(self):
+                return self.post_data
             def get_post_data(self):
                 return self.post_data
             def send_json_response(self, code, data):
@@ -925,6 +936,8 @@ Another gap.
                 self.post_data = post_data
                 self.status_code = None
                 self.response = None
+            def get_request_data(self):
+                return self.post_data
             def get_post_data(self):
                 return self.post_data
             def send_json_response(self, code, data):
@@ -950,6 +963,8 @@ Another gap.
                 self.post_data = post_data
                 self.status_code = None
                 self.response = None
+            def get_request_data(self):
+                return self.post_data
             def get_post_data(self):
                 return self.post_data
             def send_json_response(self, code, data):
@@ -970,6 +985,8 @@ Another gap.
                     self.post_data = post_data
                     self.status_code = None
                     self.response = None
+                def get_request_data(self):
+                    return self.post_data
                 def get_post_data(self):
                     return self.post_data
                 def send_json_response(self, code, data):
@@ -1003,6 +1020,8 @@ Another gap.
                     self.post_data = post_data
                     self.status_code = None
                     self.response = None
+                def get_request_data(self):
+                    return self.post_data
                 def get_post_data(self):
                     return self.post_data
                 def send_json_response(self, code, data):

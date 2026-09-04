@@ -1,6 +1,10 @@
 import os
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from enum import Enum
+from ultron.core.evidence import (
+    EvidenceClassification, ConfidenceTier, EvidenceStatus,
+    EvidenceRecord, EvidenceBundle
+)
 
 
 # ---------------------------------------------------------------------------
@@ -18,6 +22,9 @@ _ROLE_DISPLAY = {
     "SCRIPT":             "Script File",
     "EXPERIMENTAL":       "Experimental Feature",
     "CORE_ENGINE":        "Core Engine",
+    "CONFIGURATION":      "Configuration",
+    "DOCUMENTATION":      "Documentation",
+    "TOOLING":            "Development Tooling",
 }
 
 _STRATEGY_DISPLAY = {
@@ -28,6 +35,31 @@ _STRATEGY_DISPLAY = {
     "REQUIRES_COMPATIBILITY_REVIEW":"Compatibility review required",
     "REQUIRES_REGRESSION_TESTS":    "Requires regression tests",
 }
+
+
+class FileCategory(str, Enum):
+    """
+    High-level partition of files to prevent category mistakes.
+    Tests, docs, and configs never compete with production code for development recommendations.
+    """
+    PRODUCTION_CODE = "PRODUCTION_CODE"
+    TEST_CODE       = "TEST_CODE"
+    CONFIGURATION   = "CONFIGURATION"
+    GENERATED       = "GENERATED"
+    DOCUMENTATION   = "DOCUMENTATION"
+    TOOLING         = "TOOLING"
+    UNKNOWN         = "UNKNOWN"
+
+
+class RecommendationAction(str, Enum):
+    """
+    First-class action guidance for development recommendations.
+    """
+    INVESTIGATE      = "INVESTIGATE"
+    REFACTOR         = "REFACTOR"
+    PROTECT          = "PROTECT"
+    DEFER            = "DEFER"
+    DO_NOT_RECOMMEND = "DO_NOT_RECOMMEND"
 
 
 class ArchitecturalRole(str, Enum):
@@ -47,6 +79,9 @@ class ArchitecturalRole(str, Enum):
     SCRIPT              = "SCRIPT"
     EXPERIMENTAL        = "EXPERIMENTAL"
     CORE_ENGINE         = "CORE_ENGINE"
+    CONFIGURATION       = "CONFIGURATION"
+    DOCUMENTATION       = "DOCUMENTATION"
+    TOOLING             = "TOOLING"
 
     @property
     def display_name(self):
@@ -99,6 +134,7 @@ class AnalysisPacket:
     delta_score: float = 0.0
 
     # ---- new semantic dimensions ----
+    category:           str               = "PRODUCTION_CODE"
     architectural_role: ArchitecturalRole = ArchitecturalRole.INTERNAL
     change_strategy:    ChangeStrategy    = ChangeStrategy.SAFE_EDIT
 
@@ -128,6 +164,7 @@ class AnalysisPacket:
         # Legacy aliases (UI backward compat)
         d['file']     = self.file_path
         d['filepath'] = os.path.basename(self.file_path) if self.file_path else ""
+        d['score']    = round(self.impact_score, 2)
         d['coupling'] = self.coupling_score
         d['mkr']      = self.mk_r
         # boundary_type kept for legacy UI consumers; new code should read architectural_role
@@ -150,3 +187,117 @@ class AnalysisPacket:
 
     def get(self, key, default=None):
         return self.to_dict().get(key, default)
+
+
+def build_snapshot_id(content_hash: str) -> str:
+    """
+    Canonical helper for generating deterministic, state-bound snapshot identifiers.
+    Invariant: Identical content_hash yields identical snapshot_id.
+    """
+    if not content_hash or not isinstance(content_hash, str):
+        return "snap-0000000000000000"
+    clean_hash = content_hash.strip().lower()
+    return f"snap-{clean_hash[:16]}"
+
+
+@dataclass
+class RecommendationPacket:
+    target_file: str
+    category: str                          # FileCategory.value
+    priority_score: float                  # Continuous ranking metric
+    priority_level: str                    # "HIGH" | "MEDIUM" | "LOW"
+    confidence_tier: str                   # "HIGH" | "MEDIUM" | "LOW"
+    recommendation_action: str             # "INVESTIGATE" | "REFACTOR" | "PROTECT" | "DEFER" | "DO_NOT_RECOMMEND"
+    
+    # 7-Question Explainability Contract
+    why_this: str                          # Q1: Plain-English role & identity
+    why_now: str                           # Q2: Priority justification & workflow centrality / intent
+    what_it_affects: list                  # Q3: Direct downstream dependents
+    what_could_break: str                  # Q4: Plain-English downstream risk explanation
+    evidence_tier: str                     # Q5: "OBSERVED" | "DERIVED" | "INFERRED" | "UNKNOWN"
+    confidence_reason: str                 # Q6: Why confidence is High/Med/Low
+    next_action: str                       # Q7: Specific actionable next step
+
+    # Structural Telemetry (Collapsible under 'Technical Details')
+    complexity: int = 1
+    coupling: int = 0
+    impact_score: float = 0.0
+    public_surface: str = "INTERNAL"
+    cycle_involvement: bool = False
+    alternatives_compared: list = field(default_factory=list)
+    evidence_records: list = field(default_factory=list)
+    limitations: list = field(default_factory=list)
+    policy_version: str = "consequence_v1"
+    engine_version: str = "1.0.0"
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    def __getitem__(self, key):
+        d = self.to_dict()
+        if key in d:
+            return d[key]
+        raise KeyError(key)
+
+    def get(self, key, default=None):
+        return self.to_dict().get(key, default)
+
+
+class SelectionOutcome(str, Enum):
+    """Epistemic 5-state evaluation outcome for recommendations."""
+    USEFUL                = "USEFUL"
+    PLAUSIBLE             = "PLAUSIBLE"
+    WRONG                 = "WRONG"
+    INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
+    PENDING               = "PENDING"
+
+
+class DecisionOutcome(str, Enum):
+    """Final development lifecycle outcome of a selected target."""
+    RESOLVED    = "RESOLVED"
+    ABANDONED   = "ABANDONED"
+    REVERTED    = "REVERTED"
+    NO_DECISION = "NO_DECISION"
+    PENDING     = "PENDING"
+
+
+@dataclass
+class DecisionRecord:
+    decision_id: str
+    recommendation_id: str
+    policy_version: str = "consequence_v1"
+    engine_version: str = "1.0.0"
+    created_at: str = ""
+    recommended_target: str = ""
+    human_selected_target: str = ""
+    final_target_changed: bool = False
+    top_alternatives: list = field(default_factory=list)
+    confidence_tier: str = "HIGH"
+    evidence_tier: str = "OBSERVED"
+    selection_source: str = "HUMAN"               # "HUMAN" | "AGENT" | "AUTO"
+    selection_outcome: str = "PENDING"             # SelectionOutcome.value
+    human_feedback: str = ""
+    mission_id: str = ""
+    attempt_id: str = ""
+    checkpoint_id: str = ""
+    outcome_of_selected_target: str = "PENDING"   # DecisionOutcome.value
+    value_delta: dict = field(default_factory=dict)
+    priority_score: float = 0.0
+    recommendation_action: str = "INVESTIGATE"
+    why_this: str = ""
+    evidence_ids: list = field(default_factory=list)
+    evidence_status: str = "FRESH"
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    def __getitem__(self, key):
+        d = self.to_dict()
+        if key in d:
+            return d[key]
+        raise KeyError(key)
+
+    def get(self, key, default=None):
+        return self.to_dict().get(key, default)
+
+

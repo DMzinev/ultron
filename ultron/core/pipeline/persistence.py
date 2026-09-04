@@ -49,7 +49,32 @@ def seed_default_rules(store: RepositoryStore):
     except Exception as e:
         print(f"Warning: failed to seed default rules: {e}")
 
-def persist_rkm_batch(repo_path: str, metadata: RepositoryMetadata, run: AnalysisRun, batch: RKMRecordBatch) -> str:
+class PersistenceResult(tuple):
+    """
+    Structured result tuple from RKM batch persistence:
+    (repository_uuid, analysis_run_id, repository_id).
+    Supports backward compatibility via string representation returning repository_uuid.
+    """
+    def __new__(cls, repository_uuid: str, run_id: int, repository_id: int):
+        return super().__new__(cls, (repository_uuid, run_id, repository_id))
+
+    @property
+    def repository_uuid(self) -> str:
+        return self[0]
+
+    @property
+    def run_id(self) -> int:
+        return self[1]
+
+    @property
+    def repository_id(self) -> int:
+        return self[2]
+
+    def __str__(self) -> str:
+        return self[0]
+
+
+def persist_rkm_batch(repo_path: str, metadata: RepositoryMetadata, run: AnalysisRun, batch: RKMRecordBatch) -> PersistenceResult:
     db_path = os.path.join(repo_path, ".ultron", "repository.db")
     store = RepositoryStore(db_path)
 
@@ -300,4 +325,4 @@ def persist_rkm_batch(repo_path: str, metadata: RepositoryMetadata, run: Analysi
     finally:
         store.close()
         
-    return metadata.repository_uuid
+    return PersistenceResult(metadata.repository_uuid, run_id, metadata_id)

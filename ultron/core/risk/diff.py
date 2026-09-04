@@ -103,7 +103,8 @@ def evaluate_diff_risk(codebase, filepath, old_code, new_code):
             mkr = v
             break
 
-    confidence = mkr / (1.0 + 0.1 * abs(total_delta))
+    positive_delta = max(0.0, total_delta)
+    confidence = max(0.0, min(1.0, mkr / (1.0 + 0.1 * positive_delta)))
 
     return AnalysisPacket(
         file_path=filepath,

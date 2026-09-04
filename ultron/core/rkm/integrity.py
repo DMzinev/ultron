@@ -38,6 +38,7 @@ class RKMDatabaseIntegrity:
 
         # Execute PRAGMA quick_check
         is_ok = False
+        is_busy = False
         conn = None
         try:
             conn = sqlite3.connect(norm_path, timeout=5.0)
@@ -46,6 +47,10 @@ class RKMDatabaseIntegrity:
             row = cursor.fetchone()
             if row and row[0] == "ok":
                 is_ok = True
+        except sqlite3.OperationalError as op_err:
+            # Concurrency lock / busy timeout: DO NOT TREAT AS CORRUPTION
+            is_busy = True
+            sys.stderr.write(f"[RKM Integrity Notice] Database lock/busy under concurrent access ({op_err}), skipping integrity check.\n")
         except Exception as check_err:
             sys.stderr.write(f"[RKM Integrity Error] Database corruption detected: {check_err}\n")
         finally:
@@ -55,14 +60,24 @@ class RKMDatabaseIntegrity:
                 except Exception:
                     pass
 
+        if is_busy:
+            return True, "Database busy under concurrent access. Preserved existing database."
+
         if is_ok:
             return True, "Database integrity check passed."
 
-        # Handle Corruption — Preserve as rkm.db.corrupted.<timestamp>
+        # Handle Corruption — Preserve as rkm.db.corrupted.<timestamp> along with WAL/SHM companion files
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         corrupted_path = f"{norm_path}.corrupted.{ts}"
         try:
             shutil.move(norm_path, corrupted_path)
+            for ext in ("-wal", "-shm"):
+                comp = f"{norm_path}{ext}"
+                if os.path.exists(comp):
+                    try:
+                        shutil.move(comp, f"{corrupted_path}{ext}")
+                    except Exception:
+                        pass
             sys.stderr.write(f"[RKM Integrity Action] Preserved corrupted database to: {corrupted_path}\n")
             return False, f"Corrupted DB preserved at {os.path.basename(corrupted_path)}. Re-initialized clean DB."
         except Exception as move_err:

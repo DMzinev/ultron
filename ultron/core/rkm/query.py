@@ -94,18 +94,34 @@ class QueryRepository:
     def get_hotspots(self, include_archived: bool = False) -> list[dict]:
         if not isinstance(include_archived, bool):
             raise TypeError("include_archived must be a boolean")
-        files = self.store.get_files(include_archived=include_archived)
-        hotspots = []
-        for f in files:
-            metrics = self.store.get_metrics(f.id)
-            hotspot_metric = next((m for m in metrics if m.name == "hotspot_score"), None)
-            if hotspot_metric:
-                hotspots.append({
-                    "file": f.path,
-                    "hotspot_score": hotspot_metric.value
-                })
-        hotspots.sort(key=lambda x: x["hotspot_score"], reverse=True)
-        return hotspots
+
+        query = """
+            SELECT f.path, m.value
+            FROM rkm_files f
+            JOIN rkm_metrics m ON m.file_id = f.id
+            WHERE m.name = 'hotspot_score'
+        """
+        if not include_archived:
+            query += " AND f.archived = 0"
+        query += " ORDER BY m.value DESC"
+
+        try:
+            cursor = self.store.conn.execute(query)
+            hotspots = [{"file": row[0], "hotspot_score": row[1]} for row in cursor.fetchall()]
+            return hotspots
+        except Exception:
+            files = self.store.get_files(include_archived=include_archived)
+            hotspots = []
+            for f in files:
+                metrics = self.store.get_metrics(f.id)
+                hotspot_metric = next((m for m in metrics if m.name == "hotspot_score"), None)
+                if hotspot_metric:
+                    hotspots.append({
+                        "file": f.path,
+                        "hotspot_score": hotspot_metric.value
+                    })
+            hotspots.sort(key=lambda x: x["hotspot_score"], reverse=True)
+            return hotspots
 
     def get_diagnostic_chain(self, file_path: str, include_archived: bool = False) -> list[dict]:
         if not isinstance(include_archived, bool):

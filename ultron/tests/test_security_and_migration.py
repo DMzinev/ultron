@@ -51,7 +51,9 @@ class TestSecurityAndMigration(unittest.TestCase):
 
     def test_gate14_directory_traversal_sanitization(self):
         """Gate 14: Directory traversal sequences (../../..) are safely resolved via os.path.abspath."""
-        traversal_path = os.path.join(self.repo_path, "..", "..")
+        sub_dir = os.path.join(self.repo_path, "sub1", "sub2")
+        os.makedirs(sub_dir, exist_ok=True)
+        traversal_path = os.path.join(sub_dir, "..", "..")
         h = self._create_handler("/api/analyze", {"repo": traversal_path})
         h.handle_analyze()
         

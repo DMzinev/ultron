@@ -10,15 +10,23 @@ def get_git_diff(repo_path, files):
         chk = subprocess.run(
             ["git", "rev-parse", "--is-inside-work-tree"],
             capture_output=True,
-            text=True,
-            cwd=repo_path,
-            errors="ignore"
+            encoding="utf-8",
+            errors="replace",
+            cwd=repo_path
         )
         if chk.returncode == 0 and chk.stdout.strip() == "true":
             cmd = ["git", "diff", "--cached", "--find-renames"]
-            res = subprocess.run(cmd, capture_output=True, text=True, cwd=repo_path, errors="ignore")
+            res = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace", cwd=repo_path)
             if res.returncode == 0 and res.stdout.strip():
                 return res.stdout
+            cmd_head = ["git", "diff", "HEAD", "--find-renames"]
+            res_head = subprocess.run(cmd_head, capture_output=True, encoding="utf-8", errors="replace", cwd=repo_path)
+            if res_head.returncode == 0 and res_head.stdout.strip():
+                return res_head.stdout
+            cmd_work = ["git", "diff", "--find-renames"]
+            res_work = subprocess.run(cmd_work, capture_output=True, encoding="utf-8", errors="replace", cwd=repo_path)
+            if res_work.returncode == 0 and res_work.stdout.strip():
+                return res_work.stdout
     except Exception as e:
         sys.stderr.write(f"Warning: Git diff check failed: {e}\n")
         
@@ -50,7 +58,7 @@ def run_tests(repo_path, cmd_str):
         import sys
         sys.path.append(os.path.abspath(repo_path))
         from umags.config import TEST_TIMEOUT_SECONDS
-        res = subprocess.run(parts, capture_output=True, text=True, cwd=repo_path, timeout=TEST_TIMEOUT_SECONDS)
+        res = subprocess.run(parts, capture_output=True, encoding="utf-8", errors="replace", cwd=repo_path, timeout=TEST_TIMEOUT_SECONDS)
         return res.returncode == 0, res.stdout, res.stderr
     except Exception as e:
         return False, "", str(e)
@@ -88,7 +96,23 @@ def main():
     args = parser.parse_args()
 
     repo_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-    files = [f.strip() for f in args.files.split(",") if f.strip()]
+    if args.files == "auto":
+        files = []
+        try:
+            r1 = subprocess.run(["git", "diff", "--name-only"], capture_output=True, encoding="utf-8", errors="replace", cwd=repo_path)
+            if r1.returncode == 0:
+                files.extend([l.strip().replace("\\", "/") for l in r1.stdout.splitlines() if l.strip()])
+            r2 = subprocess.run(["git", "diff", "--cached", "--name-only"], capture_output=True, encoding="utf-8", errors="replace", cwd=repo_path)
+            if r2.returncode == 0:
+                files.extend([l.strip().replace("\\", "/") for l in r2.stdout.splitlines() if l.strip()])
+            r3 = subprocess.run(["git", "ls-files", "--others", "--exclude-standard"], capture_output=True, encoding="utf-8", errors="replace", cwd=repo_path)
+            if r3.returncode == 0:
+                files.extend([l.strip().replace("\\", "/") for l in r3.stdout.splitlines() if l.strip()])
+            files = sorted(list(set(files)))
+        except Exception as e:
+            sys.stderr.write(f"Warning: Auto-detecting changed files failed: {e}\n")
+    else:
+        files = [f.strip() for f in args.files.split(",") if f.strip()]
     
     print("[*] Governor: Collecting code modifications...")
     patch_diff = get_git_diff(repo_path, files)
@@ -99,7 +123,7 @@ def main():
     # Calculate commit hash if git repo exists
     commit_hash = "N/A (Non-Git Repo)"
     try:
-        h_res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=repo_path)
+        h_res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, encoding="utf-8", errors="replace", cwd=repo_path)
         if h_res.returncode == 0:
             commit_hash = h_res.stdout.strip()
     except Exception as e:

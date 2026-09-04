@@ -44,11 +44,11 @@ def translate_dynamic_decision_to_plain_english(complexity: float, coupling: int
         raw_score = (complexity or 0.0) * (1.0 + (coupling or 0) * 0.1)
         score = round(min(100.0, raw_score * 10), 1)
         tier = "HIGH" if score >= 70.0 else ("MEDIUM" if score >= 30.0 else "LOW")
-        action = "Review complexity and coupling metrics for potential refactoring."
-        breakdown = f"Calculated based on local metrics: Complexity={complexity}, Coupling={coupling}"
+        action = "Review decision branches and connected callers for potential simplification."
+        breakdown = f"Based on code structure: {complexity} decision branches, {coupling} connected callers."
     
     return {
-        "plain_summary": f"Dynamic Architectural Risk: {score}/100 ({tier} Priority)",
+        "plain_summary": f"Change Risk Score: {score}/100 ({tier} Priority)",
         "priority_tier": tier,
         "risk_score": score,
         "action_plan": action,
@@ -181,10 +181,14 @@ def detailed_breakdown(packet) -> str:
         coupling_score = getattr(packet, "coupling_score", None) if not isinstance(packet, dict) else packet.get("coupling_score")
         coupling_count = int(coupling_score) if coupling_score is not None else 0
 
+    strategy = "Critical Hub (High Blast Radius)" if coupling_count >= 5 else ("Requires Review" if coupling_count >= 2 else "Safe to Edit (Isolated)")
+
     return (
         f"Detailed Risk Breakdown for {file_path}:\n"
         f"  Impact Score: {impact_score:.4f}\n"
-        f"  Coupling Count: {coupling_count}\n"
-        f"  Formula: Impact = Complexity * (1 + Coupling)"
+        f"  Coupling Count: {coupling_count} (Blast Radius: {coupling_count} connected modules)\n"
+        f"  Refactor Strategy: {strategy}\n"
+        f"  Formula: Impact = Complexity * (1 + Coupling) (Decision Complexity weighted by connected callers)"
     )
+
 

@@ -14,11 +14,21 @@ import ast
 import os
 import math
 
-from ultron.core.models import AnalysisPacket, ArchitecturalRole, ChangeStrategy
-from ultron.core.io import read_text
-from ultron.core import logistic
+from ultron.core.models import AnalysisPacket, ArchitecturalRole, ChangeStrategy, FileCategory
+
+def read_text(path: str) -> str:
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        return f.read()
+from ultron.core.recommendation import classify_file
 from .historical import load_mkr_stats, load_human_feedback
 from .metrics import get_file_complexity
+
+
+def compute_impact_score(complexity: float, coupling_count: int) -> float:
+    """Computes monotonic impact score from complexity and coupling count."""
+    comp = max(0.0, float(complexity or 0.0))
+    coup = max(0, int(coupling_count or 0))
+    return comp * math.log(math.e + coup)
 
 
 # ---------------------------------------------------------------------------
@@ -74,19 +84,25 @@ def _make_rules():
     Returns an ordered list of (predicate, ArchitecturalRole) pairs.
     First match wins. Add new roles here — do not grow evaluate_risks().
     """
+    def is_test(p, _abs):        return classify_file(p) == FileCategory.TEST_CODE
     def ends_init(p, _abs):      return p.endswith("__init__.py")
-    def is_test(p, _abs):        return "tests/" in p or p.startswith("test_") or p.endswith("_test.py") or "/test_" in p
+    def is_config(p, _abs):      return classify_file(p) == FileCategory.CONFIGURATION
+    def is_docs(p, _abs):        return classify_file(p) == FileCategory.DOCUMENTATION
+    def is_tooling(p, _abs):     return classify_file(p) == FileCategory.TOOLING
     def is_public(p, abs_p):     return bool(abs_p) and exports_via_all(abs_p)
     def is_experimental(p, _):   return "experimental" in p or "synapse_project" in p
-    def is_cli(p, _abs):         return p in ("ultron/interfaces/ultron.py", "start_ultron.py")
-    def is_server(p, _abs):      return p == "ultron/interfaces/server.py"
-    def is_mcp(p, _abs):         return p == "ultron/interfaces/mcp_server.py"
-    def is_core(p, _abs):        return p.startswith("ultron/core/")
-    def is_script(p, _abs):      return p.startswith("scratch/")
+    def is_cli(p, _abs):         return "cli" in p.lower() or p.endswith("main.py") or "command" in p.lower() or "launcher" in p.lower()
+    def is_server(p, _abs):      return "server" in p.lower() or p.endswith("app.py") or "/api/" in p.lower() or p.startswith("api/")
+    def is_mcp(p, _abs):         return "mcp" in p.lower()
+    def is_core(p, _abs):        return "/core/" in p or p.startswith("core/") or "engine" in p.lower() or "kernel" in p.lower()
+    def is_script(p, _abs):      return "scratch/" in p or "scripts/" in p or p.startswith("bin/") or p.startswith("tools/")
 
     return [
-        (ends_init,      ArchitecturalRole.PACKAGE_INITIALIZER),
         (is_test,        ArchitecturalRole.TEST),
+        (is_config,      ArchitecturalRole.CONFIGURATION),
+        (is_docs,        ArchitecturalRole.DOCUMENTATION),
+        (is_tooling,     ArchitecturalRole.TOOLING),
+        (ends_init,      ArchitecturalRole.PACKAGE_INITIALIZER),
         (is_public,      ArchitecturalRole.PUBLIC_MODULE),
         (is_experimental,ArchitecturalRole.EXPERIMENTAL),
         (is_cli,         ArchitecturalRole.CLI),
@@ -256,7 +272,7 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
         coupling_count = len(downstream_files)
         abs_target = os.path.join(repo_path, target) if repo_path else target
         complexity = get_file_complexity(abs_target)
-        impact_score = complexity * math.log(math.e + coupling_count)
+        impact_score = compute_impact_score(complexity, coupling_count)
 
         # Architectural role via ordered rules engine
         role = determine_architectural_role(target, abs_target)
@@ -277,26 +293,29 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
             med_t += 1.5
         high_t = max(3.0, min(15.0, high_t))
         med_t = max(1.0, min(8.0, med_t))
+        med_t = min(med_t, high_t - 0.5)
 
-        if impact_score >= high_t:
+        cat = classify_file(target, repo_path)
+        if cat == FileCategory.TEST_CODE:
+            level = "LOW" if impact_score < 10.0 else "MEDIUM"
+            mitigation = f"Test suite component ({complexity} decisions, {coupling_count} callers)."
+        elif impact_score >= high_t:
             level = "HIGH"
             mitigation = (
-                f"High risk implementation. Impact Score: {impact_score:.2f} "
-                f"(Threshold: {high_t:.2f}, Complexity: {complexity}, "
-                f"Coupling: {coupling_count})."
+                f"High consequence module. {coupling_count} downstream files depend on this directly. "
+                f"Modifying public interface risks breaking dependent modules."
             )
         elif impact_score >= med_t:
             level = "MEDIUM"
             mitigation = (
-                f"Moderate risk implementation. Impact Score: {impact_score:.2f} "
-                f"(Threshold: {med_t:.2f}, Complexity: {complexity}, "
-                f"Coupling: {coupling_count})."
+                f"Moderate consequence module with {coupling_count} downstream dependents. "
+                f"Changes require careful regression verification."
             )
         else:
             level = "LOW"
             mitigation = (
-                f"Low risk implementation. Impact Score: {impact_score:.2f} "
-                f"(Complexity: {complexity}, Coupling: {coupling_count})."
+                f"Contained module ({coupling_count} downstream callers). "
+                f"Safe for direct localized modifications."
             )
 
         if role == ArchitecturalRole.PACKAGE_INITIALIZER:
@@ -314,11 +333,7 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
                 mkr = v
                 break
 
-        try:
-            defect_prob = logistic.predict_defect_probability(impact_score, mkr)
-            confidence = 1.0 - defect_prob
-        except Exception:
-            confidence = mkr / (1.0 + 0.1 * impact_score)
+        confidence = max(0.0, min(1.0, mkr / (1.0 + 0.1 * max(0.0, impact_score))))
 
         risks.append(AnalysisPacket(
             file_path=target,
@@ -331,6 +346,7 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
             complexity=complexity,
             mitigation=mitigation,
             callers=sorted(list(downstream_files)),
+            category=cat.value,
             architectural_role=role,
             change_strategy=change_strategy,
         ))

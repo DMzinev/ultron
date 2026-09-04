@@ -243,7 +243,7 @@ class TestRKMContract(unittest.TestCase):
         finally:
             shutil.rmtree(temp_dir)
 
-    def test_failure_space_coverage(self):
+    def test_failure_space_residual_coverage(self):
         """Programmatic Failure Space / Residual Risk coverage exercises for UMAGS checker."""
         temp_dir = tempfile.mkdtemp()
         db_path = os.path.join(temp_dir, "fs_coverage.db")

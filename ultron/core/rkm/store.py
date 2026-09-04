@@ -17,22 +17,82 @@ class AppliedMigration:
         self.version = version
         self.applied_at = applied_at
 
+_VERIFIED_DATABASES = {}
+_PARSED_MIGRATIONS_CACHE = None
+
 class RepositoryStore:
     def __init__(self, db_path: str):
         self.db_path = db_path if db_path == ":memory:" else os.path.normpath(os.path.abspath(db_path))
-        # Campaign 20: Integrity Check, Pre-Migration Backup & Corrupted DB Preservation
-        from ultron.core.rkm.integrity import RKMDatabaseIntegrity
-        RKMDatabaseIntegrity.verify_and_repair_database(self.db_path)
         
         if self.db_path != ":memory:":
             db_dir = os.path.dirname(self.db_path)
             os.makedirs(db_dir, exist_ok=True)
-        
-        self.conn = sqlite3.connect(self.db_path)
+            cur_mtime = os.path.getmtime(self.db_path) if os.path.exists(self.db_path) else None
+            if _VERIFIED_DATABASES.get(self.db_path) != cur_mtime:
+                from ultron.core.rkm.integrity import RKMDatabaseIntegrity
+                RKMDatabaseIntegrity.verify_and_repair_database(self.db_path)
+                cur_mtime = os.path.getmtime(self.db_path) if os.path.exists(self.db_path) else None
+                _VERIFIED_DATABASES[self.db_path] = cur_mtime
+
+        self._init_connection()
+
+    def _init_connection(self):
+        self.conn = sqlite3.connect(self.db_path, timeout=30.0)
         self.conn.row_factory = sqlite3.Row
+        
+        # High-Performance Monorepo WAL & Caching Pragmas
+        if self.db_path != ":memory:":
+            try:
+                self.conn.execute("PRAGMA journal_mode = WAL;")
+                self.conn.execute("PRAGMA synchronous = NORMAL;")
+                self.conn.execute("PRAGMA cache_size = -64000;")     # 64MB cache
+                self.conn.execute("PRAGMA temp_store = MEMORY;")
+                self.conn.execute("PRAGMA mmap_size = 268435456;")   # 256MB mmap
+                self.conn.execute("PRAGMA busy_timeout = 30000;")    # 30s busy timeout
+            except Exception:
+                pass
+
         self.conn.execute("PRAGMA foreign_keys = ON;")
-        self._run_migrations()
-        self._check_compatibility()
+        try:
+            self._run_migrations()
+            self._ensure_performance_indexes()
+            self._check_compatibility()
+        except sqlite3.DatabaseError:
+            # Immediate recovery on corrupt database file
+            if self.db_path != ":memory:":
+                try:
+                    self.conn.close()
+                except Exception:
+                    pass
+                from ultron.core.rkm.integrity import RKMDatabaseIntegrity
+                RKMDatabaseIntegrity.verify_and_repair_database(self.db_path)
+                _VERIFIED_DATABASES[self.db_path] = os.path.getmtime(self.db_path) if os.path.exists(self.db_path) else None
+                self.conn = sqlite3.connect(self.db_path, timeout=30.0)
+                self.conn.row_factory = sqlite3.Row
+                self.conn.execute("PRAGMA foreign_keys = ON;")
+                self._run_migrations()
+                self._ensure_performance_indexes()
+                self._check_compatibility()
+            else:
+                raise
+
+    def _ensure_performance_indexes(self):
+        """Creates compound indexes for monorepos with 100k+ records."""
+        indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_rkm_files_run_path ON rkm_files(analysis_run_id, path);",
+            "CREATE INDEX IF NOT EXISTS idx_rkm_symbols_file_name ON rkm_symbols(file_id, name);",
+            "CREATE INDEX IF NOT EXISTS idx_rkm_deps_file_target ON rkm_dependencies(file_id, target_path);",
+            "CREATE INDEX IF NOT EXISTS idx_rkm_facts_file_cat ON rkm_facts(file_id, category, metric);",
+            "CREATE INDEX IF NOT EXISTS idx_rkm_metrics_file_name ON rkm_metrics(file_id, name);",
+            "CREATE INDEX IF NOT EXISTS idx_rkm_runs_hash ON rkm_analysis_runs(content_hash, archived);",
+            "CREATE INDEX IF NOT EXISTS idx_rkm_stage_cache_lookup ON rkm_stage_cache(analysis_stage, stage_version, input_hash);"
+        ]
+        try:
+            with self.transaction():
+                for idx_ddl in indexes:
+                    self.conn.execute(idx_ddl)
+        except Exception:
+            pass
 
     def parse_version(self, v_str: str) -> tuple[int, ...]:
         if not isinstance(v_str, str) or not v_str.strip():
@@ -81,6 +141,7 @@ class RepositoryStore:
             self.conn.commit()
 
     def _run_migrations(self):
+        global _PARSED_MIGRATIONS_CACHE
         import hashlib
         self._ensure_migrations_table_has_checksum()
 
@@ -92,53 +153,62 @@ class RepositoryStore:
         applied_rows = self.conn.execute("SELECT version, checksum FROM rkm_migrations").fetchall()
         applied_map = {row["version"]: row["checksum"] for row in applied_rows}
 
-        # 2. Scan and parse all migrations in migrations directory
-        migration_nodes = {}
-        for filename in os.listdir(migrations_dir):
-            if filename.endswith(".sql"):
-                filepath = os.path.join(migrations_dir, filename)
-                with open(filepath, "r", encoding="utf-8") as f:
-                    ddl = f.read()
-                checksum = hashlib.sha256(ddl.replace("\r\n", "\n").encode("utf-8")).hexdigest()
-                
-                # Parse depends_on
-                depends_on = []
-                for line in ddl.splitlines():
-                    line_strip = line.strip()
-                    if line_strip.startswith("-- depends_on:"):
-                        parts = line_strip.split("-- depends_on:", 1)[1].split(",")
-                        for p in parts:
-                            p_strip = p.strip()
-                            if p_strip:
-                                depends_on.append(p_strip)
-                                
-                migration_nodes[filename] = {
-                    "filename": filename,
-                    "filepath": filepath,
-                    "ddl": ddl,
-                    "checksum": checksum,
-                    "depends_on": depends_on
-                }
+        if _PARSED_MIGRATIONS_CACHE is None:
+            # Scan and parse all migrations in migrations directory once
+            migration_nodes = {}
+            for filename in os.listdir(migrations_dir):
+                if filename.endswith(".sql"):
+                    filepath = os.path.join(migrations_dir, filename)
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        ddl = f.read()
+                    checksum = hashlib.sha256(ddl.replace("\r\n", "\n").encode("utf-8")).hexdigest()
+                    
+                    # Parse depends_on
+                    depends_on = []
+                    for line in ddl.splitlines():
+                        line_strip = line.strip()
+                        if line_strip.startswith("-- depends_on:"):
+                            parts = line_strip.split("-- depends_on:", 1)[1].split(",")
+                            for p in parts:
+                                p_strip = p.strip()
+                                if p_strip:
+                                    depends_on.append(p_strip)
+                                    
+                    migration_nodes[filename] = {
+                        "filename": filename,
+                        "filepath": filepath,
+                        "ddl": ddl,
+                        "checksum": checksum,
+                        "depends_on": depends_on
+                    }
 
-        # 3. Topological sort and circular dependency check
-        visited = {}  # version -> state (0=unvisited, 1=visiting, 2=visited)
-        order = []
+            # Topological sort and circular dependency check once
+            visited = {}  # version -> state (0=unvisited, 1=visiting, 2=visited)
+            order = []
 
-        def visit(v):
-            if visited.get(v, 0) == 1:
-                raise ValueError(f"Circular dependency detected in migrations involving {v}")
-            if visited.get(v, 0) == 2:
-                return
-            visited[v] = 1
-            for dep in migration_nodes[v]["depends_on"]:
-                if dep in migration_nodes:
-                    visit(dep)
-            visited[v] = 2
-            order.append(v)
+            def visit(v):
+                if visited.get(v, 0) == 1:
+                    raise ValueError(f"Circular dependency detected in migrations involving {v}")
+                if visited.get(v, 0) == 2:
+                    return
+                visited[v] = 1
+                for dep in migration_nodes[v]["depends_on"]:
+                    if dep in migration_nodes:
+                        visit(dep)
+                visited[v] = 2
+                order.append(v)
 
-        for filename in sorted(migration_nodes.keys()):
-            if filename not in visited:
-                visit(filename)
+            for filename in sorted(migration_nodes.keys()):
+                if filename not in visited:
+                    visit(filename)
+
+            _PARSED_MIGRATIONS_CACHE = (migration_nodes, order)
+
+        migration_nodes, order = _PARSED_MIGRATIONS_CACHE
+
+        # Fast path: if all known migrations are already applied and have valid checksums, return immediately
+        if len(applied_map) >= len(migration_nodes) and all(v in applied_map and applied_map[v] for v in migration_nodes):
+            return
 
         # 4. Apply migrations in order
         for filename in order:

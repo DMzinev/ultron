@@ -106,7 +106,7 @@ ultron/
 │   ├── mcp_server.py       # Model Context Protocol stdio middleware
 │   └── api/                # Modular API endpoints
 ├── release/                # Automated release audit & invariant policy evaluator
-├── tests/                  # Master test suite (89 unit/integration/chaos tests)
+├── tests/                  # Master test suite (156 unit/integration/chaos/mutation/E2E tests)
 ├── start.py                # Zero-config single-file entry launcher
 ├── requirements.txt        # Root Python dependencies
 └── pyproject.toml          # Package build configuration

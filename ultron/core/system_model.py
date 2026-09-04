@@ -160,6 +160,22 @@ class SystemGraph:
     evidence: Dict[str, EvidenceObject] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+    def add_node(self, node: SystemNode) -> None:
+        self.nodes[node.id] = node
+
+    def add_edge(self, edge: SystemEdge) -> None:
+        self.edges.append(edge)
+
+    def get_dependencies(self, node_id: str) -> List[str]:
+        """Returns outgoing dependency IDs (nodes that node_id imports/calls)."""
+        norm_id = node_id.replace("\\", "/")
+        return sorted(list(set(e.target_id for e in self.edges if e.source_id == norm_id)))
+
+    def get_dependents(self, node_id: str) -> List[str]:
+        """Returns incoming dependent IDs (nodes that import/call node_id)."""
+        norm_id = node_id.replace("\\", "/")
+        return sorted(list(set(e.source_id for e in self.edges if e.target_id == norm_id)))
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "nodes": {nid: node.to_dict() for nid, node in sorted(self.nodes.items())},

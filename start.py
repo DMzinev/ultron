@@ -1,4 +1,4 @@
-# Single-File Launcher for Ultron Cognitive Repository Engine
+"""Ultron root launcher (compatible with launcher.py and legacy start script)."""
 import os
 import sys
 import time
@@ -9,7 +9,6 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-# ── Error vocabulary (shared with frontend) ──────────────────────────
 PORT_IN_USE = "PORT_IN_USE"
 _FALLBACK_PORTS = [8000, 8001, 8002]
 
@@ -21,44 +20,57 @@ def _safe_reconfigure_console():
             try:
                 stream.reconfigure(encoding="utf-8", errors="replace")
             except Exception:
-                pass  # Already reconfigured or not a real TTY
+                pass
 
 
-def launch_ultron():
-    """
-    Single-file entry point:
-    1. Evaluates repository RKM facts & complexity
-    2. Displays executive summary table
-    3. Launches server & auto-opens browser
-    """
-    _safe_reconfigure_console()
-
-    print("==================================================================================")
-    print("           ULTRON COGNITIVE REPOSITORY ENGINE -- SINGLE-FILE LAUNCHER            ")
-    print("==================================================================================")
-    print("  [1/3] Initializing Repository Knowledge Model (RKM)...")
-
+def _init_rkm(repo_path):
+    """Run initial RKM analysis on repository."""
     try:
-        from ultron.core.pipeline.orchestrator import analyze_repository
-        run_id = analyze_repository(ROOT)
-        print(f"  [+] Analysis Run Completed. Run ID: {run_id}")
+        from ultron.core.pipeline.orchestrator import analyze_repository, compute_repository_content_hash
+        bundle = analyze_repository(repo_path)
+        try:
+            from ultron.interfaces import server
+            norm_p = os.path.normpath(repo_path).replace("\\", "/")
+            raw_hash = compute_repository_content_hash(repo_path, bundle.files)
+            server._ANALYSIS_CACHE["repo_path"] = norm_p
+            server._ANALYSIS_CACHE["bundle"] = bundle
+            server._ANALYSIS_CACHE["content_hash"] = raw_hash
+        except Exception:
+            pass
+        return bundle
     except Exception as e:
         print(f"  [*] Analysis note: {e}")
+        return None
 
-    print("\n  [2/3] Computing Executive Summary from Analysis Run...")
+
+def _extract_summary_data(bundle, repo_path):
+    """Extract files and risks from bundle or direct fallback analysis."""
+    if bundle:
+        return bundle.files, bundle.risks
+    from ultron.core import analyzer
+    from ultron.core import risk as risk_mod
+    codebase = analyzer.analyze_directory(repo_path)
+    all_files = list(codebase.keys())
+    risks = risk_mod.evaluate_risks(codebase, all_files, repo_path=repo_path)
+    return all_files, risks
+
+
+def _format_top_risk(risks):
+    """Format top risk description string."""
+    if not risks:
+        return "None detected"
+    sorted_risks = sorted(risks, key=lambda r: r.impact_score, reverse=True)
+    top = sorted_risks[0]
+    return f"{top.file_path} (Complexity: {top.complexity})"
+
+
+def _print_executive_summary(repo_path, bundle):
+    """Compute and display executive summary metrics."""
     try:
-        from ultron.core import analyzer
-        from ultron.core import risk as risk_mod
-        codebase = analyzer.analyze_directory(ROOT)
-        all_files = list(codebase.keys())
-        risks = risk_mod.evaluate_risks(codebase, all_files, repo_path=ROOT)
-
-        sorted_risks = sorted(risks, key=lambda r: r.impact_score, reverse=True)
+        all_files, risks = _extract_summary_data(bundle, repo_path)
         high_count = sum(1 for r in risks if r.level == "HIGH")
         health = max(40, round(100 - (high_count * 8)))
-
-        top_risk = sorted_risks[0] if sorted_risks else None
-        top_risk_str = f"{top_risk.file_path} (Complexity: {top_risk.complexity})" if top_risk else "None detected"
+        top_risk_str = _format_top_risk(risks)
 
         print("-" * 82)
         print(f"  REPOSITORY HEALTH:  [ {health} / 100 ]  ({len(all_files)} modules scanned)")
@@ -68,44 +80,65 @@ def launch_ultron():
     except Exception as e:
         print(f"  [*] Summary note: {e}")
 
-    # ── Port fallback loop ────────────────────────────────────────────
-    from ultron.interfaces.server import serve
-    bound_port = None
 
-    for port in _FALLBACK_PORTS:
+def _is_port_in_use_error(exc):
+    """Determine whether an OSError indicates that the port is already in use."""
+    err_str = str(exc).lower()
+    return (
+        "address already in use" in err_str
+        or "only one usage" in err_str
+        or getattr(exc, "errno", 0) in (10048, 48, 98)
+        or getattr(exc, "winerror", 0) == 10048
+    )
+
+
+def _open_browser_delayed(port, delay=1.2):
+    """Open browser in a background thread after a brief delay."""
+    def _target():
+        time.sleep(delay)
         try:
-            print(f"\n  [3/3] Starting Server on http://localhost:{port}/ ...")
+            webbrowser.open(f"http://localhost:{port}/")
+        except Exception:
+            pass
 
-            def auto_open_browser(p=port):
-                time.sleep(1.2)
-                try:
-                    webbrowser.open(f"http://localhost:{p}/")
-                except Exception:
-                    pass
+    threading.Thread(target=_target, daemon=True).start()
 
-            threading.Thread(target=auto_open_browser, daemon=True).start()
-            bound_port = port
-            serve(port=port)
-            break  # serve_forever blocks; break is reached only after shutdown
-        except OSError as e:
-            if "address already in use" in str(e).lower() or getattr(e, "errno", 0) == 10048:
-                print(f"  [!] Port {port} is already in use. Trying next port...")
-                continue
-            else:
-                print(f"  [-] Server failed: {e}")
-                break
-        except KeyboardInterrupt:
-            print("\n  [+] Ultron server stopped.")
-            break
-        except Exception as e:
-            print(f"  [-] Server error: {e}")
-            break
-    else:
-        # All ports exhausted
-        print("\n  [-] Could not start server. Ports 8000-8002 are all in use.")
-        print("      Close the process using one of those ports, or run:")
-        print("      python -c \"from ultron.interfaces.server import serve; serve(port=9000)\"")
+
+def _serve_port(port):
+    """Attempt to run the server on port."""
+    from ultron.interfaces.server import serve
+
+    _open_browser_delayed(port)
+    try:
+        serve(port=port)
+        return "STOPPED"
+    except OSError as e:
+        if _is_port_in_use_error(e):
+            return "IN_USE"
+        return "FAILED"
+    except KeyboardInterrupt:
+        return "STOPPED"
+    except Exception:
+        return "FAILED"
+
+
+def _run_server_loop(ports=_FALLBACK_PORTS):
+    """Iterate candidate ports until server binds or list is exhausted."""
+    for port in ports:
+        status = _serve_port(port)
+        if status != "IN_USE":
+            return True
+    return False
+
+
+def launch_ultron():
+    """Single-file entry point."""
+    _safe_reconfigure_console()
+    bundle = _init_rkm(ROOT)
+    _print_executive_summary(ROOT, bundle)
+    _run_server_loop(_FALLBACK_PORTS)
 
 
 if __name__ == "__main__":
-    launch_ultron()
+    from launcher import main
+    main()

@@ -20,7 +20,10 @@ class TestServerDashboardEndpoints(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.temp_dir.cleanup()
+        try:
+            cls.temp_dir.cleanup()
+        except Exception:
+            pass
 
     def test_summary_uninitialized(self):
         """Verify GET /api/v1/summary returns uninitialized state without creating DB file."""
@@ -243,5 +246,247 @@ class TestServerDashboardEndpoints(unittest.TestCase):
         handler.handle_v1_export_brief()
         self.assertIn(400, status_codes)
 
+    def test_api_v1_risk_profile_dynamic_and_invalid_param(self):
+        """Verify GET /api/v1/risk-profile resolves dynamic metrics and validates parameters."""
+        handler = UltronAPIHandler.__new__(UltronAPIHandler)
+        handler.path = f"/api/v1/risk-profile?entity=sample_module.py&repo={self.repo_path}"
+        handler.wfile = io.BytesIO()
+        handler.headers = {}
+        handler.send_response = lambda code: None
+        handler.send_header = lambda k, v: None
+        handler.end_headers = lambda: None
+        handler.get_repo_root_path = lambda: self.repo_path
+
+        handler.handle_v1_risk_profile()
+        output = handler.wfile.getvalue().decode('utf-8')
+        res = json.loads(output)
+        self.assertTrue(res["success"])
+        data = res["data"]
+        self.assertEqual(data["entity_id"], "sample_module.py")
+        self.assertIn("score", data)
+        self.assertIn("signals", data)
+        self.assertIn("metric_provenance", data)
+        prov = data["metric_provenance"]
+        self.assertIn("complexity_source", prov)
+        self.assertIn("cache_hit", prov)
+        self.assertIn("snapshot_id", prov)
+
+        # Invalid param test
+        handler_bad = UltronAPIHandler.__new__(UltronAPIHandler)
+        handler_bad.path = "/api/v1/risk-profile?complexity=invalid_num"
+        handler_bad.wfile = io.BytesIO()
+        status_codes = []
+        handler_bad.send_response = lambda code: status_codes.append(code)
+        handler_bad.send_header = lambda k, v: None
+        handler_bad.end_headers = lambda: None
+        handler_bad.handle_v1_risk_profile()
+        self.assertIn(400, status_codes)
+
+    def test_api_v1_decision_dynamic(self):
+        """Verify GET /api/v1/decision evaluates policy dynamically."""
+        handler = UltronAPIHandler.__new__(UltronAPIHandler)
+        handler.path = f"/api/v1/decision?entity=sample_module.py&criticality=HIGH&repo={self.repo_path}"
+        handler.wfile = io.BytesIO()
+        handler.headers = {}
+        handler.send_response = lambda code: None
+        handler.send_header = lambda k, v: None
+        handler.end_headers = lambda: None
+        handler.get_repo_root_path = lambda: self.repo_path
+
+        handler.handle_v1_decision()
+        output = handler.wfile.getvalue().decode('utf-8')
+        res = json.loads(output)
+        self.assertTrue(res["success"])
+        data = res["data"]
+        self.assertEqual(data["entity_id"], "sample_module.py")
+        self.assertIn("priority", data)
+        self.assertIn("risk_score", data)
+        self.assertIn("metric_provenance", data)
+        prov = data["metric_provenance"]
+        self.assertIn("complexity_source", prov)
+        self.assertIn("cache_hit", prov)
+        self.assertIn("snapshot_id", prov)
+
+    def test_api_v1_dependency_graph_chunked_and_invalid_param(self):
+        """Verify GET /api/v1/dependency-graph supports chunking and handles invalid params with 400."""
+        handler = UltronAPIHandler.__new__(UltronAPIHandler)
+        handler.path = f"/api/v1/dependency-graph?repo={self.repo_path}&chunk=0&limit=5"
+        handler.wfile = io.BytesIO()
+        handler.headers = {}
+        handler.send_response = lambda code: None
+        handler.send_header = lambda k, v: None
+        handler.end_headers = lambda: None
+        handler.get_query_data = lambda: {"repo": self.repo_path, "chunk": "0", "limit": "5"}
+
+        handler.handle_dependency_graph()
+        output = handler.wfile.getvalue().decode('utf-8')
+        res = json.loads(output)
+        self.assertTrue(res["success"])
+        self.assertEqual(res["chunk"], 0)
+        self.assertEqual(res["limit"], 5)
+        self.assertIn("total_chunks", res)
+        self.assertIn("has_more", res)
+
+        # Invalid param test
+        handler_bad = UltronAPIHandler.__new__(UltronAPIHandler)
+        handler_bad.path = "/api/v1/dependency-graph?chunk=invalid_num"
+        handler_bad.headers = {}
+        handler_bad.wfile = io.BytesIO()
+        handler_bad.get_repo_root_path = lambda: self.repo_path
+        status_codes = []
+        handler_bad.send_response = lambda code: status_codes.append(code)
+        handler_bad.send_header = lambda k, v: None
+        handler_bad.end_headers = lambda: None
+        handler_bad.get_query_data = lambda: {"chunk": "invalid_num"}
+        handler_bad.handle_dependency_graph()
+        self.assertIn(400, status_codes)
+
+    def test_api_v1_objective_and_agent_context_endpoints(self):
+        """Verify GET/POST /api/v1/objective and POST /api/v1/agent/context."""
+        # 1. GET objective
+        handler = UltronAPIHandler.__new__(UltronAPIHandler)
+        handler.command = "GET"
+        handler.path = f"/api/v1/objective?repo={self.repo_path}"
+        handler.headers = {}
+        handler.wfile = io.BytesIO()
+        handler.send_response = lambda code: None
+        handler.send_header = lambda k, v: None
+        handler.end_headers = lambda: None
+
+        handler.handle_v1_get_objective()
+        output = handler.wfile.getvalue().decode('utf-8')
+        data = json.loads(output)
+        self.assertIn("title", data)
+        self.assertIn("tasks", data)
+
+        # 2. Agent context builder
+        handler_ctx = UltronAPIHandler.__new__(UltronAPIHandler)
+        handler_ctx.command = "POST"
+        handler_ctx.path = "/api/v1/agent/context"
+        handler_ctx.headers = {}
+        handler_ctx.wfile = io.BytesIO()
+        handler_ctx.get_post_data = lambda: {"repo": self.repo_path, "provider": "claude"}
+        handler_ctx.send_response = lambda code: None
+        handler_ctx.send_header = lambda k, v: None
+        handler_ctx.end_headers = lambda: None
+
+        handler_ctx.handle_v1_agent_context_builder()
+        out_ctx = handler_ctx.wfile.getvalue().decode('utf-8')
+        data_ctx = json.loads(out_ctx)
+        self.assertTrue(data_ctx["success"])
+        self.assertIn("<ultron_mission_envelope", data_ctx["prompt"])
+
+        # 3. Safety evaluate
+        handler_safe = UltronAPIHandler.__new__(UltronAPIHandler)
+        handler_safe.command = "POST"
+        handler_safe.path = "/api/v1/safety/evaluate"
+        handler_safe.headers = {}
+        handler_safe.wfile = io.BytesIO()
+        handler_safe.get_post_data = lambda: {
+            "repo": self.repo_path,
+            "test_results": {"passed": True, "passed_count": 10, "failed_count": 0}
+        }
+        handler_safe.send_response = lambda code: None
+        handler_safe.send_header = lambda k, v: None
+        handler_safe.end_headers = lambda: None
+
+        handler_safe.handle_v1_safety_evaluate()
+        out_safe = handler_safe.wfile.getvalue().decode('utf-8')
+        data_safe = json.loads(out_safe)
+        self.assertTrue(data_safe["success"])
+        self.assertEqual(data_safe["report"]["badge"], "CONTINUE BUILDING")
+
+    def test_unified_v2_6_5_analysis_payload(self):
+        """Verify _build_analysis_payload returns unified authoritative runtime contract (v2.6.5)."""
+        handler = UltronAPIHandler.__new__(UltronAPIHandler)
+        handler.wfile = io.BytesIO()
+        handler.headers = {}
+        payload = handler._build_analysis_payload(self.repo_path, force=True)
+
+        # 1. Identity & Version Grounding
+        self.assertEqual(payload["projection_version"], "2.6.5")
+        self.assertIn("snapshot_id", payload)
+        self.assertIn("model_hash", payload)
+        self.assertIn("repository_id", payload)
+        self.assertIn("repository_root", payload)
+        self.assertIn("repository_relative_root", payload)
+        self.assertIn("generated_at", payload)
+
+        # 2. Performance Telemetry
+        self.assertIn("payload_bytes", payload)
+        self.assertIn("payload_build_ms", payload)
+        self.assertIn("payload_serialize_ms", payload)
+        self.assertGreater(payload["payload_bytes"], 0)
+
+        # 3. Unified State Projections
+        self.assertIn("objective", payload)
+        self.assertIn("session", payload)
+        self.assertIn("readiness", payload)
+        self.assertIn("diff", payload)
+        self.assertIn("stats", payload)
+        self.assertIn("risks", payload)
+        self.assertIn("dependency_graph", payload)
+        self.assertIn("recommendations", payload)
+        self.assertIn("file_tree", payload)
+
+        # 4. Snapshot-Bound Readiness Check
+        self.assertEqual(payload["readiness"]["snapshot_id"], payload["snapshot_id"])
+        self.assertEqual(payload["readiness"]["model_hash"], payload["model_hash"])
+
+        # 5. Session Timeline Presence
+        self.assertIsInstance(payload["session"].get("timeline"), list)
+
+    def test_api_v1_run_tests_async_and_poll_status(self):
+        """Verify POST /api/v1/run-tests with async=True returns 202 and polls via GET /api/v1/test-status."""
+        import io
+        import json
+        import time
+
+        handler = UltronAPIHandler.__new__(UltronAPIHandler)
+        handler.path = "/api/v1/run-tests"
+        handler.command = "POST"
+        body = json.dumps({"repo": self.repo_path, "async": True}).encode("utf-8")
+        handler.rfile = io.BytesIO(body)
+        handler.wfile = io.BytesIO()
+        handler.headers = {"Content-Length": str(len(body))}
+        
+        responses = []
+        handler.send_response = lambda code: responses.append(code)
+        handler.send_header = lambda k, v: None
+        handler.end_headers = lambda: None
+        handler.get_repo_root_path = lambda: self.repo_path
+
+        handler.handle_run_tests()
+        self.assertIn(202, responses)
+        
+        response_bytes = handler.wfile.getvalue()
+        async_res = json.loads(response_bytes.decode("utf-8"))
+        self.assertEqual(async_res.get("status"), "running")
+        self.assertIn("run_id", async_res)
+        run_id = async_res["run_id"]
+
+        # Now test GET /api/v1/test-status?run_id=...
+        handler_poll = UltronAPIHandler.__new__(UltronAPIHandler)
+        handler_poll.path = f"/api/v1/test-status?run_id={run_id}"
+        handler_poll.command = "GET"
+        handler_poll.wfile = io.BytesIO()
+        handler_poll.headers = {}
+        poll_responses = []
+        handler_poll.send_response = lambda code: poll_responses.append(code)
+        handler_poll.send_header = lambda k, v: None
+        handler_poll.end_headers = lambda: None
+
+        handler_poll.handle_test_status()
+        self.assertIn(200, poll_responses)
+        poll_data = json.loads(handler_poll.wfile.getvalue().decode("utf-8"))
+        self.assertEqual(poll_data.get("run_id"), run_id)
+        self.assertIn(poll_data.get("status"), ("queued", "running", "completed", "failed"))
+
+        # Clean up background run
+        from ultron.core.test_runner_service import TestRunnerService
+        TestRunnerService.get_instance().cancel_run(run_id)
+
+
 if __name__ == "__main__":
     unittest.main()
+

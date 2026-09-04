@@ -100,6 +100,8 @@ def run_tests(repo_path, cmd, force_refresh=False):
     try:
         # Cross-platform safe command split
         parts = shlex.split(cmd, posix=(sys.platform != "win32"))
+        if parts and parts[0] == "python":
+            parts[0] = sys.executable
         from umags.config import TEST_TIMEOUT_SECONDS
         # Use budget governor cache to skip re-running an identical command against an unchanged repo state
         if _budget_governor is not None and not force_refresh:
@@ -123,7 +125,7 @@ def get_git_bug_commits_for_file(repo_path, filepath):
         res = subprocess.run(
             ["git", "log", "--oneline", "--", filepath],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             cwd=repo_path,
             errors="ignore"
         )
@@ -184,6 +186,8 @@ def is_nullification_candidate(repo_path, rel_path):
         res = subprocess.run(
             ["git", "ls-files", "--error-unmatch", rel_path],
             capture_output=True,
+            encoding="utf-8",
+            errors="replace",
             cwd=repo_path
         )
         if res.returncode == 0:
@@ -206,7 +210,7 @@ def get_actual_modified_files(repo_path):
         res = subprocess.run(
             ["git", "diff", "--name-only"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             cwd=repo_path,
             errors="ignore"
         )
@@ -219,7 +223,7 @@ def get_actual_modified_files(repo_path):
         res_staged = subprocess.run(
             ["git", "diff", "--cached", "--name-only"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             cwd=repo_path,
             errors="ignore"
         )
@@ -232,7 +236,7 @@ def get_actual_modified_files(repo_path):
         res_status = subprocess.run(
             ["git", "status", "--porcelain"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             cwd=repo_path,
             errors="ignore"
         )
@@ -291,7 +295,7 @@ def get_original_code(repo_path, rel_path):
         chk = subprocess.run(
             ["git", "rev-parse", "--is-inside-work-tree"],
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             cwd=repo_path,
             errors="ignore"
         )
@@ -300,7 +304,7 @@ def get_original_code(repo_path, rel_path):
             log_res = subprocess.run(
                 ["git", "log", "-n", "1", "--format=%H", "--", git_path],
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
                 cwd=repo_path,
                 errors="ignore"
             )
@@ -309,7 +313,7 @@ def get_original_code(repo_path, rel_path):
                 res = subprocess.run(
                     ["git", "show", f"{commit_hash}:{git_path}"],
                     capture_output=True,
-                    text=True,
+                    encoding="utf-8",
                     cwd=repo_path,
                     errors="ignore"
                 )
@@ -688,7 +692,7 @@ def main():
     test_failed_baseline = False
     for cmd in test_commands:
         print(f"[*] Running test suite: {cmd}")
-        passed, stdout, stderr = run_tests(repo_path, cmd)
+        passed, stdout, stderr = run_tests(repo_path, cmd, force_refresh=True)
         if not passed:
             auditor_comments.append(f"Objection: Test suite command '{cmd}' failed under baseline modified code.")
             auditor_verified = False
@@ -743,7 +747,8 @@ def main():
                             ["git", "log", "-n", "1", "--format=%H", "--", "PROJECT_LOG.md"],
                             cwd=repo_path,
                             capture_output=True,
-                            text=True
+                            encoding="utf-8",
+                            errors="replace"
                         )
                         if res_log.returncode == 0 and res_log.stdout.strip():
                             baseline = res_log.stdout.strip()
@@ -751,7 +756,9 @@ def main():
                         chk_head = subprocess.run(
                             ["git", "cat-file", "-e", f"{baseline}:{f}"],
                             cwd=repo_path,
-                            capture_output=True
+                            capture_output=True,
+                            encoding="utf-8",
+                            errors="replace"
                         )
                         if chk_head.returncode == 0:
                             is_new = False
@@ -763,7 +770,7 @@ def main():
                             os.remove(f_abs)
                     else:
                         increment_telemetry_calls(1)
-                        subprocess.run(["git", "checkout", f], cwd=repo_path, capture_output=True)
+                        subprocess.run(["git", "checkout", f], cwd=repo_path, capture_output=True, encoding="utf-8", errors="replace")
                 
                 # Run the tests - they MUST fail now!
                 # force_refresh=True: file state changed during nullification — cache must be bypassed.
@@ -815,7 +822,7 @@ def main():
                         is_untracked = False
                         try:
                             increment_telemetry_calls(1)
-                            res = subprocess.run(["git", "ls-files", "--error-unmatch", f], cwd=repo_path, capture_output=True)
+                            res = subprocess.run(["git", "ls-files", "--error-unmatch", f], cwd=repo_path, capture_output=True, encoding="utf-8", errors="replace")
                             is_untracked = (res.returncode != 0)
                         except Exception as e:
                             _err = e

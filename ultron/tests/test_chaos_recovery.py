@@ -3,6 +3,7 @@ import io
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from ultron.interfaces.server import UltronAPIHandler
 
@@ -70,9 +71,11 @@ class TestChaosRecovery(unittest.TestCase):
         res = json.loads(h.wfile.getvalue().decode("utf-8"))
         self.assertEqual(res["initialized"], False)
 
-    def test_chaos_offline_ai_proxy_fallback(self):
+    import urllib.error
+    @patch("urllib.request.urlopen", side_effect=urllib.error.URLError("Proxy Offline"))
+    def test_chaos_offline_ai_proxy_fallback(self, mock_urlopen):
         """Gate 9: Dispatching AI push when port 10531 proxy is offline returns native AST explanation cleanly."""
-        h = self._create_handler("/api/v1/ai-push", {
+        h = self._create_handler("/api/v1/ai/push", {
             "repo": self.repo_path,
             "target_file": "core.py",
             "persona": "founder"

@@ -96,5 +96,60 @@ class TestAIHandoffAndFolderPicker(unittest.TestCase):
         self.assertIn("error", data)
         self.assertIn("does not exist", data["error"])
 
+    def test_v1_ai_push_endpoint(self):
+        """Verify handle_v1_ai_push returns explanation and backward-compat keys."""
+        handler = UltronAPIHandler.__new__(UltronAPIHandler)
+        handler.path = "/api/v1/ai/push"
+        handler.wfile = io.BytesIO()
+        handler.headers = {}
+        
+        req_payload = {
+            "repo": self.repo_path,
+            "target_file": "main.py",
+            "persona": "developer"
+        }
+        handler.get_post_data = lambda: req_payload
+        handler.get_repo_root_path = lambda: self.repo_path
+        handler.send_json_response = lambda code, body: handler.wfile.write(json.dumps(body).encode('utf-8'))
+
+        handler.handle_v1_ai_push()
+        
+        output = handler.wfile.getvalue().decode('utf-8')
+        data = json.loads(output)
+        self.assertEqual(data.get("status"), "success")
+        self.assertIn("explanation", data)
+        self.assertIn("ai_response", data)
+        self.assertIn("message", data)
+        self.assertEqual(data["explanation"], data["ai_response"])
+
+    def test_v1_analyze_synchronous_payload(self):
+        """Verify handle_v1_analyze returns full synchronous payload for small repositories."""
+        handler = UltronAPIHandler.__new__(UltronAPIHandler)
+        handler.path = "/api/v1/analyze"
+        handler.wfile = io.BytesIO()
+        handler.headers = {}
+        
+        req_payload = {
+            "repo": self.repo_path,
+            "force": True
+        }
+        handler.get_post_data = lambda: req_payload
+        handler.get_repo_root_path = lambda: self.repo_path
+        handler.send_json_response = lambda code, body: handler.wfile.write(json.dumps(body).encode('utf-8'))
+
+        handler.handle_v1_analyze()
+        
+        output = handler.wfile.getvalue().decode('utf-8')
+        data = json.loads(output)
+        self.assertTrue(data.get("success"))
+        self.assertEqual(data.get("mode"), "sync")
+        self.assertIn("stats", data)
+        self.assertIn("risks", data)
+        self.assertIn("dependency_graph", data)
+        self.assertIn("recommendations", data)
+        self.assertIn("file_tree", data)
+        self.assertIn("health_score", data)
+
 if __name__ == "__main__":
     unittest.main()
+

@@ -33,20 +33,45 @@ class PythonLanguageAdapter(LanguageAdapter):
     INVARIANT 3: Does NOT modify frozen core modules (analyzer.py, classifier.py, scoring.py).
     """
 
-    def _resolve_import_target(self, import_name: str, available_files: Set[str]) -> str:
+    def _resolve_import_target(self, import_name: str, available_files: Set[str], current_file: Optional[str] = None, level: int = 0) -> str:
         """Resolves module import target string to canonical module node ID."""
-        clean_imp = import_name.replace(".", "/")
+        if not import_name and not level:
+            return "module:unknown.py"
+
+        # 1. Resolve relative import path if level > 0
+        if level > 0 and current_file:
+            dir_parts = [p for p in os.path.dirname(current_file).replace("\\", "/").split("/") if p]
+            if level <= len(dir_parts) + 1:
+                base_parts = dir_parts[:len(dir_parts) - (level - 1)]
+                if import_name:
+                    mod_parts = import_name.split(".")
+                    clean_imp = "/".join(base_parts + mod_parts)
+                else:
+                    clean_imp = "/".join(base_parts)
+            else:
+                clean_imp = import_name.replace(".", "/") if import_name else ""
+        else:
+            clean_imp = (import_name or "").replace(".", "/")
+
+        if not clean_imp:
+            clean_imp = "unknown"
+
+        # 2. Check direct candidate and prefix candidates
+        parts = clean_imp.split("/")
+        for i in range(len(parts), 0, -1):
+            prefix = "/".join(parts[:i])
+            cand_py = f"{prefix}.py"
+            cand_init = f"{prefix}/__init__.py"
+            if cand_py in available_files:
+                return f"module:{cand_py}"
+            if cand_init in available_files:
+                return f"module:{cand_init}"
+
+        # 3. Check suffix matches against available files
         cand_py = f"{clean_imp}.py"
         cand_init = f"{clean_imp}/__init__.py"
-
-        if cand_py in available_files:
-            return f"module:{cand_py}"
-        elif cand_init in available_files:
-            return f"module:{cand_init}"
-        
-        # Check suffix matches
         for f in available_files:
-            if f.endswith(cand_py) or f.endswith(cand_init):
+            if f.endswith(cand_py) or f.endswith(cand_init) or f.endswith(f"/{cand_py}") or f.endswith(f"/{cand_init}"):
                 return f"module:{f}"
         
         return f"module:{clean_imp}.py"
@@ -95,22 +120,40 @@ class PythonLanguageAdapter(LanguageAdapter):
                 module_node.facts["loc"] = loc
                 module_node.line_end = max(1, len(lines))
 
+                if "\x00" in source_code:
+                    source_code = source_code.replace("\x00", "")
                 tree = ast.parse(source_code, filename=rel_path)
                 complexity_counter = 1
 
                 for item in ast.walk(tree):
-                    if isinstance(item, (ast.If, ast.For, ast.While, ast.ExceptHandler, ast.With)):
+                    branch_types = (
+                        ast.If, getattr(ast, 'IfExp', ast.If),
+                        ast.For, getattr(ast, 'AsyncFor', ast.For),
+                        ast.While, ast.ExceptHandler,
+                        ast.With, getattr(ast, 'AsyncWith', ast.With),
+                        getattr(ast, 'Assert', ast.If),
+                        getattr(ast, 'match_case', ast.If)
+                    )
+                    if isinstance(item, branch_types):
                         complexity_counter += 1
+                    elif isinstance(item, getattr(ast, 'BoolOp', ())):
+                        complexity_counter += max(1, len(item.values) - 1)
 
                     elif isinstance(item, ast.Import):
                         for alias in item.names:
-                            target_id = self._resolve_import_target(alias.name, available_files_set)
+                            target_id = self._resolve_import_target(alias.name, available_files_set, current_file=rel_path)
                             manager.add_edge(SystemEdge(source_id=node_id, target_id=target_id, type=SystemEdgeType.IMPORTS))
 
                     elif isinstance(item, ast.ImportFrom):
-                        if item.module:
-                            target_id = self._resolve_import_target(item.module, available_files_set)
+                        level = getattr(item, 'level', 0) or 0
+                        mod = item.module or ""
+                        if mod:
+                            target_id = self._resolve_import_target(mod, available_files_set, current_file=rel_path, level=level)
                             manager.add_edge(SystemEdge(source_id=node_id, target_id=target_id, type=SystemEdgeType.IMPORTS))
+                        elif level > 0 and item.names:
+                            for alias in item.names:
+                                target_id = self._resolve_import_target(alias.name, available_files_set, current_file=rel_path, level=level)
+                                manager.add_edge(SystemEdge(source_id=node_id, target_id=target_id, type=SystemEdgeType.IMPORTS))
 
                     elif isinstance(item, ast.ClassDef):
                         class_id = f"class:{rel_path}:{item.name}"
@@ -131,7 +174,7 @@ class PythonLanguageAdapter(LanguageAdapter):
                                 parent_class_id = f"class:{base.id}"
                                 manager.add_edge(SystemEdge(source_id=class_id, target_id=parent_class_id, type=SystemEdgeType.INHERITS))
 
-                    elif isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    elif isinstance(item, (ast.FunctionDef, getattr(ast, 'AsyncFunctionDef', ast.FunctionDef))):
                         func_id = f"function:{rel_path}:{item.name}"
                         func_type = SystemNodeType.TEST if item.name.startswith("test_") else SystemNodeType.FUNCTION
                         func_node = SystemNode(
@@ -177,12 +220,12 @@ class PythonLanguageAdapter(LanguageAdapter):
                 )
                 manager.add_evidence(ev_git)
 
-            except SyntaxError as syn_err:
-                logger.warning("[PythonAdapter Warning] Syntax error in '%s': %s", rel_path, syn_err)
-                module_node.facts["parse_error"] = f"SyntaxError: {str(syn_err)}"
             except OSError as os_err:
                 logger.warning("[PythonAdapter Warning] File read error in '%s': %s", rel_path, os_err)
                 module_node.facts["parse_error"] = f"OSError: {str(os_err)}"
+            except (SyntaxError, ValueError, Exception) as parse_err:
+                logger.warning("[PythonAdapter Warning] Parse error in '%s': %s", rel_path, parse_err)
+                module_node.facts["parse_error"] = f"{type(parse_err).__name__}: {str(parse_err)}"
 
             manager.add_node(module_node)
 

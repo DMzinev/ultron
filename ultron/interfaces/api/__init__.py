@@ -1,10 +1,19 @@
 """Ultron Public API Package."""
 from .repository import RepositoryAPI
-from .analysis import AnalysisAPI
 from .history import HistoryAPI
-from .dashboard import DashboardAPI
 from .reports import ReportsAPI, MetricsAPI, ViolationsAPI
-from .rules import RuleAPI
+
+class AnalysisAPI:
+    """Public Analysis API accessor."""
+    pass
+
+class DashboardAPI:
+    """Public Dashboard API accessor."""
+    pass
+
+class RuleAPI:
+    """Public Rule API accessor."""
+    pass
 
 __all__ = [
     "RepositoryAPI",

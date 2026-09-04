@@ -26,8 +26,8 @@ def handle_demo_command(args=None):
     from ultron.core.translate import translate_violation_to_plain_english
     from ultron.core.rkm.store import RepositoryStore
     
-    run_id = analyze_repository(repo_root, force=True)
-    print(f"[Ultron Demo] Analysis Run Completed: {run_id}")
+    bundle = analyze_repository(repo_root, force=True)
+    print(f"[Ultron Demo] Analysis Run Completed: {bundle.repo_uuid}")
     
     print("\n==================================================")
     print("DEMO RESULTS: PLAIN-ENGLISH EVIDENCE TRUST CHAIN")
