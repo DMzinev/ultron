@@ -44,6 +44,21 @@ function esc(s) {
   ));
 }
 
+function normPath(p) {
+  return String(p || "").trim().replace(/\\/g, "/").replace(/^\.\//, "");
+}
+
+function parseSeverity(s) {
+  if (typeof s === "number" && Number.isFinite(s)) {
+    return Math.max(1, Math.min(3, Math.round(s)));
+  }
+  if (!s) return 1;
+  const str = String(s).toUpperCase().trim();
+  if (str === "HIGH" || str === "CRITICAL" || str === "SEV 3" || str === "3") return 3;
+  if (str === "MEDIUM" || str === "WARN" || str === "WARNING" || str === "SEV 2" || str === "2") return 2;
+  return 1;
+}
+
 async function api(path, body) {
   const opts = body === undefined
     ? { method: "GET" }
@@ -287,23 +302,216 @@ function renderViolations() {
   const list = $("violations-list");
   if (!list) return;
 
-  if (state.violations.length === 0) {
+  setupViolationsDelegation();
+
+  if (!state.violations || state.violations.length === 0) {
     list.innerHTML = `<div class="pane-note">No architectural policy violations detected. Codebase complies with active constraints.</div>`;
     return;
   }
 
-  list.innerHTML = state.violations.slice(0, 50).map((v) => {
-    const sevClass = v.severity >= 3 ? "critical" : v.severity >= 2 ? "warning" : "optimal";
-    return `<div class="violation-card">
-      <div class="violation-top">
-        <span class="violation-principle">${esc(v.principle || "Rule")}</span>
-        <span class="badge-pill ${sevClass}">Sev ${esc(v.severity || 1)}</span>
+  // Enrich each violation with target path, numerical severity, and blast radius from state.risks
+  const enriched = state.violations.map((v, idx) => {
+    const rawPath = v.filepath || v.source_file || v.file || "";
+    const targetPath = normPath(rawPath);
+    const sevNum = parseSeverity(v.severity);
+    const risk = state.risks.find((r) => {
+      const rf = normPath(r.file || r.file_path);
+      return rf === targetPath || rf.endsWith("/" + targetPath) || targetPath.endsWith("/" + rf);
+    });
+    const br = Number(risk?.impact_score != null ? risk.impact_score : (risk?.coupling != null ? risk.coupling : 1.0));
+    const safeBlastRadius = Number.isFinite(br) && br > 0 ? Math.max(1.0, br) : 1.0;
+    const priority = sevNum * safeBlastRadius;
+    const principle = String(v.principle || v.rule_name || v.rule_id || "Architectural Policy").trim();
+    return {
+      raw: v,
+      idx,
+      targetPath,
+      sevNum,
+      safeBlastRadius,
+      priority,
+      principle,
+      observation: v.observation || v.reason || v.message || "",
+      consequences: v.consequences || v.remediation || ""
+    };
+  });
+
+  // Group by principle
+  const groupsMap = new Map();
+  enriched.forEach((item) => {
+    if (!groupsMap.has(item.principle)) {
+      groupsMap.set(item.principle, []);
+    }
+    groupsMap.get(item.principle).push(item);
+  });
+
+  // Sort items within each group, and calculate group metrics
+  const groups = Array.from(groupsMap.entries()).map(([principle, items]) => {
+    // Deterministic tie-breaking within group: -priority, -sevNum, targetPath, idx
+    items.sort((a, b) =>
+      b.priority - a.priority ||
+      b.sevNum - a.sevNum ||
+      a.targetPath.localeCompare(b.targetPath) ||
+      a.idx - b.idx
+    );
+
+    const maxPriority = Math.max(...items.map((it) => it.priority));
+    const maxSev = Math.max(...items.map((it) => it.sevNum));
+    const maxBlast = Math.max(...items.map((it) => it.safeBlastRadius));
+    return {
+      principle,
+      items,
+      totalCount: items.length,
+      maxPriority,
+      maxSev,
+      maxBlast
+    };
+  });
+
+  // Sort groups by maxPriority descending, then maxSev descending, then count, then principle
+  groups.sort((a, b) =>
+    b.maxPriority - a.maxPriority ||
+    b.maxSev - a.maxSev ||
+    b.totalCount - a.totalCount ||
+    a.principle.localeCompare(b.principle)
+  );
+
+  // Render grouped HTML
+  list.innerHTML = groups.map((g) => {
+    const groupSevClass = g.maxSev >= 3 ? "critical" : g.maxSev >= 2 ? "warning" : "optimal";
+    const groupSevLabel = g.maxSev >= 3 ? "Critical" : g.maxSev >= 2 ? "Warning" : "Advisory";
+
+    return `
+      <div class="violation-group">
+        <div class="violation-group-header">
+          <div class="violation-group-title">
+            <span class="violation-group-principle">${esc(g.principle)}</span>
+            <span class="badge-pill">${g.totalCount} ${g.totalCount === 1 ? "violation" : "violations"}</span>
+          </div>
+          <span class="badge-pill ${groupSevClass}">Top Sev ${g.maxSev} (${groupSevLabel}) · Max Blast ${g.maxBlast.toFixed(1)}</span>
+        </div>
+        <div class="violation-group-items">
+          ${g.items.map((item) => {
+            const sevClass = item.sevNum >= 3 ? "critical" : item.sevNum >= 2 ? "warning" : "optimal";
+            const sevLabel = item.sevNum >= 3 ? "Critical" : item.sevNum >= 2 ? "Warning" : "Advisory";
+            return `
+              <div class="violation-card" data-filepath="${esc(item.targetPath)}" data-vidx="${item.idx}" tabindex="0" role="button" aria-label="View violation in ${esc(item.targetPath)}">
+                <div class="violation-top">
+                  <span class="violation-principle">${esc(item.principle)}</span>
+                  <div class="violation-badges">
+                    <span class="badge-pill ${sevClass}">Sev ${item.sevNum} (${sevLabel})</span>
+                    <span class="badge-pill" title="Blast radius based on dependency callers and complexity">Blast ${item.safeBlastRadius.toFixed(1)}</span>
+                  </div>
+                </div>
+                <div class="violation-file">📁 ${esc(item.targetPath || "Unspecified file")}</div>
+                <div class="violation-obs">${esc(item.observation)}</div>
+                ${item.consequences ? `<div class="violation-conseq">Impact: ${esc(item.consequences)}</div>` : ""}
+                <div class="violation-actions">
+                  <button class="btn btn-ghost btn-sm" data-action="inspect" data-filepath="${esc(item.targetPath)}" title="Open file detail in dashboard">
+                    Inspect File →
+                  </button>
+                  <button class="btn btn-ghost btn-sm" data-action="graph" data-filepath="${esc(item.targetPath)}" title="Locate in topology graph">
+                    View in Graph
+                  </button>
+                  <button class="btn btn-primary btn-sm" data-action="draft-fix" data-filepath="${esc(item.targetPath)}" data-vidx="${item.idx}" title="Pre-fill Agent Studio fix mission">
+                    ⚡ Draft Fix Mission
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
       </div>
-      <div class="violation-file">${esc(v.filepath || "")}</div>
-      <div class="violation-obs">${esc(v.observation || v.reason || "")}</div>
-      ${v.consequences ? `<div class="violation-conseq">Impact: ${esc(v.consequences)}</div>` : ""}
-    </div>`;
+    `;
   }).join("");
+}
+
+function setupViolationsDelegation() {
+  const list = $("violations-list");
+  if (!list || list._delegated) return;
+  list._delegated = true;
+
+  list.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-action]");
+    const card = e.target.closest(".violation-card");
+    if (btn) {
+      e.stopPropagation();
+      const action = btn.dataset.action;
+      const fpath = btn.dataset.filepath;
+      const vidx = parseInt(btn.dataset.vidx, 10);
+      if (action === "inspect") {
+        selectFile(fpath);
+      } else if (action === "graph") {
+        viewInGraph(fpath);
+      } else if (action === "draft-fix") {
+        draftFixMission(fpath, vidx);
+      }
+      return;
+    }
+    if (card) {
+      const fpath = card.dataset.filepath;
+      if (fpath) selectFile(fpath);
+    }
+  });
+
+  list.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      const card = e.target.closest(".violation-card");
+      if (card && card.dataset.filepath) {
+        e.preventDefault();
+        selectFile(card.dataset.filepath);
+      }
+    }
+  });
+}
+
+function viewInGraph(path) {
+  const norm = normPath(path);
+  switchView("graph");
+  setTimeout(() => {
+    let node = graphSimulationNodes.find((n) => {
+      const nid = normPath(n.id);
+      return nid === norm || nid.endsWith("/" + norm) || norm.endsWith("/" + nid);
+    });
+    if (!node && state.graphData && state.graphData.nodes) {
+      node = state.graphData.nodes.find((n) => {
+        const nid = normPath(n.id);
+        return nid === norm || nid.endsWith("/" + norm) || norm.endsWith("/" + nid);
+      });
+    }
+    if (node) {
+      openNodeInspector(node, state.graphData ? state.graphData.links : []);
+      showToast(`Highlighted ${splitPath(node.id).base} in graph`);
+    } else {
+      showToast(`Node for ${splitPath(norm).base} not in current graph view`);
+    }
+  }, 120);
+}
+
+function draftFixMission(path, vidx, principleOverride) {
+  const norm = normPath(path);
+  const v = (vidx != null && state.violations && state.violations[vidx]) ? state.violations[vidx] : null;
+  const targetFile = norm || (v && normPath(v.filepath || v.source_file)) || "";
+  $("studio-target-file").value = targetFile;
+
+  const principle = principleOverride || (v ? (v.principle || v.rule_name || "Architectural Rule") : "Architectural Policy");
+  const sevNum = v ? parseSeverity(v.severity) : 2;
+  const sevLabel = sevNum >= 3 ? "Critical" : sevNum >= 2 ? "Warning" : "Advisory";
+  const observation = v ? (v.observation || v.reason || v.message || "Constraint threshold exceeded") : "Policy violation detected";
+  const consequences = v && v.consequences ? v.consequences : (v && v.remediation ? v.remediation : "");
+
+  const intent = [
+    `Fix architectural violation in ${targetFile}:`,
+    `- Principle: ${principle}`,
+    `- Severity: ${sevLabel} (Severity Rank ${sevNum})`,
+    `- Observation: ${observation}`,
+    consequences ? `- Impact & Consequences: ${consequences}` : "",
+    `- Refactoring Objective: Refactor ${targetFile} to strictly resolve the ${principle} violation while preserving downstream caller contracts and bounded blast radius.`
+  ].filter(Boolean).join("\n");
+
+  $("studio-intent").value = intent;
+  switchView("studio");
+  compileAgentMission();
+  showToast("Fix mission drafted in Agent Studio");
 }
 
 function renderMemory(mem) {
@@ -386,17 +594,41 @@ function resetDetail() {
 }
 
 function selectFile(path) {
-  const r = state.risks.find((x) => (x.file || x.file_path) === path);
-  if (!r) return;
+  const targetNorm = normPath(path);
+  let r = state.risks.find((x) => {
+    const p = normPath(x.file || x.file_path);
+    return p === targetNorm || p.endsWith("/" + targetNorm) || targetNorm.endsWith("/" + p);
+  });
+  if (!r) {
+    // Fallback: synthesize baseline entry so detail pane, code viewer, and active violations always open
+    r = {
+      file: targetNorm,
+      file_path: targetNorm,
+      level: "WATCH",
+      complexity: 1,
+      coupling: 0,
+      impact_score: 1.0,
+      callers: [],
+      change_strategy_display: "Focus on resolving the architectural rule violation."
+    };
+  }
   state.selected = r;
+  if (state.activeView !== "dashboard") {
+    switchView("dashboard");
+  }
   renderList();
 
-  $("detail-title").textContent = splitPath(path).base;
+  $("detail-title").textContent = splitPath(targetNorm).base;
   $("detail-placeholder").hidden = true;
   $("detail-tabs").hidden = false;
   $("detail-actions").hidden = false;
   renderWhy(r);
   switchTab(state.activeTab);
+
+  const detailEl = document.querySelector(".pane-detail");
+  if (detailEl && typeof detailEl.scrollIntoView === "function") {
+    detailEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
 }
 
 function renderWhy(r) {
@@ -410,6 +642,12 @@ function renderWhy(r) {
       ? "Change this in small steps and re-run your tests after each one."
       : "Safe to edit directly.");
 
+  const targetNorm = normPath(r.file || r.file_path);
+  const fileViolations = (state.violations || []).filter((v) => {
+    const vp = normPath(v.filepath || v.source_file || v.file);
+    return vp && (vp === targetNorm || vp.endsWith("/" + targetNorm) || targetNorm.endsWith("/" + vp));
+  });
+
   $("tab-why").innerHTML = `
     <div class="metrics">
       <div class="metric"><div class="metric-val">${score.toFixed(1)}</div><div class="metric-key">Risk score</div></div>
@@ -417,6 +655,30 @@ function renderWhy(r) {
       <div class="metric"><div class="metric-val">${cp.toFixed(1)}</div><div class="metric-key">Coupling</div></div>
       <div class="metric"><div class="metric-val">${callers.length}</div><div class="metric-key">Used by</div></div>
     </div>
+
+    ${fileViolations.length ? `
+    <div class="why-block file-active-violations">
+      <h3>Active Architectural Policy Violations (${fileViolations.length})</h3>
+      <div class="mini-violations-list">
+        ${fileViolations.map((v) => {
+          const s = parseSeverity(v.severity);
+          const sCls = s >= 3 ? "critical" : s >= 2 ? "warning" : "optimal";
+          const pName = esc(v.principle || v.rule_name || v.rule_id || "Rule");
+          const obs = esc(v.observation || v.reason || v.message || "");
+          return `
+            <div class="mini-violation-row">
+              <div class="mini-v-info">
+                <span class="badge-pill ${sCls}">Sev ${s}</span>
+                <span><strong>${pName}</strong>: ${obs}</span>
+              </div>
+              <button class="btn btn-primary btn-sm btn-draft-file-fix" data-filepath="${esc(targetNorm)}" data-principle="${pName}">
+                ⚡ Draft Fix
+              </button>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>` : ""}
 
     <div class="why-block">
       <h3>Why it scored this way</h3>
@@ -1069,12 +1331,25 @@ function wire() {
     if (item) openPicker(item.dataset.path);
   });
 
+  setupViolationsDelegation();
+
   $("violations-chip").addEventListener("click", () => {
     const d = $("violations-drawer");
     d.hidden = !d.hidden;
+    if (!d.hidden) renderViolations();
   });
   $("close-violations").addEventListener("click", () => {
     $("violations-drawer").hidden = true;
+  });
+
+  $("tab-why").addEventListener("click", (e) => {
+    const btn = e.target.closest(".btn-draft-file-fix");
+    if (btn) {
+      e.stopPropagation();
+      const fpath = btn.dataset.filepath;
+      const principle = btn.dataset.principle;
+      draftFixMission(fpath, null, principle);
+    }
   });
 
   $("risk-list").addEventListener("click", (e) => {
