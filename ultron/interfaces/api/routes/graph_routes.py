@@ -34,6 +34,10 @@ class GraphRoutesMixin:
                 self.send_json_response(400, {"error": f"Not a directory: {repo_path}"})
                 return
 
+            granularity = str(data.get("granularity", "file")).lower().strip()
+            if granularity not in ("file", "symbol"):
+                granularity = "file"
+
             codebase = analyzer.analyze_directory(repo_path)
             target_files = [k for k in codebase.keys() if k.endswith(".py")] if isinstance(codebase, dict) else []
             risks = risk.evaluate_risks(codebase, target_files, repo_path=repo_path)
@@ -45,7 +49,31 @@ class GraphRoutesMixin:
             mid = lambda lst: lst[len(lst) // 2] if lst else 0
             medians = {"complexity": mid(complexities), "coupling": mid(couplings)}
 
-            raw_graph = analyzer.build_dependency_graph(codebase)
+            raw_graph = analyzer.build_dependency_graph(codebase, granularity=granularity)
+
+            # Cycle detection for file granularity
+            cycle_files = set()
+            cycle_edges = set()
+            if granularity == "file":
+                try:
+                    from ultron.core.cycle_detector import CycleDetector
+                    file_edges = [
+                        {
+                            "source": str(l.get("source", "")).replace('\\', '/'),
+                            "target": str(l.get("target", "")).replace('\\', '/')
+                        }
+                        for l in raw_graph.get("links", [])
+                    ]
+                    detected_cycles = CycleDetector.find_all_cycles(edges=file_edges)
+                    for c in detected_cycles:
+                        nodes_in_c = [str(n).replace('\\', '/') for n in c.get("nodes", [])]
+                        cycle_files.update(nodes_in_c)
+                        for i in range(len(nodes_in_c)):
+                            c_src = nodes_in_c[i]
+                            c_tgt = nodes_in_c[(i + 1) % len(nodes_in_c)]
+                            cycle_edges.add((c_src, c_tgt))
+                except Exception as cyc_err:
+                    sys.stderr.write(f"[Ultron] Warning: cycle detection in graph route failed: {cyc_err}\n")
 
             enriched_nodes = []
             for node in raw_graph.get("nodes", []):
@@ -54,7 +82,9 @@ class GraphRoutesMixin:
                 r = risk_index.get(nid)
                 arch_role = getattr(r, "architectural_role", None)
                 strat = getattr(r, "change_strategy", None)
-                enriched_nodes.append({
+                pkg = os.path.dirname(nid).replace('\\', '/') or "(root)"
+                coupling = int(r.coupling_score) if r else 0
+                node_dict = {
                     "id": nid,
                     "label": os.path.basename(nid) if ntype == "file" else nid,
                     "type": ntype,
@@ -62,17 +92,27 @@ class GraphRoutesMixin:
                     "role": arch_role.value if hasattr(arch_role, "value") else "INTERNAL",
                     "role_display": arch_role.display_name if hasattr(arch_role, "display_name") else "Internal",
                     "complexity": r.complexity if r else 1,
-                    "coupling": int(r.coupling_score) if r else 0,
+                    "coupling": coupling,
                     "impact_score": round(r.impact_score, 2) if r else 0.0,
                     "strategy_display": strat.display_name if hasattr(strat, "display_name") else "Safe internal edits",
-                })
+                    "package": pkg,
+                    "blast_radius": coupling,
+                    "in_cycle": nid in cycle_files,
+                }
+                enriched_nodes.append(node_dict)
 
             normalized_links = []
             for link in raw_graph.get("links", []):
                 src = str(link.get("source", "")).replace('\\', '/')
                 tgt = str(link.get("target", "")).replace('\\', '/')
                 ltype = link.get("type", "import")
-                normalized_links.append({"source": src, "target": tgt, "type": ltype})
+                in_cyc = (src, tgt) in cycle_edges
+                normalized_links.append({
+                    "source": src,
+                    "target": tgt,
+                    "type": ltype,
+                    "in_cycle": in_cyc
+                })
 
             self.send_json_response(200, {
                 "success": True,

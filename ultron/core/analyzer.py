@@ -75,80 +75,116 @@ def analyze_directory(dirpath, os=os):
                     codebase[rel_path] = analysis
     return codebase
 
-def build_dependency_graph(codebase):
+def build_dependency_graph(codebase, granularity="all"):
     """
     Constructs a JSON-serializable node-link representation of repository files, functions, and their calls.
+    Supports granularity filtering:
+    - 'file': Returns only file nodes and inter-file import links.
+    - 'symbol': Returns only function/class/method symbol nodes and call/contains links between symbols.
+    - 'all': Returns both file and symbol nodes with all links (default for backward compatibility).
     """
-    nodes = []
-    links = []
+    file_nodes = []
+    symbol_nodes = []
+    file_links = []
+    symbol_links = []
+    all_links = []
     
-    # 1. Map definition names to their defining file and metadata
+    # 1. Build module map for robust prefix-based import resolution
+    mod_map = {}
+    for f in codebase:
+        norm_f = f.replace("\\", "/")
+        base = os.path.splitext(os.path.basename(norm_f))[0]
+        if base != "__init__":
+            mod_map[base] = norm_f
+        mod_path = norm_f[:-3].replace("/", ".") if norm_f.endswith(".py") else norm_f.replace("/", ".")
+        mod_map[mod_path] = norm_f
+
+    # 2. Map definition names to their defining file and metadata
     def_map = {}
     for rel_path, analysis in codebase.items():
+        norm_rel = rel_path.replace("\\", "/")
         for defn in analysis.get('definitions', []):
             name = defn.get('name')
             def_map[name] = {
-                'file': rel_path,
+                'file': norm_rel,
                 'type': defn.get('type'),
                 'complexity': defn.get('complexity', 1) if defn.get('type') == 'function' else 1
             }
             if defn.get('type') == 'class':
                 for method in defn.get('methods', []):
                     m_name = method.get('name')
-                    # Class methods map as ClassName.method_name or just method_name
-                    # To keep it simple, we record them under their class-context name
                     full_m_name = f"{name}.{m_name}"
                     def_map[full_m_name] = {
-                        'file': rel_path,
+                        'file': norm_rel,
                         'type': 'method',
                         'complexity': 1
                     }
                     def_map[m_name] = {
-                        'file': rel_path,
+                        'file': norm_rel,
                         'type': 'method',
                         'complexity': 1
                     }
 
-    # 2. Add nodes and links
+    symbol_ids = set()
+
+    # 3. Add nodes and links
     for rel_path, analysis in codebase.items():
+        norm_rel = rel_path.replace("\\", "/")
+        
         # Add file node
-        nodes.append({
-            'id': rel_path,
+        file_node = {
+            'id': norm_rel,
             'type': 'file',
-            'label': rel_path
-        })
+            'label': norm_rel
+        }
+        file_nodes.append(file_node)
         
         # File imports -> File links
         for imp in analysis.get('imports', []):
-            # Check if imported name maps to a file in the repository
-            # e.g. "ultron.classifier" matches "ultron/classifier.py"
-            imp_parts = imp.split('.')
-            for potential_path in codebase:
-                potential_base = potential_path.replace('.py', '').replace('/', '.')
-                if potential_base == imp or potential_base.endswith('.' + imp) or imp.replace('.', '/') in potential_path:
-                    links.append({
-                        'source': rel_path,
-                        'target': potential_path,
-                        'type': 'import'
-                    })
+            parts = imp.split('.')
+            matched_target = None
+            for i in range(len(parts), 0, -1):
+                prefix = ".".join(parts[:i])
+                if prefix in mod_map:
+                    tgt = mod_map[prefix]
+                    if tgt != norm_rel:
+                        matched_target = tgt
                     break
+            if not matched_target:
+                for potential_path in codebase:
+                    pot_norm = potential_path.replace("\\", "/")
+                    pot_base = pot_norm.replace('.py', '').replace('/', '.')
+                    if pot_base == imp or pot_base.endswith('.' + imp) or imp.replace('.', '/') in pot_norm:
+                        if pot_norm != norm_rel:
+                            matched_target = pot_norm
+                        break
+            if matched_target:
+                link = {
+                    'source': norm_rel,
+                    'target': matched_target,
+                    'type': 'import'
+                }
+                file_links.append(link)
+                all_links.append(link)
 
         # Process function and class definitions
         for defn in analysis.get('definitions', []):
             name = defn.get('name')
-            node_id = f"{rel_path}:{name}"
+            node_id = f"{norm_rel}:{name}"
+            symbol_ids.add(node_id)
             
             # Add function/class node
-            nodes.append({
+            sym_node = {
                 'id': node_id,
                 'type': defn.get('type'),
                 'label': name,
-                'file': rel_path
-            })
+                'file': norm_rel
+            }
+            symbol_nodes.append(sym_node)
             
-            # Link file to its definitions
-            links.append({
-                'source': rel_path,
+            # Link file to its definitions (only in 'all' mode, not in 'symbol' to preserve closure)
+            all_links.append({
+                'source': norm_rel,
                 'target': node_id,
                 'type': 'contains'
             })
@@ -158,44 +194,63 @@ def build_dependency_graph(codebase):
                 if call in def_map:
                     target_file = def_map[call]['file']
                     target_id = f"{target_file}:{call}"
-                    links.append({
+                    call_link = {
                         'source': node_id,
                         'target': target_id,
                         'type': 'call'
-                    })
+                    }
+                    symbol_links.append(call_link)
+                    all_links.append(call_link)
                     
             if defn.get('type') == 'class':
                 for method in defn.get('methods', []):
                     m_name = method.get('name')
-                    m_node_id = f"{rel_path}:{name}.{m_name}"
+                    m_node_id = f"{norm_rel}:{name}.{m_name}"
+                    symbol_ids.add(m_node_id)
                     
                     # Add method node
-                    nodes.append({
+                    m_sym_node = {
                         'id': m_node_id,
                         'type': 'method',
-                        'label': f"{name}.{m_node_id}",
-                        'file': rel_path
-                    })
+                        'label': f"{name}.{m_name}",
+                        'file': norm_rel
+                    }
+                    symbol_nodes.append(m_sym_node)
                     
-                    # Link class to method
-                    links.append({
+                    # Link class to method (symbol-to-symbol contains)
+                    class_m_link = {
                         'source': node_id,
                         'target': m_node_id,
                         'type': 'contains'
-                    })
+                    }
+                    symbol_links.append(class_m_link)
+                    all_links.append(class_m_link)
                     
                     # Link method calls
                     for call in method.get('calls', []):
                         if call in def_map:
                             target_file = def_map[call]['file']
                             target_id = f"{target_file}:{call}"
-                            links.append({
+                            m_call_link = {
                                 'source': m_node_id,
                                 'target': target_id,
                                 'type': 'call'
-                            })
-                            
-    return {'nodes': nodes, 'links': links}
+                            }
+                            symbol_links.append(m_call_link)
+                            all_links.append(m_call_link)
+
+    # Filter by granularity
+    if granularity == "file":
+        return {'nodes': file_nodes, 'links': file_links}
+    elif granularity == "symbol":
+        # Retain only links where both source and target exist in symbol_nodes
+        valid_symbol_links = [
+            l for l in symbol_links
+            if l['source'] in symbol_ids and l['target'] in symbol_ids
+        ]
+        return {'nodes': symbol_nodes, 'links': valid_symbol_links}
+    else:
+        return {'nodes': file_nodes + symbol_nodes, 'links': all_links}
 
 def extract_git_history(repo_path):
     """

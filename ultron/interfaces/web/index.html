@@ -188,10 +188,18 @@
     <!-- TAB 2: TOPOLOGY GRAPH -->
     <div id="view-graph" class="tab-view" hidden>
       <div class="graph-toolbar">
+        <div class="seg" id="graph-granularity" title="Switch graph granularity">
+          <button class="seg-btn is-active" data-granularity="file">Files</button>
+          <button class="seg-btn" data-granularity="symbol">Symbols</button>
+        </div>
         <div class="graph-filters">
           <button class="btn btn-sm btn-ghost is-active" data-graph-filter="all">All Modules</button>
           <button class="btn btn-sm btn-ghost" data-graph-filter="high">Risky Only</button>
           <button class="btn btn-sm btn-ghost" data-graph-filter="core">Core Files</button>
+        </div>
+        <div class="graph-count-wrap">
+          <span id="graph-count-label" class="graph-count-badge">Showing 0 of 0 files</span>
+          <button id="graph-expand-toggle" class="btn btn-ghost btn-sm" hidden>Show All</button>
         </div>
         <div class="graph-search-box">
           <input id="graph-search-input" type="search" placeholder="Search node in graph…" aria-label="Search graph">
@@ -205,6 +213,7 @@
           <span class="legend-item"><span class="legend-dot dot-high"></span> Risky</span>
           <span class="legend-item"><span class="legend-dot dot-med"></span> Watch</span>
           <span class="legend-item"><span class="legend-dot dot-low"></span> Safe</span>
+          <span class="legend-item"><span class="legend-dot dot-cycle"></span> Cycle</span>
         </div>
       </div>
 
@@ -219,6 +228,8 @@
             <div class="inspector-badges">
               <span id="inspector-level" class="badge">RISK</span>
               <span id="inspector-role" class="badge badge-subtle">ROLE</span>
+              <span id="inspector-package" class="badge badge-subtle" title="Package / Directory">PKG</span>
+              <span id="inspector-cycle" class="badge badge-cycle" hidden title="Participates in a circular dependency">⚠️ Cycle</span>
             </div>
             <div class="inspector-metrics">
               <div><span>Complexity</span><strong id="inspector-complexity">0</strong></div>
