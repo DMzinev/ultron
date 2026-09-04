@@ -6,7 +6,7 @@ Campaign 31 / v2.3 — System Model REST API & Agent Context Protocol
 import os
 import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from ultron.interfaces.api.router import APIRouter
 from ultron.core.language_adapter import PythonLanguageAdapter
