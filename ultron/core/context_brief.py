@@ -366,6 +366,7 @@ def compile_brief_data(repo_path):
         top_risks_structured.append({
             "entity_id": fp,
             "priority": lvl,
+            "score": round(float(impact), 1),
             "reasons": reasons_list
         })
 

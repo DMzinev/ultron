@@ -53,6 +53,40 @@ ACTIVE_JOB = {
 }
 
 PORT = 8000
+LOOPBACK_HOST = "127.0.0.1"
+# A modal folder dialog blocks this single-threaded server, so give up on it
+# rather than letting one unanswered window take the whole API down.
+BROWSE_DIALOG_TIMEOUT = 20
+
+# Only same-machine origins may call the API. The server exposes unauthenticated
+# file read/write endpoints, so a wildcard ACAO would let any website a user visits
+# drive their local filesystem.
+def _is_local_origin(origin: str) -> bool:
+    if not origin:
+        return False
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(origin).hostname
+    except Exception:
+        return False
+    return host in ("127.0.0.1", "localhost", "::1")
+
+
+def coerce_file_list(value) -> list:
+    """Accept a JSON array, a comma-separated string, or nothing.
+
+    The dashboard sends an array while the CLI and older clients send CSV;
+    silently ignoring one of those made requests look like whole-repo scans.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [part.strip() for part in value.split(",") if part.strip()]
+    if isinstance(value, (list, tuple, set)):
+        return [str(part).strip() for part in value if str(part).strip()]
+    return []
+
+
 WEB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 CONFIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".ultron")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
@@ -82,14 +116,18 @@ def validate_repo_path(base_dir: str, target_path: str) -> tuple[bool, str]:
 
 class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
-        # Enable CORS for local cross-origin development if needed
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        # Echo the origin only when it is same-machine; never send a wildcard.
+        origin = self.headers.get('Origin')
+        if _is_local_origin(origin):
+            self.send_header('Access-Control-Allow-Origin', origin)
+            self.send_header('Vary', 'Origin')
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         super().end_headers()
 
     def do_OPTIONS(self):
-        self.send_response(200)
+        origin = self.headers.get('Origin')
+        self.send_response(200 if _is_local_origin(origin) or not origin else 403)
         self.end_headers()
 
     def do_GET(self):
@@ -129,6 +167,9 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
 
         if parsed_path == "/api/get-repo-root":
             self.handle_get_repo_root()
+            return
+        if parsed_path == "/api/list-dirs":
+            self.handle_list_dirs()
             return
         if parsed_path == "/api/v1/progress" or parsed_path == "/api/v1/status":
             self.handle_v1_progress()
@@ -209,6 +250,9 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             
         if req_path == "/api/v1/analyze":
             self.handle_v1_analyze()
+            return
+        elif req_path == "/api/v1/overview":
+            self.handle_v1_overview()
             return
         elif req_path == "/api/v1/cancel-analysis":
             self.handle_v1_cancel_analysis()
@@ -350,14 +394,63 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps(envelope).encode('utf-8'))
 
     
+    def measure_entity(self, entity):
+        """
+        Resolve `entity` to a real file inside the repository and measure it.
+
+        Returns (complexity, coupling_fanout, error_response) where error_response is
+        None on success. Previously these endpoints ignored `entity` entirely and passed
+        fixed literals, so every input - including files that did not exist - produced an
+        identical HIGH-risk verdict at confidence 1.0.
+        """
+        if not entity or not entity.strip():
+            return None, None, (400, {"error": "Missing required 'entity' parameter."})
+
+        repo_root = os.path.realpath(self.get_repo_root_path())
+        candidate = entity if os.path.isabs(entity) else os.path.join(repo_root, entity)
+        abs_entity = os.path.realpath(candidate)
+
+        if not os.path.normcase(abs_entity).startswith(os.path.normcase(os.path.join(repo_root, ""))):
+            return None, None, (400, {"error": "Access denied: entity must be inside the repository."})
+        if not os.path.isfile(abs_entity):
+            return None, None, (404, {"error": f"Entity not found in repository: {entity}"})
+
+        from ultron.core.risk.metrics import get_file_complexity
+        complexity = float(get_file_complexity(abs_entity))
+
+        rel_entity = os.path.relpath(abs_entity, repo_root).replace("\\", "/")
+        coupling = 0
+        try:
+            codebase = analyzer.analyze_directory(repo_root)
+            packets = risk.evaluate_risks(codebase, [rel_entity], repo_path=repo_root)
+            for packet in packets:
+                packet_path = (getattr(packet, "file_path", "") or "").replace("\\", "/")
+                if packet_path.endswith(rel_entity) or rel_entity.endswith(packet_path):
+                    complexity = float(packet.complexity)
+                    coupling = int(getattr(packet, "coupling_score", 0))
+                    break
+        except Exception as e:
+            sys.stderr.write(f"[Ultron] Coupling measurement failed for {rel_entity}: {e}\n")
+
+        return complexity, coupling, None
+
     def handle_v1_risk_profile(self):
         try:
             from urllib.parse import parse_qs, urlparse
             from dataclasses import asdict
             query = parse_qs(urlparse(self.path).query)
-            entity = query.get("entity", ["ultron/core/analyzer.py"])[0]
+            entity = query.get("entity", [""])[0]
+
+            complexity, coupling, err = self.measure_entity(entity)
+            if err:
+                self.send_json_response(*err)
+                return
+
             from ultron.core.rkm.risk_intelligence import compute_risk_profile
-            prof = compute_risk_profile(entity, complexity=22.0, coupling_fanout=6, coverage_percent=40.0)
+            # coverage_percent is left None on purpose: Ultron has no coverage source, and
+            # compute_risk_profile reports confidence 0.0 for the missing signal rather
+            # than inventing a plausible-looking number.
+            prof = compute_risk_profile(entity, complexity=complexity, coupling_fanout=coupling)
             self.send_json_response(200, asdict(prof))
         except Exception as e:
             self.send_json_response(500, {"error": str(e)})
@@ -367,11 +460,17 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             from urllib.parse import parse_qs, urlparse
             from dataclasses import asdict
             query = parse_qs(urlparse(self.path).query)
-            entity = query.get("entity", ["ultron/core/analyzer.py"])[0]
+            entity = query.get("entity", [""])[0]
             crit = query.get("criticality", ["DEFAULT"])[0]
+
+            complexity, coupling, err = self.measure_entity(entity)
+            if err:
+                self.send_json_response(*err)
+                return
+
             from ultron.core.rkm.risk_intelligence import compute_risk_profile
             from ultron.core.rkm.policy_engine import evaluate_policy
-            prof = compute_risk_profile(entity, complexity=22.0, coupling_fanout=6, coverage_percent=40.0)
+            prof = compute_risk_profile(entity, complexity=complexity, coupling_fanout=coupling)
             dec = evaluate_policy(prof, business_criticality=crit)
             self.send_json_response(200, asdict(dec))
         except Exception as e:
@@ -382,10 +481,79 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             from ultron.interfaces.api.browse_folder import select_folder_dialog
             data = self.get_post_data()
             initial_dir = data.get("initial_dir") or self.get_repo_root_path()
-            res = select_folder_dialog(initial_dir)
-            self.send_json_response(200, res)
+
+            # The dialog is modal and this server handles one request at a time,
+            # so an unanswered dialog would freeze every other endpoint. Wait a
+            # bounded time, then hand back to the caller's own folder browser.
+            import threading
+            result = {}
+
+            def run_dialog():
+                try:
+                    result["value"] = select_folder_dialog(initial_dir)
+                except Exception as exc:
+                    result["value"] = {"path": "", "cancelled": True, "fallback": True, "error": str(exc)}
+
+            worker = threading.Thread(target=run_dialog, daemon=True)
+            worker.start()
+            worker.join(timeout=BROWSE_DIALOG_TIMEOUT)
+
+            if worker.is_alive():
+                self.send_json_response(200, {
+                    "path": "",
+                    "cancelled": True,
+                    "fallback": True,
+                    "error": "The folder dialog did not return in time. Use the built-in folder browser."
+                })
+                return
+
+            self.send_json_response(200, result.get("value", {"path": "", "cancelled": True, "fallback": True}))
         except Exception as e:
             self.send_json_response(500, {"error": f"Failed to browse folder: {str(e)}"})
+
+    def handle_list_dirs(self):
+        """List subdirectories of a path so the UI can browse folders in-page.
+
+        Replaces the native modal dialog, which blocked the whole server while open.
+        """
+        try:
+            query = self.get_query_data() if hasattr(self, "get_query_data") else {}
+            raw = (query or {}).get("path", "")
+            if isinstance(raw, list):
+                raw = raw[0] if raw else ""
+            raw = str(raw or "").strip()
+
+            drives = []
+            if os.name == "nt":
+                import string
+                drives = [f"{d}:\\" for d in string.ascii_uppercase if os.path.isdir(f"{d}:\\")]
+
+            target = os.path.abspath(raw) if raw else self.get_repo_root_path()
+            if not os.path.isdir(target):
+                self.send_json_response(400, {"error": f"'{target}' is not a directory.", "drives": drives})
+                return
+
+            entries = []
+            try:
+                for name in sorted(os.listdir(target), key=str.lower):
+                    if name.startswith("."):
+                        continue
+                    full = os.path.join(target, name)
+                    if os.path.isdir(full):
+                        entries.append({"name": name, "path": full})
+            except PermissionError:
+                self.send_json_response(403, {"error": f"Permission denied reading '{target}'.", "drives": drives})
+                return
+
+            parent = os.path.dirname(target.rstrip(os.sep))
+            self.send_json_response(200, {
+                "path": target,
+                "parent": parent if parent and parent != target and os.path.isdir(parent) else None,
+                "entries": entries,
+                "drives": drives
+            })
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
 
     def handle_v1_context_brief(self):
         try:
@@ -401,54 +569,37 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
             db_path = os.path.join(repo_path, ".ultron", "repository.db")
             repo_name = os.path.basename(repo_path)
             
-            canonical_brief = None
+            # Always build the canonical brief from live analysis: it carries the
+            # real per-file reasons ("McCabe Complexity: 114.0") that an agent can
+            # act on. The knowledge base then refines the score and identity.
+            from ultron.core.context_brief import compile_brief_data
+            canonical_brief = compile_brief_data(repo_path)
+            canonical_brief["target_file"] = target_file
+            canonical_brief["memory_backed"] = False
 
-            # 1. RKM Memory First (Primary Path)
             if os.path.exists(db_path):
                 try:
                     from ultron.core.rkm.store import RepositoryStore
                     from ultron.core.rkm.evolution.engine import EvolutionEngine
 
                     store = RepositoryStore(db_path)
-                    meta = store.get_metadata()
-                    if meta and meta.latest_analysis_run_id:
-                        run_id = meta.latest_analysis_run_id
-                        files = store.get_file_records_for_run(run_id)
-                        vios = store.get_violations(run_id)
-                        health_run = EvolutionEngine.evaluate_health_score(store, run_id)
-                        health_score = round(
-                            (health_run.architecture_stability * 0.4 +
-                             health_run.rule_compliance * 0.4 +
-                             health_run.complexity_trend * 0.2) * 100, 1
-                        )
-                        
-                        top_risks = []
-                        for v in vios[:5]:
-                            top_risks.append({
-                                "entity_id": v[0].details or "Unknown Entity",
-                                "priority": getattr(v[0], "severity", "HIGH"),
-                                "score": 75.0,
-                                "reasons": [getattr(v[1], "name", "ARCHITECTURAL_VIOLATION")]
-                            })
-                            
-                        canonical_brief = {
-                            "repo_name": repo_name,
-                            "repository_uuid": meta.repository_uuid,
-                            "health_score": health_score,
-                            "total_files": len(files),
-                            "total_modules": len(files),
-                            "top_risks": top_risks,
-                            "target_file": target_file
-                        }
-                    store.close()
+                    try:
+                        meta = store.get_metadata()
+                        if meta and meta.latest_analysis_run_id:
+                            run_id = meta.latest_analysis_run_id
+                            health_run = EvolutionEngine.evaluate_health_score(store, run_id)
+                            canonical_brief["health_score"] = round(
+                                (health_run.architecture_stability * 0.4 +
+                                 health_run.rule_compliance * 0.4 +
+                                 health_run.complexity_trend * 0.2) * 100, 1
+                            )
+                            canonical_brief["repository_uuid"] = meta.repository_uuid
+                            canonical_brief["memory_backed"] = True
+                            canonical_brief["violation_count"] = len(store.get_violations(run_id))
+                    finally:
+                        store.close()
                 except Exception as e:
                     print(f"[Warning] RKM Store lookup failed for context brief: {e}")
-
-            # 2. Fallback to compile_brief_data (ONLY if no RKM DB exists)
-            if not canonical_brief:
-                from ultron.core.context_brief import compile_brief_data
-                canonical_brief = compile_brief_data(repo_path)
-                canonical_brief["target_file"] = target_file
 
             # 3. Render 3 Model-Specific Outputs from Canonical Brief
             target_str = f" Target file: {target_file}." if target_file else ""
@@ -699,8 +850,7 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                 return
                 
             intent = str(data.get("intent", "")).strip()
-            files_str = str(data.get("files", "")).strip()
-            target_files = [f.strip() for f in files_str.split(",") if f.strip()] if files_str else []
+            target_files = coerce_file_list(data.get("files"))
             
             codebase = analyzer.analyze_directory(repo_path)
             if not codebase:
@@ -709,6 +859,15 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                 return
 
             risks = risk.evaluate_risks(codebase, target_files, intent, repo_path=repo_path)
+
+            # Intent matching is keyword-based, so a perfectly reasonable phrase
+            # ("improve performance") can match nothing. Returning an empty list
+            # made the dashboard look like a clean repo. Fall back to the whole
+            # repository instead and tell the caller the intent was ignored.
+            intent_matched = True
+            if intent and not target_files and not risks:
+                intent_matched = False
+                risks = risk.evaluate_risks(codebase, [], "", repo_path=repo_path)
             
             # Extract basic stats
             total_files = len(codebase)
@@ -720,6 +879,13 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                 "stats": {
                     "total_files": total_files,
                     "total_definitions": total_definitions
+                },
+                "intent": {
+                    "text": intent,
+                    "matched": intent_matched,
+                    "message": "" if intent_matched else (
+                        f"No files matched \"{intent}\". Showing the whole repository instead."
+                    )
                 },
                 "risks": [r.to_dict() for r in risks]
             })
@@ -828,12 +994,16 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_get_repo_root(self):
         try:
-            if not os.path.exists(CONFIG_FILE):
-                self.send_json_response(200, {"repo_root": None})
-                return
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-            self.send_json_response(200, {"repo_root": cfg.get("repo_root")})
+            configured = None
+            if os.path.exists(CONFIG_FILE):
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    configured = json.load(f).get("repo_root")
+            # Fall back to the effective root so a first-run UI has something to
+            # show instead of an empty box the user has to guess at.
+            self.send_json_response(200, {
+                "repo_root": configured or self.get_repo_root_path(),
+                "configured": bool(configured)
+            })
         except Exception as e:
             self.send_json_response(500, {"error": str(e)})
 
@@ -1071,11 +1241,33 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
 
             codebase = analyzer.analyze_directory(repo_path)
             target_files = [k for k in codebase.keys() if k.endswith(".py")] if isinstance(codebase, dict) else []
-            
+
             if not codebase or not target_files:
+                # A repository we could not analyze is NOT a healthy repository. Returning
+                # health_score=100 here made "analysis produced nothing" visually identical
+                # to "your code is flawless", which is the most dangerous possible default
+                # for a risk tool. Report an explicit state and no score instead.
+                discovered_py = []
+                try:
+                    for _root, _dirs, _files in os.walk(repo_path):
+                        _dirs[:] = [d for d in _dirs if d not in (".git", "__pycache__", ".venv", "node_modules")]
+                        if any(f.endswith(".py") for f in _files):
+                            discovered_py.append(_root)
+                            break
+                except OSError:
+                    pass
+
+                state = "analysis_empty" if not discovered_py else "analysis_failed"
                 self.send_json_response(200, {
-                    "success": True,
-                    "health_score": 100,
+                    "success": False,
+                    "state": state,
+                    "health_score": None,
+                    "message": (
+                        "No Python files found in this repository."
+                        if state == "analysis_empty"
+                        else "Python files were found but none could be analyzed. Check the server console for parse errors."
+                    ),
+                    "analyzed_file_count": 0,
                     "hotspots": [],
                     "circular_dependencies": [],
                     "violations": [],
@@ -1122,91 +1314,127 @@ class UltronAPIHandler(http.server.SimpleHTTPRequestHandler):
                     "after_snapshot": serialize_snapshot(c.after_snapshot)
                 }
 
-            cycles = []
-            leaks = {}
-            total_leaks = 0
+            def detect_import_cycles(cb):
+                adj = {}
+                for rel_path, analysis in cb.items():
+                    r_norm = rel_path.replace("\\", "/")
+                    adj[r_norm] = set()
+                    for imp in analysis.get('imports', []):
+                        for pot in cb:
+                            pot_norm = pot.replace("\\", "/")
+                            pot_base = pot_norm.replace('.py', '').replace('/', '.')
+                            if pot_base == imp or pot_base.endswith('.' + imp) or imp.replace('.', '/') in pot_norm:
+                                if pot_norm != r_norm:
+                                    adj[r_norm].add(pot_norm)
+                                break
+                visited = {}
+                cycles = []
+                path = []
+                def dfs(node):
+                    visited[node] = 1
+                    path.append(node)
+                    for nbr in sorted(adj.get(node, [])):
+                        if visited.get(nbr) == 1:
+                            idx = path.index(nbr)
+                            cycle = path[idx:] + [nbr]
+                            if not any(set(cycle) == set(c) for c in cycles) and len(cycle) <= 8:
+                                cycles.append(cycle)
+                        elif nbr not in visited:
+                            dfs(nbr)
+                    path.pop()
+                    visited[node] = 2
+                for n in sorted(adj.keys()):
+                    if n not in visited:
+                        dfs(n)
+                return cycles
+
+            cycles = detect_import_cycles(codebase)
             violations = []
             hotspots = []
-            contracts = []
+            
+            # Evaluate risks across repository
+            risks = risk.evaluate_risks(codebase, target_files, intent="Architecture audit", repo_path=repo_path)
 
-            if design_oracle is not None:
+            db_path = os.path.join(repo_path, ".ultron", "repository.db")
+            if os.path.exists(db_path):
                 try:
-                    cycles = design_oracle.detect_circular_dependencies(codebase)
-                    leaks = design_oracle.detect_abstraction_leaks(codebase, repo_path)
-                    total_leaks = sum(len(v) for v in leaks.values()) if isinstance(leaks, dict) else 0
-                except Exception:
-                    pass
+                    from ultron.core.rkm.store import RepositoryStore
+                    from ultron.interfaces.api import ViolationsAPI
+                    from ultron.core.rkm.evolution.engine import EvolutionEngine
+                    store = RepositoryStore(db_path)
+                    meta = store.get_metadata()
+                    if meta and meta.latest_analysis_run_id:
+                        run_id = meta.latest_analysis_run_id
+                        rkm_vios = ViolationsAPI.get_violations(store, run_id)
+                        for rv in rkm_vios:
+                            violations.append({
+                                "filepath": rv.get("file_path") or "Unknown",
+                                "principle": rv.get("rule_name") or "Architectural Constraint",
+                                "observation": rv.get("details") or rv.get("description") or "",
+                                "reason": rv.get("description") or "Constraint violation recorded in RKM",
+                                "consequences": "Increases architectural debt and refactoring risk",
+                                "severity": 2
+                            })
+                        h_objs = EvolutionEngine.detect_hotspots(store, run_id)
+                        for h in h_objs:
+                            hotspots.append({
+                                "file": h.file_path.replace("\\", "/"),
+                                "hotspot_score": float(h.hotspot_score),
+                                "complexity": int(getattr(h, "complexity", 1)),
+                                "coupling_debt": float(getattr(h, "coupling_debt", 0.0)),
+                                "bug_fix_count": int(h.change_count)
+                            })
+                    store.close()
+                except Exception as ex:
+                    sys.stderr.write(f"[Ultron] RKM audit inspection warning: {ex}\n")
 
-            try:
-                from ultron.experimental.reasoning import ReasoningEngine
-                engine = ReasoningEngine(codebase, repo_path)
-                violations = engine.analyze()
-            except Exception:
-                pass
+            # Fallback heuristic violations if no RKM DB violations found
+            if not violations:
+                for r in risks:
+                    fpath = getattr(r, "file_path", None) or getattr(r, "file", "")
+                    cx = getattr(r, "complexity", 1)
+                    cp = getattr(r, "coupling_score", getattr(r, "coupling", 0))
+                    if cx > 15:
+                        violations.append({
+                            "filepath": fpath,
+                            "principle": "Complexity Limit (SRP)",
+                            "observation": f"Cyclomatic complexity is {cx} (threshold 15)",
+                            "reason": "Function/module contains excessive conditional decision paths",
+                            "consequences": "High cognitive load and regression risk during modifications",
+                            "severity": 3 if cx > 30 else 2
+                        })
+                    if cp > 10:
+                        violations.append({
+                            "filepath": fpath,
+                            "principle": "Coupling Limit (ADP/SDP)",
+                            "observation": f"Coupling fanout is {cp} (threshold 10)",
+                            "reason": "Direct reliance on too many distinct subsystem dependencies",
+                            "consequences": "Cascading breaks when dependent modules change",
+                            "severity": 2
+                        })
 
-            health_score = 100 - (len(cycles) * 15 + len(violations) * 5 + total_leaks * 2)
-            health_score = max(10, min(100, health_score))
+            if not hotspots:
+                for r in risks[:10]:
+                    fpath = (getattr(r, "file_path", None) or getattr(r, "file", "")).replace("\\", "/")
+                    hotspots.append({
+                        "file": fpath,
+                        "hotspot_score": round(float(getattr(r, "impact_score", 0.0)), 2),
+                        "complexity": int(getattr(r, "complexity", 1)),
+                        "coupling_debt": round(float(getattr(r, "coupling_score", 0.0)), 1),
+                        "bug_fix_count": 1
+                    })
 
-            risks = []
-            try:
-                risks = risk.evaluate_risks(codebase, target_files, intent="Identify hotspots", repo_path=repo_path)
-            except Exception:
-                pass
+            health_score = max(10, min(100, 100 - (len(cycles) * 12 + len(violations) * 3)))
 
-            if design_oracle is not None:
-                try:
-                    hotspots = design_oracle.compute_hotspot_scores(codebase, repo_path, risks)
-                except Exception:
-                    pass
-
-            try:
-                from ultron.experimental.impact_simulator import MetricSnapshot
-                from ultron.experimental.contract_generator import ContractGenerator
-                from ultron.experimental.knowledge_graph import KNOWLEDGE_GRAPH
-                
-                debt_scores = design_oracle.score_coupling_debt(codebase) if design_oracle else []
-                total_debt = sum(e["coupling_debt"] for e in debt_scores)
-                avg_hs = (sum(e["hotspot_score"] for e in hotspots) / len(hotspots)) if hotspots else 0.0
-                avg_inst = (sum(e["instability"] for e in debt_scores) / len(debt_scores)) if debt_scores else 0.0
-                
-                snapshot = MetricSnapshot(
-                    total_coupling_debt=float(total_debt),
-                    total_cycle_count=int(len(cycles)),
-                    total_violations=int(len(violations)),
-                    avg_instability=float(avg_inst),
-                    avg_hotspot_score=float(avg_hs)
-                )
-                
-                generator = ContractGenerator(
-                    violations, 
-                    KNOWLEDGE_GRAPH, 
-                    snapshot, 
-                    debt_scores=debt_scores, 
-                    cycles=cycles, 
-                    hotspots=hotspots
-                )
-                contracts = generator.generate()
-            except Exception:
-                pass
-
-            # Clean and normalize path keys for JSON response
-            cleaned_hotspots = []
-            for h in hotspots:
-                cleaned_hotspots.append({
-                    "file": h["file"].replace("\\", "/"),
-                    "hotspot_score": float(h["hotspot_score"]),
-                    "complexity": int(h["complexity"]),
-                    "coupling_debt": float(h["coupling_debt"]),
-                    "bug_fix_count": int(h["bug_fix_count"])
-                })
-                
             self.send_json_response(200, {
                 "success": True,
+                "state": "ok",
                 "health_score": health_score,
-                "hotspots": cleaned_hotspots,
+                "analyzed_file_count": len(target_files),
+                "hotspots": hotspots,
                 "circular_dependencies": [list(c) for c in cycles],
-                "violations": [serialize_violation(v) for v in violations],
-                "contracts": [serialize_contract(c) for c in contracts]
+                "violations": violations,
+                "contracts": []
             })
         except Exception as e:
             self.send_json_response(500, {
@@ -2056,6 +2284,172 @@ if __name__ == "__main__":
         except Exception as e:
             self.send_json_response(500, {"error": f"Failed to retrieve summary: {str(e)}"})
 
+    def _memory_snapshot(self, repo_path: str) -> dict:
+        """Everything the UI needs from the persisted knowledge base, or an
+        honest reason why there is nothing yet."""
+        db_path = os.path.join(repo_path, ".ultron", "repository.db")
+        if not os.path.exists(db_path):
+            return {
+                "initialized": False,
+                "reason": "never_analyzed",
+                "latest_run": None,
+                "hotspots": [],
+                "recommendations": []
+            }
+        try:
+            from ultron.core.rkm.store import RepositoryStore
+            from ultron.core.rkm.evolution.engine import EvolutionEngine
+            from ultron.core.rkm.recommendation_service import get_recommendations
+
+            store = RepositoryStore(db_path)
+            try:
+                meta = store.get_metadata()
+                if not meta or not meta.latest_analysis_run_id:
+                    return {
+                        "initialized": False,
+                        "reason": "no_completed_run",
+                        "latest_run": None,
+                        "hotspots": [],
+                        "recommendations": []
+                    }
+                run_id = meta.latest_analysis_run_id
+                run = store.get_analysis_run(run_id)
+                health_run = EvolutionEngine.evaluate_health_score(store, run_id)
+                score = round(
+                    (health_run.architecture_stability * 0.4 +
+                     health_run.rule_compliance * 0.4 +
+                     health_run.complexity_trend * 0.2) * 100, 1
+                )
+                hotspots = [
+                    {
+                        "file_path": h.file_path,
+                        "change_count": h.change_count,
+                        "violation_count": h.violation_count,
+                        "hotspot_score": h.hotspot_score,
+                        "severity_level": h.severity_level
+                    }
+                    for h in EvolutionEngine.detect_hotspots(store, run_id)
+                ][:10]
+            finally:
+                store.close()
+
+            recs = get_recommendations(repo_path, limit=10)
+            return {
+                "initialized": True,
+                "reason": None,
+                "repository_uuid": meta.repository_uuid,
+                "health_score": score,
+                "latest_run": {
+                    "run_id": run.id,
+                    "timestamp": run.timestamp,
+                    "engine_version": run.engine_version
+                } if run else None,
+                "hotspots": hotspots,
+                "recommendations": recs.get("recommendations", []) if isinstance(recs, dict) else []
+            }
+        except Exception as e:
+            return {
+                "initialized": False,
+                "reason": "memory_unreadable",
+                "error": str(e),
+                "latest_run": None,
+                "hotspots": [],
+                "recommendations": []
+            }
+
+    def handle_v1_overview(self):
+        """One request, everything the main screen shows.
+
+        The dashboard previously assembled this from a dozen calls with
+        inconsistent repo handling, several of which could never return data.
+        """
+        try:
+            data = self.get_post_data()
+            if not isinstance(data, dict):
+                data = {}
+            requested = str(data.get("repo", "")).strip()
+            repo_path = os.path.abspath(requested) if requested else self.get_repo_root_path()
+
+            if not os.path.exists(repo_path):
+                self.send_json_response(400, {"status": "error", "message": f"'{repo_path}' does not exist."})
+                return
+            if not os.path.isdir(repo_path):
+                self.send_json_response(400, {"status": "error", "message": f"'{repo_path}' is a file, not a directory."})
+                return
+
+            intent = str(data.get("intent", "")).strip()
+            target_files = coerce_file_list(data.get("files"))
+            repo_block = {"path": repo_path, "name": os.path.basename(repo_path) or repo_path}
+
+            codebase = analyzer.analyze_directory(repo_path)
+            if not codebase:
+                self.send_json_response(200, {
+                    "status": "success",
+                    "state": "analysis_empty",
+                    "repo": repo_block,
+                    "message": "No Python files found here. Pick a folder that contains Python source.",
+                    "stats": {"total_files": 0, "total_definitions": 0, "high": 0, "medium": 0, "low": 0},
+                    "health": {"score": None, "source": "none", "explanation": "Nothing to measure yet."},
+                    "intent": {"text": intent, "matched": True, "message": ""},
+                    "risks": [],
+                    "memory": self._memory_snapshot(repo_path)
+                })
+                return
+
+            risks = risk.evaluate_risks(codebase, target_files, intent, repo_path=repo_path)
+            intent_matched = True
+            if intent and not target_files and not risks:
+                intent_matched = False
+                risks = risk.evaluate_risks(codebase, [], "", repo_path=repo_path)
+
+            ranked = sorted(risks, key=lambda r: getattr(r, "impact_score", 0.0), reverse=True)
+            levels = [getattr(r, "level", "LOW") for r in ranked]
+            high = levels.count("HIGH")
+            medium = levels.count("MEDIUM")
+            low = len(levels) - high - medium
+
+            memory = self._memory_snapshot(repo_path)
+            if memory.get("initialized") and memory.get("health_score") is not None:
+                health = {
+                    "score": memory["health_score"],
+                    "source": "memory",
+                    "explanation": "Scored from the last saved analysis (rule compliance, stability, complexity trend)."
+                }
+            elif ranked:
+                penalty = (high / len(ranked)) * 70 + (medium / len(ranked)) * 20
+                health = {
+                    "score": round(max(0.0, 100.0 - penalty), 1),
+                    "source": "live",
+                    "explanation": f"{high} of {len(ranked)} files are high risk. Save an analysis to track this over time."
+                }
+            else:
+                health = {"score": None, "source": "none", "explanation": "No files scored."}
+
+            self.send_json_response(200, {
+                "status": "success",
+                "state": "ok",
+                "repo": repo_block,
+                "stats": {
+                    "total_files": len(codebase),
+                    "total_definitions": sum(len(c.get("definitions", [])) for c in codebase.values()),
+                    "high": high,
+                    "medium": medium,
+                    "low": low
+                },
+                "health": health,
+                "intent": {
+                    "text": intent,
+                    "matched": intent_matched,
+                    "message": "" if intent_matched else f"No files matched \"{intent}\". Showing the whole repository instead."
+                },
+                "risks": [r.to_dict() for r in ranked],
+                "memory": memory
+            })
+        except PermissionError as e:
+            self.send_json_response(400, {"status": "error", "message": f"Permission denied: {e}"})
+        except Exception as e:
+            self.send_json_response(500, {"status": "error", "message": str(e)})
+
     def get_repo_root_path(self) -> str:
         cwd_config = os.path.join(os.getcwd(), ".ultron", "config.json")
         for cfg_path in (cwd_config, CONFIG_FILE):
@@ -2139,6 +2533,20 @@ if __name__ == "__main__":
             self.send_json_response(400, {"error": "Analysis is already running"})
             return
 
+        # The dashboard sends the repository it is showing; honouring it keeps the
+        # persisted knowledge base pointed at the same tree the user is looking at.
+        try:
+            body = self.get_post_data()
+        except Exception:
+            body = {}
+        requested_repo = ""
+        if isinstance(body, dict):
+            requested_repo = str(body.get("repo", "")).strip()
+        repo_root = os.path.abspath(requested_repo) if requested_repo else self.get_repo_root_path()
+        if not os.path.isdir(repo_root):
+            self.send_json_response(400, {"error": f"Repository path '{repo_root}' is not a directory."})
+            return
+
         import uuid
         import threading
         job_id = str(uuid.uuid4())
@@ -2149,8 +2557,6 @@ if __name__ == "__main__":
         ACTIVE_JOB["cancel_requested"] = False
         ACTIVE_JOB["job_id"] = job_id
         
-        repo_root = self.get_repo_root_path()
-        
         def run_pipeline():
             global ACTIVE_JOB
             try:
@@ -2159,34 +2565,13 @@ if __name__ == "__main__":
                 if ACTIVE_JOB["cancel_requested"]:
                     ACTIVE_JOB["status"] = "cancelled"
                     return
-                ACTIVE_JOB["progress_step"] = "Scanning repository"
-                
-                if ACTIVE_JOB["cancel_requested"]:
-                    ACTIVE_JOB["status"] = "cancelled"
-                    return
-                ACTIVE_JOB["progress_step"] = "Building AST"
-                
-                if ACTIVE_JOB["cancel_requested"]:
-                    ACTIVE_JOB["status"] = "cancelled"
-                    return
-                ACTIVE_JOB["progress_step"] = "Resolving dependencies"
-                
-                if ACTIVE_JOB["cancel_requested"]:
-                    ACTIVE_JOB["status"] = "cancelled"
-                    return
-                ACTIVE_JOB["progress_step"] = "Computing metrics"
-                
-                if ACTIVE_JOB["cancel_requested"]:
-                    ACTIVE_JOB["status"] = "cancelled"
-                    return
-                ACTIVE_JOB["progress_step"] = "Executing rules"
-                
+                ACTIVE_JOB["progress_step"] = "Reading repository"
+
                 orchestrator.analyze_repository(repo_root, force=True)
                 
                 if ACTIVE_JOB["cancel_requested"]:
                     ACTIVE_JOB["status"] = "cancelled"
                     return
-                ACTIVE_JOB["progress_step"] = "Generating report"
                 ACTIVE_JOB["progress_step"] = "Done"
                 ACTIVE_JOB["status"] = "success"
                 
@@ -2198,7 +2583,7 @@ if __name__ == "__main__":
         thread = threading.Thread(target=run_pipeline, daemon=True)
         thread.start()
         
-        self.send_json_response(200, {"success": True, "job_id": job_id})
+        self.send_json_response(200, {"success": True, "job_id": job_id, "repo": repo_root})
 
     def handle_v1_cancel_analysis(self):
         global ACTIVE_JOB
@@ -2387,14 +2772,20 @@ def serve(port=8000):
             except Exception:
                 pass
 
-    server_address = ('', port)
+    # Bind loopback only: Ultron exposes unauthenticated filesystem APIs, so it must
+    # never be reachable from the network.
+    #
+    # Note this socket is IPv4-only. On Windows the name 'localhost' usually resolves to
+    # ::1 first, so clients that use the hostname pay a ~2s failed-IPv6-connect penalty
+    # on every request. Entry points therefore advertise LOOPBACK_HOST, not 'localhost'.
+    server_address = (LOOPBACK_HOST, port)
     try:
         httpd = http.server.HTTPServer(server_address, UltronAPIHandler)
     except OSError as e:
         # Re-raise so the caller (start.py) can try a different port
         raise
 
-    print(f"[*] Ultron Dashboard Server running on http://localhost:{port}/")
+    print(f"[*] Ultron Dashboard Server running on http://{LOOPBACK_HOST}:{port}/")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

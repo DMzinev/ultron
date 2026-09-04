@@ -13,6 +13,7 @@ at module level).
 import ast
 import os
 import math
+import sys
 
 from ultron.core.models import AnalysisPacket, ArchitecturalRole, ChangeStrategy
 from ultron.core.io import read_text
@@ -317,7 +318,14 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
         try:
             defect_prob = logistic.predict_defect_probability(impact_score, mkr)
             confidence = 1.0 - defect_prob
-        except Exception:
+        except Exception as e:
+            # Do not fail silently: a broken model here previously looked identical to a
+            # working one, which is how the KeyError on the coefficients file went
+            # unnoticed. Fall back, but say so.
+            sys.stderr.write(
+                f"[Ultron] Logistic model unavailable ({type(e).__name__}: {e}); "
+                f"using heuristic confidence fallback for {target}.\n"
+            )
             confidence = mkr / (1.0 + 0.1 * impact_score)
 
         risks.append(AnalysisPacket(

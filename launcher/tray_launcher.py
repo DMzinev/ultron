@@ -13,7 +13,7 @@ Usage (production):
     (The launcher auto-detects the .exe and uses it when present.)
 
 Tray menu:
-    Open Dashboard  — opens http://localhost:8000 in the default browser
+    Open Dashboard  — opens http://127.0.0.1:8000 in the default browser
     Settings        — opens the folder-picker page in the default browser
     Quit            — gracefully terminates the server and exits
 """
@@ -56,7 +56,7 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 SERVER_EXE  = os.path.join(_REPO_ROOT, "dist", "ultron-server.exe")
 SERVER_PORT = 8000
-BASE_URL    = f"http://localhost:{SERVER_PORT}"
+BASE_URL    = f"http://127.0.0.1:{SERVER_PORT}"
 
 # ---------------------------------------------------------------------------
 # Helpers
