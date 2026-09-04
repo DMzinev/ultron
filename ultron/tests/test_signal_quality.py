@@ -98,10 +98,6 @@ class TestTangledRepoSignalQuality(unittest.TestCase):
         self.assertEqual(top_file, "god_module.py", f"Expected god_module.py at rank 1, got {top_file}")
         self.assertEqual(sorted_risks[0].level, "HIGH")
 
-    @unittest.expectedFailure
-    # Fails under current absolute scoring: scoring.py does not incorporate cycle detection
-    # into impact_score, so cycle member cycle_c.py is unpenalized and ranks 4th or lower.
-    # Will be fixed by Task B1 (distribution-aware risk bands) and B2 (scoring calibration).
     def test_god_module_and_every_cycle_member_rank_in_top_3(self):
         """The god module and every member of the 3-file cycle must rank in the top 3."""
         sorted_risks = sorted(self.risks, key=lambda r: r.impact_score, reverse=True)
@@ -111,6 +107,16 @@ class TestTangledRepoSignalQuality(unittest.TestCase):
             top_3_files, expected_top,
             f"Expected top 3 to be {expected_top}, but got {top_3_files}"
         )
+
+    def test_tangled_repo_invariants_and_relative_mitigation(self):
+        """tangled_repo must enforce distribution caps and relative blast-radius mitigation."""
+        high_files = [r for r in self.risks if r.level == "HIGH"]
+        med_files = [r for r in self.risks if r.level == "MEDIUM"]
+        self.assertLessEqual(len(high_files), 2, "HIGH files must be <= 15% (<= 2 for N=8)")
+        self.assertLessEqual(len(high_files) + len(med_files), 4, "HIGH+MED files must be <= 45% (<= 4 for N=8)")
+        for h in high_files:
+            self.assertIn("in the top", h.mitigation)
+            self.assertNotIn("Threshold:", h.mitigation)
 
     @unittest.expectedFailure
     # Fails under current health score formula: evaluate_health_score ignores cycles and
@@ -159,6 +165,33 @@ class TestMixedRepoSignalQuality(unittest.TestCase):
         top_2_files = {sorted_risks[0].file_path, sorted_risks[1].file_path}
         expected_top = {"risky_core.py", "risky_dispatcher.py"}
         self.assertEqual(top_2_files, expected_top, f"Expected top 2 to be {expected_top}, got {top_2_files}")
+
+    def test_mixed_repo_invariants_and_relative_mitigation(self):
+        """mixed_repo must enforce distribution caps and relative blast-radius mitigation."""
+        high_files = [r for r in self.risks if r.level == "HIGH"]
+        med_files = [r for r in self.risks if r.level == "MEDIUM"]
+        self.assertLessEqual(len(high_files), 2, "HIGH files must be <= 15% (<= 2 for N=12)")
+        self.assertLessEqual(len(high_files) + len(med_files), 6, "HIGH+MED files must be <= 45% (<= 6 for N=12)")
+        for h in high_files:
+            self.assertIn("in the top", h.mitigation)
+            self.assertNotIn("Threshold:", h.mitigation)
+
+
+class TestScoringEdgeCases(unittest.TestCase):
+    """Zero and boundary state tests for risk scoring engine."""
+
+    def test_empty_codebase_returns_empty_list(self):
+        """Empty codebase must return empty risk list without ZeroDivisionError."""
+        self.assertEqual(scoring.evaluate_risks({}, []), [])
+
+    def test_empty_codebase_with_targets_returns_empty_list(self):
+        """Empty codebase with target files must return empty list."""
+        self.assertEqual(scoring.evaluate_risks({}, ["nonexistent.py"]), [])
+
+    def test_nonexistent_target_returns_empty_list(self):
+        """Target files not present in codebase must return empty list."""
+        codebase = {"a.py": {"imports": [], "definitions": []}}
+        self.assertEqual(scoring.evaluate_risks(codebase, ["b.py"]), [])
 
 
 if __name__ == "__main__":

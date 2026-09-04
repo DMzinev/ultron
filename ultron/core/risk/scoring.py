@@ -177,7 +177,10 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
     Returns:
         list[AnalysisPacket]
     """
-    target_files = list(target_files)
+    if not codebase:
+        return []
+
+    target_files = [t.replace("\\", "/") for t in target_files]
     caller_had_targets = bool(target_files)
     caller_had_intent = bool(intent)
 
@@ -199,12 +202,15 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
                                 match = True
                                 break
             if match:
-                target_files.append(rel_path)
+                target_files.append(rel_path.replace("\\", "/"))
         target_files = list(set(target_files))
 
     # Full-repo scan: only when caller provided neither targets nor intent
     if not target_files and not caller_had_targets and not caller_had_intent:
-        target_files = list(codebase.keys())
+        target_files = [k.replace("\\", "/") for k in codebase.keys()]
+
+    if not target_files:
+        return []
 
     risks = []
 
@@ -216,7 +222,7 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
             adapter = GitEvidenceAdapter()
             evidence_records = adapter.parse_git_history(repo_path)
             for ev in evidence_records:
-                rel_f = ev.source.get("file", "")
+                rel_f = ev.source.get("file", "").replace("\\", "/")
                 n_fixes = ev.measurement.get("bug_fixes", 0)
                 if rel_f and n_fixes > 0:
                     bug_fixes[rel_f] = n_fixes
@@ -224,6 +230,38 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
             print(f"Warning: failed to extract git history from {repo_path}: {e}")
 
     feedback = load_human_feedback()
+
+    # Detect circular dependencies across codebase via CycleDetector
+    cycle_files = set()
+    try:
+        from ultron.core.cycle_detector import CycleDetector
+        mod_map = {}
+        for f in codebase:
+            norm_f = f.replace("\\", "/")
+            base = os.path.splitext(os.path.basename(norm_f))[0]
+            if base != "__init__":
+                mod_map[base] = norm_f
+            mod_path = norm_f[:-3].replace("/", ".") if norm_f.endswith(".py") else norm_f.replace("/", ".")
+            mod_map[mod_path] = norm_f
+
+        edges = []
+        for f, analysis in codebase.items():
+            norm_f = f.replace("\\", "/")
+            for imp in analysis.get("imports", []):
+                parts = imp.split(".")
+                for i in range(len(parts), 0, -1):
+                    prefix = ".".join(parts[:i])
+                    if prefix in mod_map:
+                        tgt = mod_map[prefix]
+                        if tgt != norm_f:
+                            edges.append({"source": norm_f, "target": tgt})
+                        break
+        detected_cycles = CycleDetector.find_all_cycles(edges=edges)
+        for c in detected_cycles:
+            cycle_files.update(c.get("nodes", []))
+    except Exception as e:
+        sys.stderr.write(f"[Ultron] Warning: cycle detection unavailable ({type(e).__name__}: {e})\n")
+        cycle_files = set()
 
     # Build global callers map once for all targets using set for O(1) deduplication
     global_callers = {}
@@ -236,12 +274,10 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
                     for call in method.get("calls", []):
                         global_callers.setdefault(call, set()).add(rel_path)
 
-    for target in target_files:
-        if target not in codebase:
-            continue
-        analysis = codebase[target]
+    # Pre-compute metrics & raw impact scores for all files across codebase
+    codebase_metrics = {}
+    for f, analysis in codebase.items():
         target_defs = analysis.get("definitions", [])
-
         downstream_files = set()
         for defn in target_defs:
             name = defn.get("name")
@@ -252,52 +288,93 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
                     m_name = method.get("name")
                     if m_name in global_callers:
                         downstream_files.update(global_callers[m_name])
-        downstream_files.discard(target)
-
+        downstream_files.discard(f)
         coupling_count = len(downstream_files)
-        abs_target = os.path.join(repo_path, target) if repo_path else target
-        complexity = get_file_complexity(abs_target)
-        impact_score = complexity * math.log(math.e + coupling_count)
+        abs_f = os.path.join(repo_path, f) if repo_path else f
+        complexity = get_file_complexity(abs_f)
+        cycle_mult = 2.0 if (f in cycle_files or f.replace("\\", "/") in cycle_files) else 1.0
+        raw_score = complexity * math.log(math.e + coupling_count) * cycle_mult
+        codebase_metrics[f] = {
+            "complexity": complexity,
+            "coupling_count": coupling_count,
+            "downstream_files": downstream_files,
+            "impact_score": raw_score,
+            "abs_path": abs_f,
+        }
 
-        # Architectural role via ordered rules engine
+    N = len(codebase)
+    all_scores = [m["impact_score"] for m in codebase_metrics.values()]
+    # Strict deterministic primary, secondary, tertiary tie-breaker:
+    # (-impact_score, -complexity, file_path)
+    sorted_files = sorted(
+        codebase_metrics.keys(),
+        key=lambda f: (-codebase_metrics[f]["impact_score"], -codebase_metrics[f]["complexity"], f)
+    )
+    has_high_outlier = any(s >= 10.0 for s in all_scores)
+    has_med_outlier = any(s >= 3.0 for s in all_scores)
+    max_high = max(1 if has_high_outlier else 0, math.ceil(0.15 * N)) if N > 0 else 0
+    max_med_high = max(1 if has_med_outlier else 0, math.ceil(0.45 * N)) if N > 0 else 0
+
+    HIGH_FLOOR = 10.0
+    MED_FLOOR = 3.0
+
+    for target in target_files:
+        norm_target = target.replace("\\", "/")
+        m = codebase_metrics.get(norm_target) or codebase_metrics.get(target)
+        if not m:
+            continue
+        target_key = norm_target if norm_target in sorted_files else target
+        complexity = m["complexity"]
+        coupling_count = m["coupling_count"]
+        downstream_files = m["downstream_files"]
+        impact_score = m["impact_score"]
+        abs_target = m["abs_path"]
+
         role = determine_architectural_role(target, abs_target)
+
+        # Percentile rank within repository
+        pct_rank = (sum(1 for s in all_scores if s <= impact_score) / N) * 100.0 if N > 0 else 100.0
+        rank_1based = sorted_files.index(target_key) + 1 if target_key in sorted_files else 1
+        top_pct = max(1, round((rank_1based / N) * 100)) if N > 0 else 1
 
         n_fixes = bug_fixes.get(target, 0)
         feedback_accurate = feedback.get(target, None)
 
-        # Dynamic thresholds — adjusted by bug-fix history and human feedback
-        high_t = 10.0
-        med_t = 3.0
-        high_t -= 1.5 * n_fixes
-        med_t -= 0.5 * n_fixes
+        # Percentile cutoffs adjusted by bug fixes and human feedback
+        high_p = 90.0 - 5.0 * n_fixes
+        med_p = 65.0 - 3.0 * n_fixes
         if feedback_accurate is True:
-            high_t -= 2.0
-            med_t -= 1.0
+            high_p -= 5.0
+            med_p -= 3.0
         elif feedback_accurate is False:
-            high_t += 3.0
-            med_t += 1.5
-        high_t = max(3.0, min(15.0, high_t))
-        med_t = max(1.0, min(8.0, med_t))
+            high_p += 5.0
+            med_p += 3.0
 
-        if impact_score >= high_t:
+        high_p = max(75.0, min(95.0, high_p))
+        med_p = max(50.0, min(80.0, med_p))
+
+        is_within_high_cap = rank_1based <= max_high
+        is_within_med_cap = rank_1based <= max_med_high
+
+        if impact_score >= HIGH_FLOOR and pct_rank >= high_p and is_within_high_cap:
             level = "HIGH"
             mitigation = (
-                f"High risk implementation. Impact Score: {impact_score:.2f} "
-                f"(Threshold: {high_t:.2f}, Complexity: {complexity}, "
+                f"High risk implementation: in the top {top_pct}% of this repository by blast radius "
+                f"(Impact Score: {impact_score:.2f}, Complexity: {complexity}, "
                 f"Coupling: {coupling_count})."
             )
-        elif impact_score >= med_t:
+        elif impact_score >= MED_FLOOR and pct_rank >= med_p and is_within_med_cap:
             level = "MEDIUM"
             mitigation = (
-                f"Moderate risk implementation. Impact Score: {impact_score:.2f} "
-                f"(Threshold: {med_t:.2f}, Complexity: {complexity}, "
+                f"Moderate risk implementation: in the top {top_pct}% of this repository by blast radius "
+                f"(Impact Score: {impact_score:.2f}, Complexity: {complexity}, "
                 f"Coupling: {coupling_count})."
             )
         else:
             level = "LOW"
             mitigation = (
-                f"Low risk implementation. Impact Score: {impact_score:.2f} "
-                f"(Complexity: {complexity}, Coupling: {coupling_count})."
+                f"Low risk implementation (Impact Score: {impact_score:.2f}, "
+                f"Complexity: {complexity}, Coupling: {coupling_count})."
             )
 
         if role == ArchitecturalRole.PACKAGE_INITIALIZER:
