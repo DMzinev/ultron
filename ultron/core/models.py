@@ -98,6 +98,7 @@ class AnalysisPacket:
     changes:     list  = None
     delta_score: float = 0.0
     churn:       dict  = None
+    signals:     dict  = None
 
     # ---- new semantic dimensions ----
     architectural_role: ArchitecturalRole = ArchitecturalRole.INTERNAL
@@ -143,6 +144,13 @@ class AnalysisPacket:
             d['changes'] = []
         if self.churn is None:
             d['churn'] = {"commits": 0, "authors": 0, "bug_fixes": 0, "multiplier": 1.0, "status": "unavailable"}
+        if self.signals is None:
+            d['signals'] = {
+                "ast":      {"status": "active",      "weight": 0.35},
+                "coupling": {"status": "active",      "weight": 0.25},
+                "churn":    {"status": "unavailable",  "weight": 0.15},
+                "coverage": {"status": "unavailable",  "weight": 0.25},
+            }
         return d
 
     def __getitem__(self, key):

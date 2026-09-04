@@ -261,6 +261,24 @@ function renderSummary(data, healthData) {
   $("count-files").textContent = s.total_files || 0;
   $("count-violations").textContent = state.violations.length;
   $("count-cycles").textContent = state.cycles.length;
+
+  // Signal confidence basis chip
+  const sigs = s.signals || {};
+  const sigNames = Object.keys(sigs);
+  const totalSigs = sigNames.length || 4;
+  const activeSigs = sigNames.filter(k => sigs[k] && sigs[k].status === "active");
+  const activeCount = activeSigs.length;
+  const missingNames = sigNames.filter(k => sigs[k] && sigs[k].status !== "active");
+  const confEl = $("count-confidence");
+  const confChip = $("confidence-chip");
+  if (confEl) confEl.textContent = `${activeCount} of ${totalSigs} signals`;
+  if (confChip) {
+    confChip.classList.toggle("is-full", activeCount === totalSigs);
+    confChip.classList.toggle("is-partial", activeCount > 0 && activeCount < totalSigs);
+    confChip.title = missingNames.length
+      ? `Missing: ${missingNames.join(", ")} — ${missingNames.map(n => `${n} (${Math.round((sigs[n]?.weight || 0) * 100)}%)`).join(", ")}`
+      : "All signals active";
+  }
 }
 
 function renderViolations() {
@@ -417,7 +435,21 @@ function renderWhy(r) {
     <div class="why-block">
       <h3>Role</h3>
       <p>${esc(r.boundary_type || r.architectural_role || "Internal")}</p>
-    </div>`;
+    </div>
+
+    ${(() => {
+      const fileSigs = r.signals || {};
+      const names = Object.keys(fileSigs);
+      const active = names.filter(k => fileSigs[k] && fileSigs[k].status === "active");
+      const missing = names.filter(k => fileSigs[k] && fileSigs[k].status !== "active");
+      const total = names.length || 4;
+      const cls = active.length === total ? "optimal" : "warning";
+      const missingStr = missing.length ? "; missing: " + missing.map(n => `${n} (${Math.round((fileSigs[n]?.weight || 0) * 100)}%)`).join(", ") : "";
+      return `<div class="why-block confidence-basis">
+        <h3>Confidence basis</h3>
+        <span class="badge-pill ${cls}">${active.length} of ${total} signals (${active.join(", ")}${missingStr})</span>
+      </div>`;
+    })()}`;
 }
 
 async function loadCode() {

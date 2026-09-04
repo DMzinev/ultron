@@ -230,6 +230,12 @@ body { display: flex; flex-direction: column; }
 .chip-high b { color: var(--high); }
 .chip-med  b { color: var(--med); }
 .chip-low  b { color: var(--low); }
+.chip-confidence { cursor: help; }
+.chip-confidence.is-full  { border-color: var(--low); }
+.chip-confidence.is-full b { color: var(--low); }
+.chip-confidence.is-partial { border-color: var(--med); }
+.chip-confidence.is-partial b { color: var(--med); }
+.confidence-basis { margin-top: 4px; }
 
 .summary-memory { text-align: right; }
 .memory-line { font-size: 12px; color: var(--text-dim); margin-bottom: 7px; }

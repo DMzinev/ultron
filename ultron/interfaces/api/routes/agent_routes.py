@@ -449,7 +449,8 @@ class AgentRoutesMixin:
                     "rule_plain_name": "Code is too complex or coupled to modify safely",
                     "rule_technical_name": f"RKM-POLICY-{decision.policy_version}",
                     "severity": decision.priority,
-                    "confidence": 0.95,
+                    "confidence": risk_profile.confidence_vector.get("overall", 0.65),
+                    "signals": risk_profile.confidence_vector.get("signals_block", {}),
                     "evidence": [
                         {
                             "evidence_type": "metric_threshold",

@@ -227,6 +227,16 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
             churn_map = {}
             churn_active = False
 
+    # v2.6 Coverage signal ingestion
+    coverage_active = False
+    if repo_path:
+        try:
+            from ultron.core.coverage_adapter import get_coverage_data
+            _cov_data = get_coverage_data(repo_path)
+            coverage_active = (_cov_data.get("status") == "active")
+        except Exception:
+            coverage_active = False
+
     feedback = load_human_feedback()
 
     # Detect circular dependencies across codebase via CycleDetector
@@ -443,7 +453,13 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
             churn=m.get("churn", {
                 "commits": 0, "authors": 0, "bug_fixes": 0, "multiplier": 1.0,
                 "status": "active" if churn_active else "unavailable"
-            })
+            }),
+            signals={
+                "ast":      {"status": "active",                                          "weight": 0.35},
+                "coupling": {"status": "active",                                          "weight": 0.25},
+                "churn":    {"status": "active" if churn_active else "unavailable",        "weight": 0.15},
+                "coverage": {"status": "active" if coverage_active else "unavailable",     "weight": 0.25},
+            }
         ))
 
     return risks

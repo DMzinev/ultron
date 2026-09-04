@@ -70,6 +70,11 @@ class AnalysisRoutesMixin:
                 else (isinstance(r, dict) and r.get("churn", {}).get("status") == "active")
                 for r in risks
             )
+            coverage_active = any(
+                (r.to_dict().get("signals", {}).get("coverage", {}).get("status") == "active") if hasattr(r, "to_dict")
+                else False
+                for r in risks
+            )
             
             self.send_json_response(200, {
                 "status": "success",
@@ -78,7 +83,10 @@ class AnalysisRoutesMixin:
                     "total_files": total_files,
                     "total_definitions": total_definitions,
                     "signals": {
-                        "churn": "active" if churn_active else "unavailable"
+                        "ast":      {"status": "active",                                      "weight": 0.35},
+                        "coupling": {"status": "active",                                      "weight": 0.25},
+                        "churn":    {"status": "active" if churn_active else "unavailable",    "weight": 0.15},
+                        "coverage": {"status": "active" if coverage_active else "unavailable", "weight": 0.25},
                     }
                 },
                 "intent": {
@@ -323,7 +331,13 @@ class AnalysisRoutesMixin:
                     "total_definitions": sum(len(c.get("definitions", [])) for c in codebase.values()),
                     "high": high,
                     "medium": medium,
-                    "low": low
+                    "low": low,
+                    "signals": (ranked[0].to_dict().get("signals") if ranked else {
+                        "ast":      {"status": "active",      "weight": 0.35},
+                        "coupling": {"status": "active",      "weight": 0.25},
+                        "churn":    {"status": "unavailable", "weight": 0.15},
+                        "coverage": {"status": "unavailable", "weight": 0.25},
+                    })
                 },
                 "health": health,
                 "intent": {
