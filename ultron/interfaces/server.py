@@ -64,8 +64,6 @@ class UltronAPIHandler(
             return
             
         get_dispatch = {
-            "/api/v1/risk-profile": self.handle_v1_risk_profile,
-            "/api/v1/decision": self.handle_v1_decision,
             "/api/architecture-health": self.handle_architecture_health,
             "/api/file-tree": self.handle_file_tree,
             "/api/analyze": self.handle_analyze,
@@ -79,21 +77,12 @@ class UltronAPIHandler(
             "/api/v1/health": self.handle_v1_health,
             "/api/health": self.handle_v1_health,
             "/api/v1/summary": self.handle_v1_summary,
-            "/api/v1/runs": self.handle_v1_runs,
-            "/api/v1/hotspots": self.handle_v1_hotspots,
             "/api/v1/recommendations": self.handle_v1_recommendations,
-            "/api/v1/history": self.handle_v1_history,
         }
         
         handler = get_dispatch.get(parsed_path)
         if handler:
             handler()
-            return
-        if parsed_path.startswith("/api/v1/risk-profile"):
-            self.handle_v1_risk_profile()
-            return
-        if parsed_path.startswith("/api/v1/decision"):
-            self.handle_v1_decision()
             return
             
         if parsed_path in ("/", ""):
@@ -150,8 +139,6 @@ class UltronAPIHandler(
             "/api/v1/analyze": self.handle_v1_analyze,
             "/api/v1/overview": self.handle_v1_overview,
             "/api/v1/cancel-analysis": self.handle_v1_cancel_analysis,
-            "/api/v1/compare": self.handle_v1_compare,
-            "/api/v1/explain-violation": self.handle_v1_explain_violation,
             "/api/config": self.handle_config,
             "/api/analyze": self.handle_analyze,
             "/api/audit": self.handle_audit,
@@ -160,12 +147,7 @@ class UltronAPIHandler(
             "/api/architecture-health": self.handle_architecture_health,
             "/api/get-file": self.handle_get_file,
             "/api/save-file": self.handle_save_file,
-            "/api/run-tests": self.handle_run_tests,
-            "/api/diff-risk": self.handle_diff_risk,
             "/api/dependency-graph": self.handle_dependency_graph,
-            "/api/predict-impact": self.handle_predict_impact,
-            "/api/save-session": self.handle_save_session,
-            "/api/calibrate": self.handle_calibrate,
             "/api/playground": self.handle_playground,
             "/api/log-risk-feedback": self.handle_log_risk_feedback,
             "/api/pledge/create": self.handle_pledge_create,

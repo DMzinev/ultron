@@ -72,15 +72,13 @@ class TestRouteContract(unittest.TestCase):
             "keys": keys
         }
 
-    def test_all_43_routes_match_contract_snapshot(self):
-        """Verifies that all 43 registered routes match their contract snapshot shape."""
+    def test_all_retained_routes_match_contract_snapshot(self):
+        """Verifies that all 31 retained active routes match their contract snapshot shape."""
         # Request payloads matching the contract capture
         payloads = {
             "POST /api/v1/analyze": {"repo": self.repo_path, "async": False},
             "POST /api/v1/overview": {"repo": self.repo_path},
             "POST /api/v1/cancel-analysis": {},
-            "POST /api/v1/compare": {"repo": self.repo_path, "baseline_run_id": 1, "target_run_id": 1},
-            "POST /api/v1/explain-violation": {"repo": self.repo_path, "violation": {}},
             "POST /api/v1/context-brief": {"repo": self.repo_path},
             "POST /api/v1/export-brief": {"repo": self.repo_path, "format": "markdown"},
             "POST /api/v1/ai/critique": {"repo": self.repo_path, "file_path": "main.py"},
@@ -92,19 +90,14 @@ class TestRouteContract(unittest.TestCase):
             "POST /api/architecture-health": {"repo": self.repo_path},
             "POST /api/get-file": {"repo": self.repo_path, "path": "main.py"},
             "POST /api/save-file": {"repo": self.repo_path, "path": "test_save.tmp", "content": "x = 1\n"},
-            "POST /api/run-tests": {"repo": self.repo_path},
-            "POST /api/diff-risk": {"repo": self.repo_path, "diff": ""},
             "POST /api/dependency-graph": {"repo": self.repo_path},
-            "POST /api/predict-impact": {"repo": self.repo_path, "file": "main.py"},
-            "POST /api/save-session": {"repo": self.repo_path, "session": {}},
-            "POST /api/calibrate": {"repo": self.repo_path, "adjustments": {}},
             "POST /api/playground": {"repo": self.repo_path, "code": "pass"},
             "POST /api/log-risk-feedback": {"repo": self.repo_path, "target": "main.py", "accurate": True},
             "POST /api/pledge/create": {"repo": self.repo_path, "pledge": {}},
             "POST /api/pledge/verify": {"repo": self.repo_path},
         }
 
-        self.assertEqual(len(self.expected_contract), 43, f"Expected 43 routes, got {len(self.expected_contract)}")
+        self.assertEqual(len(self.expected_contract), 31, f"Expected 31 routes, got {len(self.expected_contract)}")
 
         for route_key, expected_shape in self.expected_contract.items():
             method, path = route_key.split(" ", 1)

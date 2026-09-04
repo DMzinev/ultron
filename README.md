@@ -24,9 +24,6 @@
 *   **Closed-Loop Self-Optimization**:
     *   Ultron analyzes its own codebase (`./ultron`), identifies complexity hotspots, guides refactoring, and empirically measures health score improvements.
 
-> The previous multi-tab dashboard (topology explorer, prompt studio, auditor, calibration) is still shipped at
-> `http://127.0.0.1:8000/legacy.html`. Several of its panels depend on modules that are not part of this
-> repository and render empty; the main screen deliberately shows only what the engine can actually answer.
 
 ---
 

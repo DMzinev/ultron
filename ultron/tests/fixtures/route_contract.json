@@ -69,12 +69,6 @@
     ],
     "status": 200
   },
-  "GET /api/v1/decision": {
-    "keys": [
-      "error"
-    ],
-    "status": 400
-  },
   "GET /api/v1/health": {
     "keys": [
       "active_job",
@@ -83,18 +77,6 @@
       "rkm_database",
       "status",
       "timestamp"
-    ],
-    "status": 200
-  },
-  "GET /api/v1/history": {
-    "keys": [
-      "runs"
-    ],
-    "status": 200
-  },
-  "GET /api/v1/hotspots": {
-    "keys": [
-      "hotspots"
     ],
     "status": 200
   },
@@ -113,18 +95,6 @@
       "recommendations",
       "source",
       "status"
-    ],
-    "status": 200
-  },
-  "GET /api/v1/risk-profile": {
-    "keys": [
-      "error"
-    ],
-    "status": 400
-  },
-  "GET /api/v1/runs": {
-    "keys": [
-      "runs"
     ],
     "status": 200
   },
@@ -170,16 +140,6 @@
     ],
     "status": 200
   },
-  "POST /api/calibrate": {
-    "keys": [
-      "max_f1",
-      "optimal_prob_threshold",
-      "optimal_typo_threshold",
-      "success",
-      "sweep_history"
-    ],
-    "status": 200
-  },
   "POST /api/config": {
     "keys": [
       "default_repo",
@@ -192,13 +152,6 @@
       "links",
       "medians",
       "nodes",
-      "success"
-    ],
-    "status": 200
-  },
-  "POST /api/diff-risk": {
-    "keys": [
-      "diff_risk",
       "success"
     ],
     "status": 200
@@ -247,33 +200,11 @@
     ],
     "status": 400
   },
-  "POST /api/predict-impact": {
-    "keys": [
-      "predictions",
-      "success"
-    ],
-    "status": 200
-  },
-  "POST /api/run-tests": {
-    "keys": [
-      "exit_code",
-      "output",
-      "success"
-    ],
-    "status": 200
-  },
   "POST /api/save-file": {
     "keys": [
       "error"
     ],
     "status": 400
-  },
-  "POST /api/save-session": {
-    "keys": [
-      "filename",
-      "success"
-    ],
-    "status": 200
   },
   "POST /api/v1/ai/critique": {
     "keys": [
@@ -298,12 +229,6 @@
     ],
     "status": 200
   },
-  "POST /api/v1/compare": {
-    "keys": [
-      "error"
-    ],
-    "status": 400
-  },
   "POST /api/v1/context-brief": {
     "keys": [
       "canonical_brief",
@@ -311,12 +236,6 @@
       "status"
     ],
     "status": 200
-  },
-  "POST /api/v1/explain-violation": {
-    "keys": [
-      "error"
-    ],
-    "status": 400
   },
   "POST /api/v1/export-brief": {
     "keys": [

@@ -95,49 +95,6 @@ class AnalysisRoutesMixin:
                 "traceback": traceback.format_exc()
             })
 
-    def handle_diff_risk(self):
-        try:
-            data = self.get_post_data()
-            repo_path = os.path.abspath(data.get("repo", ""))
-            filepath = data.get("file", "")
-            old_code = data.get("old_code", "")
-            new_code = data.get("new_code", "")
-            
-            codebase = analyzer.analyze_directory(repo_path)
-            res = risk.evaluate_diff_risk(codebase, filepath, old_code, new_code)
-            
-            global LAST_ANALYSIS
-            LAST_ANALYSIS["file_path"] = filepath
-            LAST_ANALYSIS["delta_i"] = res.impact_score
-            LAST_ANALYSIS["mkr"] = res.mk_r
-            LAST_ANALYSIS["delta_cest"] = res.delta_cest
-            
-            self.send_json_response(200, {
-                "success": True,
-                "diff_risk": res.to_dict()
-            })
-        except Exception as e:
-            self.send_json_response(500, {"error": str(e)})
-
-    def handle_predict_impact(self):
-        try:
-            data = self.get_post_data()
-            repo_path = os.path.abspath(data.get("repo", ""))
-            changed_files = data.get("changed_files", [])
-            changed_functions = data.get("changed_functions", [])
-            
-            test_file_path = os.path.join(repo_path, "run_tests.py")
-            if not os.path.exists(test_file_path):
-                test_file_path = os.path.join(repo_path, "ultron", "tests", "run_tests.py")
-                
-            codebase = analyzer.analyze_directory(repo_path)
-            predictions = predict.predict_test_impact(codebase, changed_files, changed_functions, test_file_path)
-            self.send_json_response(200, {
-                "success": True,
-                "predictions": predictions
-            })
-        except Exception as e:
-            self.send_json_response(500, {"error": str(e)})
 
     def handle_v1_summary(self):
         repo_root = self.get_repo_root_path()
@@ -382,27 +339,6 @@ class AnalysisRoutesMixin:
             "job_id": ACTIVE_JOB["job_id"]
         })
 
-    def handle_v1_runs(self):
-        from ultron.core.rkm.store import RepositoryStore
-        from ultron.interfaces.api import HistoryAPI
-        repo_root = self.get_repo_root_path()
-        db_path = os.path.join(repo_root, ".ultron", "repository.db")
-        if not os.path.exists(db_path):
-            self.send_json_response(200, {"runs": []})
-            return
-        store = RepositoryStore(db_path)
-        try:
-            meta = store.get_metadata()
-            if not meta:
-                self.send_json_response(200, {"runs": []})
-                return
-            runs = HistoryAPI.get_run_history(store, meta.id)
-            self.send_json_response(200, {"runs": runs})
-        finally:
-            store.close()
-
-    def handle_v1_history(self):
-        self.handle_v1_runs()
 
     def handle_v1_analyze(self):
         data = self.get_request_data() if hasattr(self, "get_request_data") else self.get_post_data()

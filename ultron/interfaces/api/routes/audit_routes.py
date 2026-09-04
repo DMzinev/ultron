@@ -101,19 +101,6 @@ class AuditRoutesMixin:
                 "traceback": traceback.format_exc()
             })
 
-    def handle_calibrate(self):
-        try:
-            data = self.get_post_data()
-            repo = data.get("repo", "") or os.getcwd()
-            repo_path = os.path.abspath(repo)
-            if not os.path.isdir(repo_path):
-                self.send_json_response(400, {"error": f"Repository path '{repo_path}' is not a directory."})
-                return
-            from ultron.core import meta_layer
-            res = meta_layer.run_threshold_calibration(repo_path)
-            self.send_json_response(200, res)
-        except Exception as e:
-            self.send_json_response(500, {"error": str(e)})
 
     def handle_playground(self):
         try:
