@@ -1,5 +1,10 @@
 import ast
 import os
+import logging
+
+logger = logging.getLogger(__name__)
+_EMITTED_NO_GIT_HISTORY = False
+_EMITTED_NO_TAGGED_COMMITS = False
 
 class CallVisitor(ast.NodeVisitor):
 
@@ -212,7 +217,10 @@ def extract_git_history(repo_path):
         is_git = False
 
     if not is_git:
-        print("[Ultron] No git history found — bug-prone-file scaling is inactive.")
+        global _EMITTED_NO_GIT_HISTORY
+        if not _EMITTED_NO_GIT_HISTORY:
+            logger.info("[Ultron] No git history found — bug-prone-file scaling is inactive.")
+            _EMITTED_NO_GIT_HISTORY = True
         return bug_fix_counts
     
     try:
@@ -236,7 +244,10 @@ def extract_git_history(repo_path):
         matched_commits = [c for c in chk_commits.stdout.splitlines() if c.strip()]
         
         if not matched_commits:
-            print("[Ultron] Git history found but no fix/bug/patch-tagged commits matched — scaling has no effect.")
+            global _EMITTED_NO_TAGGED_COMMITS
+            if not _EMITTED_NO_TAGGED_COMMITS:
+                logger.info("[Ultron] Git history found but no fix/bug/patch-tagged commits matched — scaling has no effect.")
+                _EMITTED_NO_TAGGED_COMMITS = True
             return bug_fix_counts
 
         # Run git log with list of modified files in each commit

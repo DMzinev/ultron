@@ -12,6 +12,7 @@ from typing import Dict, List, Any, Optional
 from ultron.core.system_model import EvidenceObject
 
 logger = logging.getLogger(__name__)
+_EMITTED_NO_GIT_REPO = False
 
 
 class GitEvidenceAdapter:
@@ -30,7 +31,10 @@ class GitEvidenceAdapter:
         git_dir = os.path.join(abs_repo, ".git")
 
         if not os.path.exists(git_dir):
-            logger.info("[GitEvidenceAdapter Notice] Path '%s' is not a git repository. Skipping git history.", repo_path)
+            global _EMITTED_NO_GIT_REPO
+            if not _EMITTED_NO_GIT_REPO:
+                logger.info("[GitEvidenceAdapter Notice] Path '%s' is not a git repository. Skipping git history.", repo_path)
+                _EMITTED_NO_GIT_REPO = True
             return []
 
         evidence_list: List[EvidenceObject] = []

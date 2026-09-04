@@ -4,7 +4,10 @@ import uuid
 import hashlib
 import sqlite3
 import ast
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from ultron.core import analyzer
 from ultron.core.risk import scoring
@@ -52,7 +55,7 @@ def compute_repository_semantic_hash(repo_path: str, files: list[str]) -> str:
                         ast_str = ast.dump(tree, annotate_fields=False, include_attributes=False)
                         file_hash = hashlib.sha256(ast_str.encode("utf-8")).hexdigest()
                     except (SyntaxError, ValueError) as parse_err:
-                        print(f"[Warning] AST parse failed for {rel_path}: {parse_err}. Falling back to raw content hash.")
+                        logger.warning("[Warning] AST parse failed for %s: %s. Falling back to raw content hash.", rel_path, parse_err)
                         file_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
                 else:
                     file_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
@@ -66,7 +69,7 @@ def compute_repository_semantic_hash(repo_path: str, files: list[str]) -> str:
 def run_cached_stage(store: RepositoryStore, stage_name: str, stage_version: str, input_hash: str, compute_fn) -> str:
     cached = store.get_stage_cache(stage_name, stage_version, input_hash)
     if cached is not None:
-        print(f"[Ultron] Cache hit for stage '{stage_name}' (version: {stage_version}).")
+        logger.info("[Ultron] Cache hit for stage '%s' (version: %s).", stage_name, stage_version)
         return cached
     result = compute_fn()
     store.save_stage_cache(stage_name, stage_version, input_hash, str(result))
@@ -98,12 +101,12 @@ def analyze_repository(repo_path: str, force: bool = False) -> str:
             if existing_run:
                 existing_meta = store.get_metadata()
                 if existing_meta and existing_meta.repository_uuid:
-                    print(f"[Ultron] Repository state unchanged (hash: {effective_analysis_hash}). Reusing cached RKM analysis.")
+                    logger.info("[Ultron] Repository state unchanged (hash: %s). Reusing cached RKM analysis.", effective_analysis_hash)
                     store.close()
                     return existing_meta.repository_uuid
             store.close()
         except Exception as e:
-            print(f"[Ultron] Metadata check warning: {e}")
+            logger.warning("[Ultron] Metadata check warning: %s", e)
 
     # 2. Extract facts via frozen analyzer & scoring engine
     codebase = analyzer.analyze_directory(repo_path)
