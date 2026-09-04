@@ -13,8 +13,8 @@
 |:---|:---|:---|:---|:---|:---|
 | 1 | **A1** | `agent/A1-freeze-baseline-fixtures` | **COMPLETED** | `1b5c5b4` | `python -m unittest ultron.tests.test_signal_quality` → Ran 11 tests in 0.401s, OK (expected failures=2) |
 | 2 | **A2** | `agent/A2-reconcile-working-tree` | **COMPLETED** | `2c5bd3e` | `git status --porcelain` is clean (0 untracked files); `test_openai_plan_reviewer.py` has skipUnless guard |
-| 3 | **C3** | `agent/C3-prove-auditor-detects-defects` | **NEXT** | - | Prove the auditor actually detects defects |
-| 4 | **A3** | `agent/A3-decompose-server` | PENDING | - | `server.py` decomposed behind contract tests (< 300 lines) |
+| 3 | **C3** | `agent/C3-prove-auditor-detects-defects` | **COMPLETED** | pending | `python -m unittest ultron.tests.test_auditor_defect_sensitivity` → 4/4 passed in 0.034s |
+| 4 | **A3** | `agent/A3-decompose-server` | **NEXT** | - | `server.py` decomposed behind contract tests (< 300 lines) |
 | 5 | **A4** | `agent/A4-delete-dead-surface` | PENDING | - | Legacy frontend and dead endpoints removed |
 | 6 | **A5** | `agent/A5-logging-discipline` | PENDING | - | "No git history" console spam eliminated |
 | 7 | **B1** | `agent/B1-percentile-risk-bands` | PENDING | - | Distribution-aware risk bands (HIGH <= 15%) |
