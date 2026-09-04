@@ -12,7 +12,23 @@
   <div class="brand">
     <span class="brand-mark">◈</span>
     <span class="brand-name">Ultron</span>
+    <span class="brand-badge">Intelligence Layer</span>
   </div>
+
+  <nav class="nav-tabs" id="nav-tabs" aria-label="Main Navigation">
+    <button class="nav-tab is-active" data-view="dashboard">
+      <span class="nav-tab-icon">📊</span> Dashboard
+    </button>
+    <button class="nav-tab" data-view="graph">
+      <span class="nav-tab-icon">🕸</span> Topology Graph
+    </button>
+    <button class="nav-tab" data-view="studio">
+      <span class="nav-tab-icon">⚡</span> Agent Studio
+    </button>
+    <button class="nav-tab" data-view="auditor">
+      <span class="nav-tab-icon">🛡</span> Code Auditor
+    </button>
+  </nav>
 
   <div class="repo-picker">
     <input id="repo-input" type="text" spellcheck="false" placeholder="Path to a repository…" aria-label="Repository path">
@@ -62,87 +78,268 @@
   <!-- Results -->
   <section id="results" hidden>
 
-    <div class="summary">
-      <div class="summary-score">
-        <div id="health-score" class="score-num">—</div>
-        <div class="score-label">Health</div>
-      </div>
-      <div class="summary-facts">
-        <p id="health-explain" class="explain"></p>
-        <div class="chips">
-          <span class="chip chip-high"><b id="count-high">0</b> risky</span>
-          <span class="chip chip-med"><b id="count-med">0</b> watch</span>
-          <span class="chip chip-low"><b id="count-low">0</b> safe</span>
-          <span class="chip"><b id="count-files">0</b> files</span>
+    <!-- TAB 1: DASHBOARD -->
+    <div id="view-dashboard" class="tab-view is-active">
+      <div class="summary">
+        <div class="summary-score">
+          <div id="health-score" class="score-num">—</div>
+          <div class="score-label">Health</div>
+          <span id="health-badge" class="badge-pill">Analyzing</span>
         </div>
-      </div>
-      <div class="summary-memory">
-        <div id="memory-line" class="memory-line">Not saved yet</div>
-        <button id="save-btn" class="btn btn-ghost">Save this scan</button>
-      </div>
-    </div>
-
-    <div class="workspace">
-
-      <div class="pane pane-list">
-        <div class="pane-head">
-          <h2>Change with care</h2>
-          <input id="filter-input" type="search" placeholder="Filter files…" aria-label="Filter files">
-        </div>
-        <ol id="risk-list" class="risk-list"></ol>
-        <p id="list-empty" class="pane-note" hidden>No files match that filter.</p>
-      </div>
-
-      <div class="pane pane-detail">
-        <div class="pane-head">
-          <h2 id="detail-title">Select a file</h2>
-          <nav class="tabs" id="detail-tabs" hidden>
-            <button class="tab is-active" data-tab="why">Why</button>
-            <button class="tab" data-tab="code">Code</button>
-            <button class="tab" data-tab="brief">Agent brief</button>
-          </nav>
-        </div>
-
-        <div id="detail-placeholder" class="pane-note">
-          Pick a file on the left to see why it scored that way, read it, or copy a
-          briefing for your coding agent.
-        </div>
-
-        <div id="tab-why" class="tab-panel" hidden></div>
-
-        <div id="tab-code" class="tab-panel" hidden>
-          <pre id="code-view" class="code-view"></pre>
-        </div>
-
-        <div id="tab-brief" class="tab-panel" hidden>
-          <div class="brief-controls">
-            <div class="seg" id="brief-target">
-              <button class="seg-btn is-active" data-target="claude">Claude</button>
-              <button class="seg-btn" data-target="codex">Codex</button>
-              <button class="seg-btn" data-target="antigravity">Antigravity</button>
-              <button class="seg-btn" data-target="raw">Full brief</button>
-            </div>
-            <button id="copy-brief" class="btn btn-primary">Copy</button>
+        <div class="summary-facts">
+          <p id="health-explain" class="explain"></p>
+          <div class="chips">
+            <span class="chip chip-high"><b id="count-high">0</b> risky</span>
+            <span class="chip chip-med"><b id="count-med">0</b> watch</span>
+            <span class="chip chip-low"><b id="count-low">0</b> safe</span>
+            <span class="chip"><b id="count-files">0</b> files</span>
+            <button id="violations-chip" class="chip chip-btn" title="View architectural rule violations">
+              <b id="count-violations">0</b> rule violations
+            </button>
+            <span id="cycles-chip" class="chip" title="Circular dependencies">
+              <b id="count-cycles">0</b> cycles
+            </span>
           </div>
-          <pre id="brief-view" class="code-view"></pre>
+        </div>
+        <div class="summary-memory">
+          <div id="memory-line" class="memory-line">Not saved yet</div>
+          <button id="save-btn" class="btn btn-ghost">Save this scan</button>
         </div>
       </div>
 
+      <!-- Architecture Rule Violations Drawer (Collapsible) -->
+      <div id="violations-drawer" class="violations-drawer" hidden>
+        <div class="drawer-header">
+          <h3>Architectural Rule &amp; Policy Violations</h3>
+          <button id="close-violations" class="btn btn-ghost btn-sm">Close</button>
+        </div>
+        <div id="violations-list" class="violations-list"></div>
+      </div>
+
+      <div class="workspace">
+        <div class="pane pane-list">
+          <div class="pane-head">
+            <h2>Change with care</h2>
+            <input id="filter-input" type="search" placeholder="Filter files…" aria-label="Filter files">
+          </div>
+          <ol id="risk-list" class="risk-list"></ol>
+          <p id="list-empty" class="pane-note" hidden>No files match that filter.</p>
+        </div>
+
+        <div class="pane pane-detail">
+          <div class="pane-head">
+            <h2 id="detail-title">Select a file</h2>
+            <div class="pane-actions" id="detail-actions" hidden>
+              <button id="btn-jump-graph" class="btn btn-ghost btn-sm" title="View in Dependency Graph">🕸 Graph</button>
+              <button id="btn-jump-studio" class="btn btn-ghost btn-sm" title="Send to Agent Studio">⚡ Studio</button>
+              <button id="btn-jump-auditor" class="btn btn-ghost btn-sm" title="Audit this file">🛡 Audit</button>
+            </div>
+            <nav class="tabs" id="detail-tabs" hidden>
+              <button class="tab is-active" data-tab="why">Why</button>
+              <button class="tab" data-tab="code">Code</button>
+              <button class="tab" data-tab="brief">Agent brief</button>
+            </nav>
+          </div>
+
+          <div id="detail-placeholder" class="pane-note">
+            Pick a file on the left to see why it scored that way, read it, or copy a
+            briefing for your coding agent.
+          </div>
+
+          <div id="tab-why" class="tab-panel" hidden></div>
+
+          <div id="tab-code" class="tab-panel" hidden>
+            <pre id="code-view" class="code-view"></pre>
+          </div>
+
+          <div id="tab-brief" class="tab-panel" hidden>
+            <div class="brief-controls">
+              <div class="seg" id="brief-target">
+                <button class="seg-btn is-active" data-target="claude">Claude</button>
+                <button class="seg-btn" data-target="codex">Codex</button>
+                <button class="seg-btn" data-target="antigravity">Antigravity</button>
+                <button class="seg-btn" data-target="raw">Full brief</button>
+              </div>
+              <button id="copy-brief" class="btn btn-primary">Copy</button>
+            </div>
+            <pre id="brief-view" class="code-view"></pre>
+          </div>
+        </div>
+      </div>
+
+      <details id="memory-details" class="extras">
+        <summary>Repeat offenders &amp; suggestions <span class="extras-hint">from saved scans</span></summary>
+        <div class="extras-grid">
+          <div>
+            <h3>Files that keep changing</h3>
+            <ul id="hotspot-list" class="mini-list"></ul>
+          </div>
+          <div>
+            <h3>Suggestions</h3>
+            <ul id="rec-list" class="mini-list"></ul>
+          </div>
+        </div>
+      </details>
     </div>
 
-    <details id="memory-details" class="extras">
-      <summary>Repeat offenders &amp; suggestions <span class="extras-hint">from saved scans</span></summary>
-      <div class="extras-grid">
-        <div>
-          <h3>Files that keep changing</h3>
-          <ul id="hotspot-list" class="mini-list"></ul>
+    <!-- TAB 2: TOPOLOGY GRAPH -->
+    <div id="view-graph" class="tab-view" hidden>
+      <div class="graph-toolbar">
+        <div class="graph-filters">
+          <button class="btn btn-sm btn-ghost is-active" data-graph-filter="all">All Modules</button>
+          <button class="btn btn-sm btn-ghost" data-graph-filter="high">Risky Only</button>
+          <button class="btn btn-sm btn-ghost" data-graph-filter="core">Core Files</button>
         </div>
-        <div>
-          <h3>Suggestions</h3>
-          <ul id="rec-list" class="mini-list"></ul>
+        <div class="graph-search-box">
+          <input id="graph-search-input" type="search" placeholder="Search node in graph…" aria-label="Search graph">
+        </div>
+        <div class="graph-zoom-controls">
+          <button id="graph-zoom-in" class="btn btn-ghost btn-sm" title="Zoom in">+</button>
+          <button id="graph-zoom-out" class="btn btn-ghost btn-sm" title="Zoom out">−</button>
+          <button id="graph-zoom-reset" class="btn btn-ghost btn-sm" title="Reset view">Reset</button>
+        </div>
+        <div class="graph-legend">
+          <span class="legend-item"><span class="legend-dot dot-high"></span> Risky</span>
+          <span class="legend-item"><span class="legend-dot dot-med"></span> Watch</span>
+          <span class="legend-item"><span class="legend-dot dot-low"></span> Safe</span>
         </div>
       </div>
-    </details>
+
+      <div class="graph-stage">
+        <svg id="topology-svg" class="topology-svg"></svg>
+        <div id="graph-inspector" class="graph-inspector" hidden>
+          <div class="inspector-head">
+            <h3 id="inspector-file">—</h3>
+            <button id="inspector-close" class="btn-close" aria-label="Close">×</button>
+          </div>
+          <div class="inspector-body">
+            <div class="inspector-badges">
+              <span id="inspector-level" class="badge">RISK</span>
+              <span id="inspector-role" class="badge badge-subtle">ROLE</span>
+            </div>
+            <div class="inspector-metrics">
+              <div><span>Complexity</span><strong id="inspector-complexity">0</strong></div>
+              <div><span>Coupling</span><strong id="inspector-coupling">0</strong></div>
+              <div><span>Impact</span><strong id="inspector-impact">0</strong></div>
+            </div>
+            <p id="inspector-strategy" class="inspector-strategy"></p>
+            <div class="inspector-links">
+              <h4>Dependencies (<span id="inspector-dep-count">0</span>)</h4>
+              <ul id="inspector-dep-list" class="mini-list"></ul>
+            </div>
+            <div class="inspector-actions">
+              <button id="inspector-btn-dash" class="btn btn-ghost btn-sm">Inspect in Dashboard</button>
+              <button id="inspector-btn-studio" class="btn btn-ghost btn-sm">Draft Mission</button>
+              <button id="inspector-btn-audit" class="btn btn-ghost btn-sm">Audit File</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: AGENT STUDIO -->
+    <div id="view-studio" class="tab-view" hidden>
+      <div class="studio-layout">
+        <div class="studio-form-card">
+          <h2>Pre-Execution Mission Specification</h2>
+          <p class="studio-desc">Ground your AI agent with real blast radius, complexity ceilings, and non-degradation contracts before it writes code.</p>
+
+          <div class="form-group">
+            <label for="studio-target-file">Target File or Boundary Module</label>
+            <input id="studio-target-file" type="text" placeholder="e.g. ultron/core/analyzer.py" spellcheck="false">
+          </div>
+
+          <div class="form-group">
+            <label for="studio-intent">User Intent &amp; Feature Goals</label>
+            <textarea id="studio-intent" rows="5" placeholder="Describe what you want the agent to build, refactor, or fix..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Agent Target &amp; Output Format</label>
+            <div class="seg" id="studio-format-seg">
+              <button class="seg-btn is-active" data-format="contract">Ultron Contract</button>
+              <button class="seg-btn" data-format="claude">Claude Code</button>
+              <button class="seg-btn" data-format="codex">OpenAI Codex</button>
+              <button class="seg-btn" data-format="antigravity">Antigravity</button>
+            </div>
+          </div>
+
+          <button id="studio-compile-btn" class="btn btn-primary btn-lg">Compile Agent Mission Package</button>
+        </div>
+
+        <div class="studio-output-card">
+          <div class="studio-output-header">
+            <div>
+              <h3 id="studio-output-title">Ultron Pre-Execution Contract</h3>
+              <span id="studio-output-stats" class="studio-output-stats">Ready</span>
+            </div>
+            <div class="studio-output-actions">
+              <button id="studio-copy-btn" class="btn btn-primary btn-sm">Copy Mission</button>
+              <button id="studio-download-btn" class="btn btn-ghost btn-sm">Save .md</button>
+            </div>
+          </div>
+          <pre id="studio-output" class="code-view studio-output-view">// Grounded agent briefing will appear here once compiled.</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: CODE AUDITOR -->
+    <div id="view-auditor" class="tab-view" hidden>
+      <div class="auditor-layout">
+        <div class="auditor-input-card">
+          <h2>Code Safety &amp; Quality Gate</h2>
+          <p class="auditor-desc">Audit modules against syntax drift, naming anomalies, and architectural policy boundaries.</p>
+
+          <div class="form-group">
+            <label>Audit Source</label>
+            <div class="seg" id="auditor-source-seg">
+              <button class="seg-btn is-active" data-source="file">Repository File</button>
+              <button class="seg-btn" data-source="sandbox">Live Code Sandbox</button>
+            </div>
+          </div>
+
+          <div id="auditor-file-group" class="form-group">
+            <label for="auditor-file-input">Target File</label>
+            <input id="auditor-file-input" type="text" placeholder="Select or type file path..." spellcheck="false">
+          </div>
+
+          <div id="auditor-sandbox-group" class="form-group" hidden>
+            <label for="auditor-sandbox-code">Sandbox Python Code</label>
+            <textarea id="auditor-sandbox-code" rows="10" placeholder="# Paste Python code to audit here..."></textarea>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-row">
+              <label for="auditor-slider-typo">Typo &amp; Drift Sensitivity</label>
+              <span id="auditor-val-typo" class="slider-val">75%</span>
+            </div>
+            <input id="auditor-slider-typo" type="range" min="10" max="95" value="75">
+          </div>
+
+          <button id="auditor-run-btn" class="btn btn-primary btn-lg">Run Code Safety Audit</button>
+        </div>
+
+        <div class="auditor-results-card">
+          <div class="shield-container">
+            <div id="auditor-shield" class="auditor-shield clean">
+              <span id="auditor-shield-icon" class="shield-icon">✓</span>
+              <span id="auditor-shield-text" class="shield-text">Ready</span>
+            </div>
+            <div class="shield-summary">
+              <h3 id="auditor-verdict-title">System Safety Gate</h3>
+              <p id="auditor-verdict-desc">Select a module or paste code and run audit to check against baseline rules.</p>
+            </div>
+          </div>
+
+          <div class="anomalies-section">
+            <h4>Detected Anomalies &amp; Policy Signals</h4>
+            <div id="auditor-anomalies-list" class="anomalies-list">
+              <p class="pane-note">No anomalies to report. Run audit to check target.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
   </section>
 
@@ -157,8 +354,10 @@
 
 <footer class="foot">
   <span>Ultron runs entirely on this machine.</span>
-  <a href="legacy.html">Open the old dashboard</a>
+  <span class="foot-meta">RKM Engine v1.3.0 &bull; Local AST Zero-Revision Verification</span>
 </footer>
+
+<div id="toast" class="toast" hidden></div>
 
 <script src="index.js"></script>
 </body>
