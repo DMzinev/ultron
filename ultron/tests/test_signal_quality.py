@@ -118,10 +118,6 @@ class TestTangledRepoSignalQuality(unittest.TestCase):
             self.assertIn("in the top", h.mitigation)
             self.assertNotIn("Threshold:", h.mitigation)
 
-    @unittest.expectedFailure
-    # Fails under current health score formula: evaluate_health_score ignores cycles and
-    # file-level risk distribution, scoring tangled_repo at 100.0 / 100.
-    # Will be fixed by Task B2 (calibrate the health score).
     def test_tangled_repo_health_score_calibrated(self):
         """Tangled repo with god module and import cycle must score <= 40 (degraded/critical)."""
         score = _get_health_score("tangled_repo")
@@ -130,6 +126,12 @@ class TestTangledRepoSignalQuality(unittest.TestCase):
             score, 40.0,
             f"Tangled repo should score <= 40.0, but got uncalibrated score: {score}"
         )
+        band = EvolutionEngine.get_health_band(score)
+        self.assertIn(band, ("critical", "degraded"))
+        sub_scores = {"architecture_stability": 0.2, "rule_compliance": 0.17, "risk_distribution": 0.375}
+        explanation = EvolutionEngine.format_health_explanation(score, sub_scores)
+        self.assertIn("Repository health is rated", explanation)
+        self.assertIn("Architecture Stability:", explanation)
 
 
 class TestMixedRepoSignalQuality(unittest.TestCase):

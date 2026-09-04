@@ -400,7 +400,7 @@ class SystemRoutesMixin:
 
     def handle_architecture_health(self):
         try:
-            data = self.get_request_data() if hasattr(self, "get_request_data") else self.get_post_data()
+            data = self.get_request_data() if hasattr(self, "get_request_data") else (self.get_post_data() if hasattr(self, "get_post_data") else getattr(self, "query", {}))
             if not isinstance(data, dict):
                 self.send_json_response(400, {"error": "Invalid request payload. Expected JSON object."})
                 return
@@ -438,13 +438,21 @@ class SystemRoutesMixin:
                     pass
 
                 state = "analysis_empty" if not discovered_py else "analysis_failed"
+                is_empty = (state == "analysis_empty")
                 self.send_json_response(200, {
-                    "success": False,
+                    "success": True if is_empty else False,
                     "state": state,
-                    "health_score": None,
+                    "health_score": 100 if is_empty else None,
+                    "sub_scores": {
+                        "architecture_stability": 1.0,
+                        "rule_compliance": 1.0,
+                        "risk_distribution": 1.0
+                    } if is_empty else None,
+                    "health_band": "healthy" if is_empty else None,
+                    "explanation": "Repository health is rated HEALTHY (100.0/100). No code files analyzed." if is_empty else None,
                     "message": (
                         "No Python files found in this repository."
-                        if state == "analysis_empty"
+                        if is_empty
                         else "Python files were found but none could be analyzed. Check the server console for parse errors."
                     ),
                     "analyzed_file_count": 0,
@@ -601,12 +609,45 @@ class SystemRoutesMixin:
                         "bug_fix_count": 1
                     })
 
-            health_score = max(10, min(100, 100 - (len(cycles) * 12 + len(violations) * 3)))
+            from ultron.core.rkm.evolution.engine import EvolutionEngine
+
+            cycle_count = len(cycles)
+            cycle_score = max(0.0, 1.0 - 0.8 * cycle_count)
+
+            total_loc = 0
+            for rel in target_files:
+                abs_f = os.path.join(repo_path, rel)
+                try:
+                    with open(abs_f, "r", encoding="utf-8", errors="ignore") as f:
+                        total_loc += sum(1 for line in f if line.strip())
+                except (OSError, UnicodeDecodeError):
+                    pass
+            if total_loc <= 0:
+                total_loc = max(1, sum(os.path.getsize(os.path.join(repo_path, rel)) for rel in target_files if os.path.exists(os.path.join(repo_path, rel))) // 35)
+
+            density = len(violations) / max(0.1, total_loc / 1000.0)
+            compliance_score = max(0.0, 1.0 - density / 3.0)
+
+            high_files_count = sum(1 for r in risks if getattr(r, "level", None) == "HIGH")
+            distribution_score = max(0.0, 1.0 - 5.0 * (high_files_count / max(1, len(target_files))))
+
+            sub_scores = {
+                "architecture_stability": round(cycle_score, 4),
+                "rule_compliance": round(compliance_score, 4),
+                "risk_distribution": round(distribution_score, 4),
+            }
+            composite = (cycle_score * 0.40 + compliance_score * 0.40 + distribution_score * 0.20) * 100.0
+            health_score = round(max(0.0, min(100.0, composite)), 1)
+            health_band = EvolutionEngine.get_health_band(health_score)
+            explanation = EvolutionEngine.format_health_explanation(health_score, sub_scores)
 
             self.send_json_response(200, {
                 "success": True,
                 "state": "ok",
                 "health_score": health_score,
+                "sub_scores": sub_scores,
+                "health_band": health_band,
+                "explanation": explanation,
                 "analyzed_file_count": len(target_files),
                 "hotspots": hotspots,
                 "circular_dependencies": [list(c) for c in cycles],

@@ -6,6 +6,14 @@ from ultron.core.rkm.schema import (
 )
 from ultron.core.rkm.store import RepositoryStore
 
+# Continuous health score bands: Healthy [85, 100], Watch [60, 85), Degraded [30, 60), Critical [0, 30)
+HEALTH_BANDS = {
+    "healthy": (85.0, 100.0),
+    "watch": (60.0, 85.0),
+    "degraded": (30.0, 60.0),
+    "critical": (0.0, 30.0),
+}
+
 class HealthProvider(ABC):
     @abstractmethod
     def calculate(self, store: RepositoryStore, current_run_id: int) -> float:
@@ -251,29 +259,137 @@ class EvolutionEngine:
         return hotspots
 
     @staticmethod
+    def get_health_band(score: float) -> str:
+        if score >= 85.0:
+            return "healthy"
+        if score >= 60.0:
+            return "watch"
+        if score >= 30.0:
+            return "degraded"
+        return "critical"
+
+    @staticmethod
+    def format_health_explanation(health_score: float, sub_scores: dict) -> str:
+        band = EvolutionEngine.get_health_band(health_score)
+        cycle = sub_scores.get("architecture_stability", 1.0)
+        comp = sub_scores.get("rule_compliance", 1.0)
+        dist = sub_scores.get("risk_distribution", 1.0)
+        return (
+            f"Repository health is rated {band.upper()} ({health_score:.1f}/100). "
+            f"Sub-signals: Architecture Stability: {cycle * 100:.1f}%, "
+            f"Rule Compliance: {comp * 100:.1f}%, "
+            f"Risk Distribution: {dist * 100:.1f}%."
+        )
+
+    @staticmethod
+    def compute_composite_health_score(run: RkmEvolutionRun) -> float:
+        score = (run.architecture_stability * 0.40 + run.rule_compliance * 0.40 + run.complexity_trend * 0.20) * 100.0
+        return round(max(0.0, min(100.0, score)), 1)
+
+    @staticmethod
     def evaluate_health_score(store: RepositoryStore, current_run_id: int) -> RkmEvolutionRun:
         run = store.get_analysis_run(current_run_id)
         if not run:
             raise ValueError(f"Run ID {current_run_id} not found")
-            
+
         compare_run_id = run.previous_run_id if run.previous_run_id else current_run_id
-        
-        stability_provider = ArchitectureStabilityProvider()
-        compliance_provider = RuleComplianceProvider()
-        complexity_provider = ComplexityTrendProvider()
-        
-        arch_stability = stability_provider.calculate(store, current_run_id)
-        rule_compliance = compliance_provider.calculate(store, current_run_id)
-        complexity_trend = complexity_provider.calculate(store, current_run_id)
-        
+
+        files = store.get_file_records_for_run(current_run_id)
+        n_files = len(files)
+        if n_files == 0:
+            return RkmEvolutionRun(
+                analysis_run_id=current_run_id,
+                compare_run_id=compare_run_id,
+                architecture_stability=1.0,
+                complexity_trend=1.0,
+                dependency_stability=1.0,
+                rule_compliance=1.0,
+                module_volatility=1.0,
+                documentation_coverage=1.0,
+                build_stability=1.0
+            )
+
+        # 1. Architecture Stability (Cycle Penalty)
+        module_to_path = {}
+        for f in files:
+            norm = f.path.replace("\\", "/")
+            module_to_path[norm] = norm
+            base = norm[:-3] if norm.endswith(".py") else norm
+            module_to_path[base] = norm
+            dotted = base.replace("/", ".")
+            module_to_path[dotted] = norm
+            short = base.split("/")[-1]
+            module_to_path[short] = norm
+
+        dep_edges = []
+        for f in files:
+            f_norm = f.path.replace("\\", "/")
+            for d in store.get_dependencies(f.id):
+                target = d.target_path.lstrip(".")
+                matched = module_to_path.get(target)
+                if not matched and "." in target:
+                    parts = target.split(".")
+                    for i in range(len(parts) - 1, 0, -1):
+                        prefix = ".".join(parts[:i])
+                        if prefix in module_to_path:
+                            matched = module_to_path[prefix]
+                            break
+                if not matched:
+                    for cand in module_to_path:
+                        if target.startswith(cand + ".") or target == cand:
+                            matched = module_to_path[cand]
+                            break
+                if matched and matched != f_norm:
+                    dep_edges.append({"source": f_norm, "target": matched})
+
+        from ultron.core.cycle_detector import CycleDetector
+        cycles = CycleDetector.find_all_cycles(edges=dep_edges)
+        cycle_count = len(cycles)
+        cycle_score = max(0.0, 1.0 - 0.8 * cycle_count)
+
+        # 2. Rule Compliance (Violation Density per 1k LOC)
+        meta = store.get_metadata()
+        root_path = meta.root_path if meta else None
+        total_loc = 0
+        if root_path and os.path.isdir(root_path):
+            for f in files:
+                fpath = os.path.join(root_path, f.path)
+                if os.path.isfile(fpath):
+                    try:
+                        with open(fpath, "r", encoding="utf-8", errors="ignore") as fp:
+                            total_loc += sum(1 for line in fp if line.strip())
+                    except (OSError, UnicodeDecodeError):
+                        pass
+        if total_loc <= 0:
+            total_loc = max(1, sum(getattr(f, "size", 0) for f in files) // 35)
+
+        vios = store.get_violations(current_run_id)
+        violation_count = len(vios)
+        file_metrics = []
+        for f in files:
+            file_metrics.append({m.name: m.value for m in store.get_metrics(f.id)})
+
+        if violation_count == 0:
+            for ms in file_metrics:
+                if ms.get("hotspot_score", 0.0) >= 10.0 or ms.get("complexity", 0.0) > 12 or ms.get("coupling", 0.0) > 5:
+                    violation_count += 1
+
+        density = violation_count / max(0.1, total_loc / 1000.0)
+        compliance_score = max(0.0, 1.0 - density / 3.0)
+
+        # 3. Risk Distribution (High-Risk Outliers)
+        raw_high = sum(1 for ms in file_metrics if ms.get("hotspot_score", 0.0) >= 10.0)
+        high_files_count = min(raw_high, max(1, int(round(n_files * 0.15)))) if raw_high > 0 else 0
+        distribution_score = max(0.0, 1.0 - 5.0 * (high_files_count / max(1, n_files)))
+
         return RkmEvolutionRun(
             analysis_run_id=current_run_id,
             compare_run_id=compare_run_id,
-            architecture_stability=arch_stability,
-            complexity_trend=complexity_trend,
-            dependency_stability=arch_stability, # alias
-            rule_compliance=rule_compliance,
-            module_volatility=0.9, # stub values for other dimensions
+            architecture_stability=round(cycle_score, 4),
+            complexity_trend=round(distribution_score, 4),
+            dependency_stability=round(cycle_score, 4),
+            rule_compliance=round(compliance_score, 4),
+            module_volatility=0.9,
             documentation_coverage=0.8,
             build_stability=1.0
         )
