@@ -1,0 +1,341 @@
+{
+  "GET /api/analyze": {
+    "keys": [
+      "intent",
+      "risks",
+      "stats",
+      "status",
+      "success"
+    ],
+    "status": 200
+  },
+  "GET /api/architecture-health": {
+    "keys": [
+      "analyzed_file_count",
+      "circular_dependencies",
+      "contracts",
+      "health_score",
+      "hotspots",
+      "state",
+      "success",
+      "violations"
+    ],
+    "status": 200
+  },
+  "GET /api/audit": {
+    "keys": [
+      "anomalies",
+      "success"
+    ],
+    "status": 200
+  },
+  "GET /api/dependency-graph": {
+    "keys": [
+      "links",
+      "medians",
+      "nodes",
+      "success"
+    ],
+    "status": 200
+  },
+  "GET /api/file-tree": {
+    "keys": [
+      "success",
+      "tree"
+    ],
+    "status": 200
+  },
+  "GET /api/get-repo-root": {
+    "keys": [
+      "configured",
+      "repo_root"
+    ],
+    "status": 200
+  },
+  "GET /api/list-dirs": {
+    "keys": [
+      "drives",
+      "entries",
+      "parent",
+      "path"
+    ],
+    "status": 200
+  },
+  "GET /api/report": {
+    "keys": [
+      "calibration",
+      "pledges",
+      "success"
+    ],
+    "status": 200
+  },
+  "GET /api/v1/decision": {
+    "keys": [
+      "error"
+    ],
+    "status": 400
+  },
+  "GET /api/v1/health": {
+    "keys": [
+      "active_job",
+      "environment",
+      "modules",
+      "rkm_database",
+      "status",
+      "timestamp"
+    ],
+    "status": 200
+  },
+  "GET /api/v1/history": {
+    "keys": [
+      "runs"
+    ],
+    "status": 200
+  },
+  "GET /api/v1/hotspots": {
+    "keys": [
+      "hotspots"
+    ],
+    "status": 200
+  },
+  "GET /api/v1/progress": {
+    "keys": [
+      "error",
+      "job_id",
+      "progress_step",
+      "status"
+    ],
+    "status": 200
+  },
+  "GET /api/v1/recommendations": {
+    "keys": [
+      "count",
+      "recommendations",
+      "source",
+      "status"
+    ],
+    "status": 200
+  },
+  "GET /api/v1/risk-profile": {
+    "keys": [
+      "error"
+    ],
+    "status": 400
+  },
+  "GET /api/v1/runs": {
+    "keys": [
+      "runs"
+    ],
+    "status": 200
+  },
+  "GET /api/v1/summary": {
+    "keys": [
+      "health_score",
+      "initialized",
+      "latest_run",
+      "repository_uuid",
+      "total_files",
+      "total_modules",
+      "total_risks"
+    ],
+    "status": 200
+  },
+  "POST /api/analyze": {
+    "keys": [
+      "intent",
+      "risks",
+      "stats",
+      "status",
+      "success"
+    ],
+    "status": 200
+  },
+  "POST /api/architecture-health": {
+    "keys": [
+      "analyzed_file_count",
+      "circular_dependencies",
+      "contracts",
+      "health_score",
+      "hotspots",
+      "state",
+      "success",
+      "violations"
+    ],
+    "status": 200
+  },
+  "POST /api/audit": {
+    "keys": [
+      "anomalies",
+      "success"
+    ],
+    "status": 200
+  },
+  "POST /api/calibrate": {
+    "keys": [
+      "max_f1",
+      "optimal_prob_threshold",
+      "optimal_typo_threshold",
+      "success",
+      "sweep_history"
+    ],
+    "status": 200
+  },
+  "POST /api/config": {
+    "keys": [
+      "default_repo",
+      "success"
+    ],
+    "status": 200
+  },
+  "POST /api/dependency-graph": {
+    "keys": [
+      "links",
+      "medians",
+      "nodes",
+      "success"
+    ],
+    "status": 200
+  },
+  "POST /api/diff-risk": {
+    "keys": [
+      "diff_risk",
+      "success"
+    ],
+    "status": 200
+  },
+  "POST /api/file-tree": {
+    "keys": [
+      "success",
+      "tree"
+    ],
+    "status": 200
+  },
+  "POST /api/generate": {
+    "keys": [
+      "error"
+    ],
+    "status": 400
+  },
+  "POST /api/get-file": {
+    "keys": [
+      "error"
+    ],
+    "status": 400
+  },
+  "POST /api/log-risk-feedback": {
+    "keys": [
+      "error"
+    ],
+    "status": 400
+  },
+  "POST /api/playground": {
+    "keys": [
+      "path",
+      "success"
+    ],
+    "status": 200
+  },
+  "POST /api/pledge/create": {
+    "keys": [
+      "error"
+    ],
+    "status": 400
+  },
+  "POST /api/pledge/verify": {
+    "keys": [
+      "error"
+    ],
+    "status": 400
+  },
+  "POST /api/predict-impact": {
+    "keys": [
+      "predictions",
+      "success"
+    ],
+    "status": 200
+  },
+  "POST /api/run-tests": {
+    "keys": [
+      "exit_code",
+      "output",
+      "success"
+    ],
+    "status": 200
+  },
+  "POST /api/save-file": {
+    "keys": [
+      "error"
+    ],
+    "status": 400
+  },
+  "POST /api/save-session": {
+    "keys": [
+      "filename",
+      "success"
+    ],
+    "status": 200
+  },
+  "POST /api/v1/ai/critique": {
+    "keys": [
+      "critique",
+      "file",
+      "source",
+      "success"
+    ],
+    "status": 200
+  },
+  "POST /api/v1/analyze": {
+    "keys": [
+      "job_id",
+      "repo",
+      "success"
+    ],
+    "status": 200
+  },
+  "POST /api/v1/cancel-analysis": {
+    "keys": [
+      "success"
+    ],
+    "status": 200
+  },
+  "POST /api/v1/compare": {
+    "keys": [
+      "error"
+    ],
+    "status": 400
+  },
+  "POST /api/v1/context-brief": {
+    "keys": [
+      "canonical_brief",
+      "handoff",
+      "status"
+    ],
+    "status": 200
+  },
+  "POST /api/v1/explain-violation": {
+    "keys": [
+      "error"
+    ],
+    "status": 400
+  },
+  "POST /api/v1/export-brief": {
+    "keys": [
+      "message",
+      "status"
+    ],
+    "status": 400
+  },
+  "POST /api/v1/overview": {
+    "keys": [
+      "health",
+      "intent",
+      "memory",
+      "repo",
+      "risks",
+      "state",
+      "stats",
+      "status"
+    ],
+    "status": 200
+  }
+}
