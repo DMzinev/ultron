@@ -65,12 +65,21 @@ class AnalysisRoutesMixin:
             total_files = len(codebase)
             total_definitions = sum(len(c.get("definitions", [])) for c in codebase.values())
             
+            churn_active = any(
+                (r.to_dict().get("churn", {}).get("status") == "active") if hasattr(r, "to_dict")
+                else (isinstance(r, dict) and r.get("churn", {}).get("status") == "active")
+                for r in risks
+            )
+            
             self.send_json_response(200, {
                 "status": "success",
                 "success": True,
                 "stats": {
                     "total_files": total_files,
-                    "total_definitions": total_definitions
+                    "total_definitions": total_definitions,
+                    "signals": {
+                        "churn": "active" if churn_active else "unavailable"
+                    }
                 },
                 "intent": {
                     "text": intent,

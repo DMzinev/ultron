@@ -97,6 +97,7 @@ class AnalysisPacket:
     callers:     list  = None
     changes:     list  = None
     delta_score: float = 0.0
+    churn:       dict  = None
 
     # ---- new semantic dimensions ----
     architectural_role: ArchitecturalRole = ArchitecturalRole.INTERNAL
@@ -140,6 +141,8 @@ class AnalysisPacket:
             d['callers'] = []
         if self.changes is None:
             d['changes'] = []
+        if self.churn is None:
+            d['churn'] = {"commits": 0, "authors": 0, "bug_fixes": 0, "multiplier": 1.0, "status": "unavailable"}
         return d
 
     def __getitem__(self, key):

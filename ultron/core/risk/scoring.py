@@ -216,18 +216,16 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
 
     # v2.5 Canonical GitEvidenceAdapter Integration
     from ultron.core.git_adapter import GitEvidenceAdapter
-    bug_fixes = {}
+    churn_map = {}
+    churn_active = False
     if repo_path:
         try:
             adapter = GitEvidenceAdapter()
-            evidence_records = adapter.parse_git_history(repo_path)
-            for ev in evidence_records:
-                rel_f = ev.source.get("file", "").replace("\\", "/")
-                n_fixes = ev.measurement.get("bug_fixes", 0)
-                if rel_f and n_fixes > 0:
-                    bug_fixes[rel_f] = n_fixes
+            churn_map, churn_active = adapter.get_churn_map(repo_path)
         except Exception as e:
-            print(f"Warning: failed to extract git history from {repo_path}: {e}")
+            sys.stderr.write(f"[Ultron] Warning: failed to extract git churn from {repo_path}: {e}\n")
+            churn_map = {}
+            churn_active = False
 
     feedback = load_human_feedback()
 
@@ -293,13 +291,37 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
         abs_f = os.path.join(repo_path, f) if repo_path else f
         complexity = get_file_complexity(abs_f)
         cycle_mult = 2.0 if (f in cycle_files or f.replace("\\", "/") in cycle_files) else 1.0
-        raw_score = complexity * math.log(math.e + coupling_count) * cycle_mult
+
+        # Bounded churn multiplier in [1.0, 2.0]
+        norm_f = f.replace("\\", "/")
+        f_churn = churn_map.get(norm_f) or churn_map.get(f) or {}
+        c_commits = f_churn.get("commits", 0)
+        c_fixes = f_churn.get("bug_fixes", 0)
+        c_authors = f_churn.get("authors", 0)
+        if c_commits > 0:
+            churn_raw = (
+                0.10 * math.log(1.0 + c_commits) +
+                0.20 * math.log(1.0 + c_fixes) +
+                0.05 * math.log(1.0 + c_authors)
+            )
+            m_churn = max(1.0, min(2.0, 1.0 + churn_raw))
+        else:
+            m_churn = 1.0
+
+        raw_score = complexity * math.log(math.e + coupling_count) * cycle_mult * m_churn
         codebase_metrics[f] = {
             "complexity": complexity,
             "coupling_count": coupling_count,
             "downstream_files": downstream_files,
             "impact_score": raw_score,
             "abs_path": abs_f,
+            "churn": {
+                "commits": c_commits,
+                "authors": c_authors,
+                "bug_fixes": c_fixes,
+                "multiplier": round(m_churn, 2),
+                "status": "active" if churn_active else "unavailable"
+            }
         }
 
     N = len(codebase)
@@ -337,7 +359,7 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
         rank_1based = sorted_files.index(target_key) + 1 if target_key in sorted_files else 1
         top_pct = max(1, round((rank_1based / N) * 100)) if N > 0 else 1
 
-        n_fixes = bug_fixes.get(target, 0)
+        n_fixes = m.get("churn", {}).get("bug_fixes", 0)
         feedback_accurate = feedback.get(target, None)
 
         # Percentile cutoffs adjusted by bug fixes and human feedback
@@ -418,6 +440,10 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
             callers=sorted(list(downstream_files)),
             architectural_role=role,
             change_strategy=change_strategy,
+            churn=m.get("churn", {
+                "commits": 0, "authors": 0, "bug_fixes": 0, "multiplier": 1.0,
+                "status": "active" if churn_active else "unavailable"
+            })
         ))
 
     return risks

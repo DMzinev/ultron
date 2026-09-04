@@ -1,46 +1,63 @@
-"""
-Ultron Core — Dedicated Git History Evidence Adapter
-Campaign 38 / v2.5 — Evidence Adapter Separation & Non-Git Boundary Safety
-"""
-
 import sys
 import os
 import subprocess
 import logging
-from typing import Dict, List, Any, Optional
+import re
+from typing import Dict, List, Any, Optional, Tuple, Set
 
 from ultron.core.system_model import EvidenceObject
 
 logger = logging.getLogger(__name__)
 _EMITTED_NO_GIT_REPO = False
+BUG_FIX_PATTERN = re.compile(r"\b(fix|bug|hotfix|revert)\b", re.IGNORECASE)
 
 
 class GitEvidenceAdapter:
     """
     Dedicated Evidence Adapter for Repository Git History.
-    Extracts commit counts, bug fixes, and churn metrics into immutable EvidenceObject records.
+    Extracts commit counts, distinct authors, bug fixes, and churn metrics into immutable EvidenceObject records.
     """
 
-    def parse_git_history(self, repo_path: str) -> List[EvidenceObject]:
-        """
-        Parses git commit log statistics for files under repo_path.
-        Returns a list of EvidenceObject records of type 'GIT_HISTORY'.
-        Safely returns empty list on non-git repositories or missing git CLI.
-        """
-        abs_repo = os.path.abspath(repo_path)
-        git_dir = os.path.join(abs_repo, ".git")
+    def is_git_repository(self, repo_path: str) -> bool:
+        """Determines if repo_path is inside a valid git working tree."""
+        if not repo_path or not os.path.isdir(repo_path):
+            return False
+        try:
+            proc = subprocess.run(
+                ["git", "rev-parse", "--is-inside-work-tree"],
+                cwd=os.path.abspath(repo_path),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=5
+            )
+            return proc.returncode == 0 and proc.stdout.strip() == "true"
+        except (subprocess.SubprocessError, FileNotFoundError, OSError):
+            return False
 
-        if not os.path.exists(git_dir):
+    def get_churn_map(self, repo_path: str) -> Tuple[Dict[str, Dict[str, Any]], bool]:
+        """
+        Extracts 180-day commit count, distinct authors, and bug-fix commits per file.
+        Returns a tuple of (churn_map, is_active).
+        If history is unavailable (not a git repo, git missing, or error), returns ({}, False).
+        """
+        if not repo_path or not os.path.isdir(repo_path):
+            return {}, False
+
+        abs_repo = os.path.abspath(repo_path)
+        if not self.is_git_repository(abs_repo):
             global _EMITTED_NO_GIT_REPO
             if not _EMITTED_NO_GIT_REPO:
                 logger.info("[GitEvidenceAdapter Notice] Path '%s' is not a git repository. Skipping git history.", repo_path)
                 _EMITTED_NO_GIT_REPO = True
-            return []
-
-        evidence_list: List[EvidenceObject] = []
+            return {}, False
 
         try:
-            cmd = ["git", "log", "--name-only", "--pretty=format:COMMIT:%H|%s"]
+            cmd = [
+                "git", "log", "--since=180.days", "--relative",
+                "--name-only", "--pretty=format:COMMIT:%H|%aN|%s"
+            ]
             proc = subprocess.run(
                 cmd,
                 cwd=abs_repo,
@@ -53,40 +70,73 @@ class GitEvidenceAdapter:
 
             if proc.returncode != 0:
                 logger.warning("[GitEvidenceAdapter Warning] Git log failed with code %d: %s", proc.returncode, proc.stderr)
-                return []
+                return {}, False
 
             file_commits: Dict[str, int] = {}
+            file_authors: Dict[str, Set[str]] = {}
             file_bug_fixes: Dict[str, int] = {}
 
-            current_commit_msg = ""
+            current_author = ""
+            current_is_fix = False
+
             for line in proc.stdout.splitlines():
                 line = line.strip()
                 if not line:
                     continue
                 if line.startswith("COMMIT:"):
-                    current_commit_msg = line.split("|", 1)[1] if "|" in line else ""
+                    raw = line[len("COMMIT:"):]
+                    parts = raw.split("|", 2)
+                    current_author = parts[1].strip() if len(parts) > 1 else ""
+                    subject = parts[2].strip() if len(parts) > 2 else ""
+                    current_is_fix = bool(BUG_FIX_PATTERN.search(subject))
                 else:
                     norm_path = os.path.normpath(line).replace("\\", "/")
                     if norm_path.endswith(".py"):
                         file_commits[norm_path] = file_commits.get(norm_path, 0) + 1
-                        is_fix = any(w in current_commit_msg.lower() for w in ("fix", "bug", "patch", "repair", "issue"))
-                        if is_fix:
+                        if current_author:
+                            file_authors.setdefault(norm_path, set()).add(current_author)
+                        if current_is_fix:
                             file_bug_fixes[norm_path] = file_bug_fixes.get(norm_path, 0) + 1
 
-            for rel_path, commits in sorted(file_commits.items()):
-                bug_fixes = file_bug_fixes.get(rel_path, 0)
-                node_id = f"module:{rel_path}"
-                ev = EvidenceObject(
-                    id=f"ev-git-{rel_path.replace('/', '_')}",
-                    type="GIT_HISTORY",
-                    subject_id=node_id,
-                    measurement={"commits": commits, "bug_fixes": bug_fixes},
-                    source={"adapter": "git", "file": rel_path}
-                )
-                evidence_list.append(ev)
+            churn_map: Dict[str, Dict[str, Any]] = {}
+            for rel_path, commits in file_commits.items():
+                churn_map[rel_path] = {
+                    "commits": commits,
+                    "authors": len(file_authors.get(rel_path, set())),
+                    "bug_fixes": file_bug_fixes.get(rel_path, 0),
+                    "status": "active"
+                }
+
+            return churn_map, True
 
         except (subprocess.SubprocessError, FileNotFoundError, OSError) as err:
             logger.warning("[GitEvidenceAdapter Error] Could not extract git history: %s", err)
+            return {}, False
+
+    def parse_git_history(self, repo_path: str) -> List[EvidenceObject]:
+        """
+        Parses git commit log statistics for files under repo_path.
+        Returns a list of EvidenceObject records of type 'GIT_HISTORY'.
+        Safely returns empty list on non-git repositories or missing git CLI.
+        """
+        churn_map, is_active = self.get_churn_map(repo_path)
+        if not is_active:
             return []
+
+        evidence_list: List[EvidenceObject] = []
+        for rel_path, data in sorted(churn_map.items()):
+            node_id = f"module:{rel_path}"
+            ev = EvidenceObject(
+                id=f"ev-git-{rel_path.replace('/', '_')}",
+                type="GIT_HISTORY",
+                subject_id=node_id,
+                measurement={
+                    "commits": data["commits"],
+                    "authors": data["authors"],
+                    "bug_fixes": data["bug_fixes"]
+                },
+                source={"adapter": "git", "file": rel_path}
+            )
+            evidence_list.append(ev)
 
         return evidence_list
