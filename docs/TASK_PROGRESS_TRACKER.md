@@ -12,8 +12,8 @@
 | # | Task ID | Branch | Status | Commit Hash | Verified Acceptance Evidence |
 |:---|:---|:---|:---|:---|:---|
 | 1 | **A1** | `agent/A1-freeze-baseline-fixtures` | **COMPLETED** | `1b5c5b4` | `python -m unittest ultron.tests.test_signal_quality` → Ran 11 tests in 0.401s, OK (expected failures=2) |
-| 2 | **A2** | `agent/A2-reconcile-working-tree` | **IN PROGRESS** | - | `git status --porcelain` is clean; `UNTRACKED_INVENTORY.md` created; 0 test errors |
-| 3 | **C3** | `agent/C3-prove-auditor-detects-defects` | PENDING | - | Prove the auditor actually detects defects |
+| 2 | **A2** | `agent/A2-reconcile-working-tree` | **COMPLETED** | `2c5bd3e` | `git status --porcelain` is clean (0 untracked files); `test_openai_plan_reviewer.py` has skipUnless guard |
+| 3 | **C3** | `agent/C3-prove-auditor-detects-defects` | **NEXT** | - | Prove the auditor actually detects defects |
 | 4 | **A3** | `agent/A3-decompose-server` | PENDING | - | `server.py` decomposed behind contract tests (< 300 lines) |
 | 5 | **A4** | `agent/A4-delete-dead-surface` | PENDING | - | Legacy frontend and dead endpoints removed |
 | 6 | **A5** | `agent/A5-logging-discipline` | PENDING | - | "No git history" console spam eliminated |
