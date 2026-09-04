@@ -2,8 +2,8 @@
 
 **Single Source of Truth**: `docs/AGENT_EXECUTION_PLAN.md`  
 **Total Planned Tasks**: 18  
-**Completed**: 8 / 18 (Tasks A1, A2, C3, A3, A4, A5, B1, B2)  
-**Current Active Task**: B3 (`agent/B3-git-churn-signal`)
+**Completed**: 9 / 18 (Tasks A1, A2, C3, A3, A4, A5, B1, B2, B3)  
+**Current Active Task**: B4 (`agent/B4-honest-confidence`)
 
 ---
 
@@ -19,8 +19,8 @@
 | 6 | **A5** | `agent/A5-logging-discipline` | **COMPLETED** | `bf08831` | Console spam eliminated (`Select-String "No git history"` count: 0 <= 1); standard logging hierarchy with `ULTRON_LOG_LEVEL` support |
 | 7 | **B1** | `agent/B1-percentile-risk-bands` | **COMPLETED** | `9b82fbd` | Hybrid banding + 2.0x cycle boost: `clean_repo` 0 HIGH, `mixed_repo` exactly 2 planted HIGH, `tangled_repo` top 3 are god module + cycle members, Ultron self-scan 16 of 148 files HIGH (10.8% <= 15%); 16 tests pass in 0.353s |
 | 8 | **B2** | `agent/B2-calibrate-health-score` | **COMPLETED** | `c7536b2` | Calibrated health score from bounded sub-signals (cycle stability, violation density per 1k LOC, HIGH outlier ratio); `clean_repo` = 100.0 (Healthy, >= 80), `tangled_repo` = 22.3 (Critical, <= 40), empty repo = 100.0; `test_signal_quality` 16/16 pass in 0.334s (0 expected failures); `test_server_architecture_health_empty` passes in 0.002s; baseline regression 176 tests pass in 21.47s |
-| 9 | **B3** | `agent/B3-git-churn-signal` | **NEXT** | - | Git churn signal active & bounded |
-| 10 | **B4** | `agent/B4-honest-confidence` | PENDING | - | Explicit signal confidence status in API & UI |
+| 9 | **B3** | `agent/B3-git-churn-signal` | **COMPLETED** | `9f6c266` | `python -m unittest ultron.tests.test_churn_signal` → 6/6 passed in 3.305s; churn multiplier bounded in [1.0, 2.0]; non-git returns `status: "unavailable"` and $M_{\text{churn}} = 1.0$; 17 contract/signal tests and 176 regression tests pass |
+| 10 | **B4** | `agent/B4-honest-confidence` | **NEXT** | - | Explicit signal confidence status in API & UI |
 | 11 | **C1** | `agent/C1-graph-granularity` | PENDING | - | File vs symbol granularity contract in graph |
 | 12 | **C2** | `agent/C2-violation-to-fix` | PENDING | - | Actionable link from policy violation to fix |
 | 13 | **C4** | `agent/C4-dashboard-hierarchy` | PENDING | - | Clean, intuitive dashboard information hierarchy |
