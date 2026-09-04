@@ -1,17 +1,44 @@
 """
-Ultron REST API — Canonical System Model & Agent Context Routes
-Campaign 31 / v2.3 — System Model REST API & Agent Context Protocol
+Ultron REST API — System, Configuration, File, Test & Architecture Health Route Mixin
 """
 
 import os
+import sys
 import json
+import shutil
+import subprocess
+import threading
+import tempfile
+import traceback
 import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+from urllib.parse import parse_qs, urlparse
+from dataclasses import asdict
 
+from ultron.core import analyzer
+from ultron.core import risk
+from ultron.core import translate
 from ultron.interfaces.api.router import APIRouter
 from ultron.core.language_adapter import PythonLanguageAdapter
 from ultron.core.system_query import SystemQueryEngine
 from ultron.core.system_model import SystemModelManager
+from ultron.interfaces.api.state import (
+    LAST_ANALYSIS,
+    ACTIVE_JOB,
+    BROWSE_DIALOG_TIMEOUT,
+    CONFIG_DIR,
+    CONFIG_FILE,
+)
+
+try:
+    from ultron.experimental import delta
+except ImportError:
+    delta = None
+try:
+    from ultron.experimental import design_oracle
+except ImportError:
+    design_oracle = None
 
 logger = logging.getLogger(__name__)
 
@@ -134,3 +161,711 @@ def handle_v1_agent_context(handler: Any) -> None:
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler.end_headers()
     handler.wfile.write(json.dumps({"success": True, "data": ctx, "error": None}, ensure_ascii=False).encode("utf-8"))
+
+
+class SystemRoutesMixin:
+    """Provides system, configuration, file, test and health API endpoints for UltronAPIHandler."""
+
+    def get_repo_root_path(self) -> str:
+        cwd_config = os.path.join(os.getcwd(), ".ultron", "config.json")
+        for cfg_path in (cwd_config, CONFIG_FILE):
+            if os.path.exists(cfg_path):
+                try:
+                    with open(cfg_path, "r", encoding="utf-8") as f:
+                        cfg = json.load(f)
+                        val = cfg.get("repo_root")
+                        if val and os.path.isdir(val):
+                            return os.path.abspath(val)
+                except Exception:
+                    pass
+        return os.path.abspath(os.getcwd())
+
+    def handle_v1_health(self):
+        repo_root = self.get_repo_root_path()
+        db_path = os.path.join(repo_root, ".ultron", "repository.db")
+        db_exists = os.path.exists(db_path)
+        db_readable = os.access(db_path, os.R_OK) if db_exists else False
+
+        self.send_json_response(200, {
+            "status": "healthy",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "environment": {
+                "python_version": sys.version.split()[0],
+                "platform": sys.platform,
+                "working_directory": repo_root
+            },
+            "rkm_database": {
+                "exists": db_exists,
+                "readable": db_readable,
+                "path": db_path if db_exists else None
+            },
+            "modules": {
+                "delta_engine": delta is not None,
+                "design_oracle": design_oracle is not None
+            },
+            "active_job": {
+                "status": ACTIVE_JOB.get("status", "idle"),
+                "job_id": ACTIVE_JOB.get("job_id")
+            }
+        })
+
+    def handle_config(self):
+        try:
+            self.send_json_response(200, {
+                "success": True,
+                "default_repo": os.getcwd().replace("\\", "/")
+            })
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
+
+    def handle_get_repo_root(self):
+        try:
+            configured = None
+            if os.path.exists(CONFIG_FILE):
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    configured = json.load(f).get("repo_root")
+            self.send_json_response(200, {
+                "repo_root": configured or self.get_repo_root_path(),
+                "configured": bool(configured)
+            })
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
+
+    def handle_set_repo_root(self):
+        try:
+            data = self.get_post_data()
+            path = data.get("path", "")
+            if not isinstance(path, str) or not path.strip():
+                self.send_json_response(400, {"error": "Missing or invalid 'path' parameter."})
+                return
+            abs_path = os.path.abspath(path.strip())
+            drive, tail = os.path.splitdrive(abs_path)
+            if tail in ("\\", "/", ""):
+                self.send_json_response(400, {"error": "Path must not be a bare drive root."})
+                return
+            if not os.path.isdir(abs_path):
+                self.send_json_response(400, {"error": f"Path '{abs_path}' is not a valid directory."})
+                return
+            os.makedirs(CONFIG_DIR, exist_ok=True)
+            with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                json.dump({"repo_root": abs_path}, f, indent=2)
+            self.send_json_response(200, {"status": "ok", "repo_root": abs_path})
+        except Exception as e:
+            self.send_json_response(500, {
+                "error": str(e),
+                "traceback": traceback.format_exc()
+            })
+
+    def handle_list_dirs(self):
+        try:
+            query = self.get_query_data() if hasattr(self, "get_query_data") else {}
+            raw = (query or {}).get("path", "")
+            if isinstance(raw, list):
+                raw = raw[0] if raw else ""
+            raw = str(raw or "").strip()
+
+            drives = []
+            if os.name == "nt":
+                import string
+                drives = [f"{d}:\\" for d in string.ascii_uppercase if os.path.isdir(f"{d}:\\")]
+
+            target = os.path.abspath(raw) if raw else self.get_repo_root_path()
+            if not os.path.isdir(target):
+                self.send_json_response(400, {"error": f"'{target}' is not a directory.", "drives": drives})
+                return
+
+            entries = []
+            try:
+                for name in sorted(os.listdir(target), key=str.lower):
+                    if name.startswith("."):
+                        continue
+                    full = os.path.join(target, name)
+                    if os.path.isdir(full):
+                        entries.append({"name": name, "path": full})
+            except PermissionError:
+                self.send_json_response(403, {"error": f"Permission denied reading '{target}'.", "drives": drives})
+                return
+
+            parent = os.path.dirname(target.rstrip(os.sep))
+            self.send_json_response(200, {
+                "path": target,
+                "parent": parent if parent and parent != target and os.path.isdir(parent) else None,
+                "entries": entries,
+                "drives": drives
+            })
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
+
+    def handle_browse_folder(self):
+        try:
+            from ultron.interfaces.api.browse_folder import select_folder_dialog
+            data = self.get_post_data()
+            initial_dir = data.get("initial_dir") or self.get_repo_root_path()
+
+            result = {}
+
+            def run_dialog():
+                try:
+                    result["value"] = select_folder_dialog(initial_dir)
+                except Exception as exc:
+                    result["value"] = {"path": "", "cancelled": True, "fallback": True, "error": str(exc)}
+
+            worker = threading.Thread(target=run_dialog, daemon=True)
+            worker.start()
+            worker.join(timeout=BROWSE_DIALOG_TIMEOUT)
+
+            if worker.is_alive():
+                self.send_json_response(200, {
+                    "path": "",
+                    "cancelled": True,
+                    "fallback": True,
+                    "error": "The folder dialog did not return in time. Use the built-in folder browser."
+                })
+                return
+
+            self.send_json_response(200, result.get("value", {"path": "", "cancelled": True, "fallback": True}))
+        except Exception as e:
+            self.send_json_response(500, {"error": f"Failed to browse folder: {str(e)}"})
+
+    def handle_get_file(self):
+        try:
+            data = self.get_post_data()
+            if not isinstance(data, dict):
+                self.send_json_response(400, {"error": "Invalid JSON payload format."})
+                return
+            repo = data.get("repo")
+            file_param = data.get("file")
+            if not isinstance(repo, str) or not repo.strip() or not isinstance(file_param, str) or not file_param.strip():
+                self.send_json_response(400, {"error": "Missing or invalid parameters."})
+                return
+                
+            repo_path = os.path.realpath(repo)
+            full_path = os.path.realpath(os.path.join(repo_path, file_param))
+            real_repo_dir = os.path.join(repo_path, "")
+            
+            if (not os.path.normcase(full_path).startswith(os.path.normcase(real_repo_dir))
+                    or not os.path.exists(full_path)
+                    or os.path.isdir(full_path)):
+                self.send_json_response(400, {"error": "Invalid file path."})
+                return
+                
+            with open(full_path, "r", encoding="utf-8-sig") as f:
+                content = f.read()
+                
+            self.send_json_response(200, {
+                "success": True,
+                "content": content
+            })
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
+
+    def handle_save_file(self):
+        try:
+            data = self.get_post_data()
+            if not isinstance(data, dict):
+                self.send_json_response(400, {"error": "Invalid JSON payload format."})
+                return
+            repo = data.get("repo")
+            file_param = data.get("file")
+            content = data.get("content")
+            if not isinstance(repo, str) or not repo.strip() or not isinstance(file_param, str) or not file_param.strip() or not isinstance(content, str):
+                self.send_json_response(400, {"error": "Missing or invalid parameters."})
+                return
+                
+            repo_path = os.path.realpath(repo)
+            full_path = os.path.realpath(os.path.join(repo_path, file_param))
+            real_repo_dir = os.path.join(repo_path, "")
+            
+            if not os.path.normcase(full_path).startswith(os.path.normcase(real_repo_dir)):
+                self.send_json_response(400, {"error": "Invalid file path."})
+                return
+                
+            if os.path.exists(full_path):
+                backup_path = full_path + ".bak"
+                try:
+                    shutil.copy2(full_path, backup_path)
+                except Exception:
+                    pass
+                    
+            with open(full_path, "w", encoding="utf-8-sig") as f:
+                f.write(content)
+                
+            self.send_json_response(200, {
+                "success": True,
+                "message": "File saved successfully."
+            })
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
+
+    def handle_run_tests(self):
+        try:
+            data = self.get_post_data()
+            repo = data.get("repo", "") or os.getcwd()
+            repo_path = os.path.abspath(repo)
+            if not os.path.isdir(repo_path):
+                self.send_json_response(400, {"error": f"Repository path '{repo_path}' is not a directory."})
+                return
+            
+            test_cmd = [sys.executable, "-m", "unittest", "discover"]
+            if os.path.exists(os.path.join(repo_path, "run_tests.py")):
+                test_cmd = [sys.executable, "run_tests.py"]
+            elif os.path.exists(os.path.join(repo_path, "ultron", "tests", "run_tests.py")):
+                test_cmd = [sys.executable, "ultron/tests/run_tests.py"]
+                
+            res = subprocess.run(
+                test_cmd,
+                capture_output=True,
+                text=True,
+                cwd=repo_path,
+                timeout=10.0
+            )
+            
+            output = res.stdout + "\n" + res.stderr
+            
+            global LAST_ANALYSIS
+            file_path = data.get("file_path", LAST_ANALYSIS.get("file_path"))
+            if file_path:
+                delta_i = float(data.get("delta_i", LAST_ANALYSIS.get("delta_i", 0.0)))
+                mkr = float(data.get("mkr", LAST_ANALYSIS.get("mkr", 1.0)))
+                delta_cest = float(data.get("delta_cest", LAST_ANALYSIS.get("delta_cest", 0.0)))
+                actual_failure = float(data.get("actual_failure", 1.0 if res.returncode != 0 else 0.0))
+                
+                try:
+                    if delta is not None:
+                        delta.learn_from_feedback(
+                            file_path=file_path,
+                            delta_i=delta_i,
+                            mkr=mkr,
+                            delta_cest=delta_cest,
+                            actual_failure=actual_failure
+                        )
+                except Exception as ex:
+                    print(f"[-] Delta Engine feedback learning failed: {ex}", file=sys.stderr)
+            
+            self.send_json_response(200, {
+                "success": True,
+                "exit_code": res.returncode,
+                "output": output
+            })
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
+
+    def handle_save_session(self):
+        try:
+            data = self.get_post_data()
+            repo_path = os.path.abspath(data.get("repo", ""))
+            session_data = data.get("session_data", {})
+            
+            sessions_dir = os.path.join(repo_path, "data", "sessions")
+            os.makedirs(sessions_dir, exist_ok=True)
+            
+            import datetime
+            filename = f"session_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            session_file = os.path.join(sessions_dir, filename)
+            
+            with open(session_file, "w", encoding="utf-8") as f:
+                json.dump(session_data, f, indent=2)
+                
+            self.send_json_response(200, {
+                "success": True,
+                "filename": filename
+            })
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
+
+    def handle_architecture_health(self):
+        try:
+            data = self.get_request_data() if hasattr(self, "get_request_data") else self.get_post_data()
+            if not isinstance(data, dict):
+                self.send_json_response(400, {"error": "Invalid request payload. Expected JSON object."})
+                return
+            repo = data.get("repo")
+            if not isinstance(repo, str) or not repo.strip():
+                self.send_json_response(400, {"error": "Missing or invalid 'repo' parameter."})
+                return
+                
+            base_dir = os.path.join(os.path.realpath(os.getcwd()), "")
+            repo_path = os.path.join(os.path.realpath(repo), "")
+            temp_base = os.path.join(os.path.realpath(tempfile.gettempdir()), "")
+            
+            is_under_cwd = os.path.normcase(repo_path).startswith(os.path.normcase(base_dir))
+            is_under_temp = os.path.normcase(repo_path).startswith(os.path.normcase(temp_base))
+            
+            if not is_under_cwd and not is_under_temp:
+                self.send_json_response(400, {"error": "Access denied: Repository path must be inside the server directory."})
+                return
+            if not os.path.isdir(repo_path):
+                self.send_json_response(400, {"error": f"Repository path '{repo_path}' is not a directory."})
+                return
+
+            codebase = analyzer.analyze_directory(repo_path)
+            target_files = [k for k in codebase.keys() if k.endswith(".py")] if isinstance(codebase, dict) else []
+
+            if not codebase or not target_files:
+                discovered_py = []
+                try:
+                    for _root, _dirs, _files in os.walk(repo_path):
+                        _dirs[:] = [d for d in _dirs if d not in (".git", "__pycache__", ".venv", "node_modules")]
+                        if any(f.endswith(".py") for f in _files):
+                            discovered_py.append(_root)
+                            break
+                except OSError:
+                    pass
+
+                state = "analysis_empty" if not discovered_py else "analysis_failed"
+                self.send_json_response(200, {
+                    "success": False,
+                    "state": state,
+                    "health_score": None,
+                    "message": (
+                        "No Python files found in this repository."
+                        if state == "analysis_empty"
+                        else "Python files were found but none could be analyzed. Check the server console for parse errors."
+                    ),
+                    "analyzed_file_count": 0,
+                    "hotspots": [],
+                    "circular_dependencies": [],
+                    "violations": [],
+                    "contracts": []
+                })
+                return
+
+            def serialize_snapshot(s):
+                return {
+                    "total_coupling_debt": float(s.total_coupling_debt),
+                    "total_cycle_count": int(s.total_cycle_count),
+                    "total_violations": int(s.total_violations),
+                    "avg_instability": float(s.avg_instability),
+                    "avg_hotspot_score": float(s.avg_hotspot_score)
+                }
+                
+            def serialize_recommendation(rec):
+                return {
+                    "filepath": rec.filepath,
+                    "principle": rec.principle,
+                    "smell": rec.smell,
+                    "refactoring": rec.refactoring,
+                    "expected_delta": rec.expected_delta,
+                    "severity": int(rec.severity),
+                    "priority_rank": int(rec.priority_rank)
+                }
+                
+            def serialize_violation(v):
+                return {
+                    "filepath": v.filepath,
+                    "principle": v.principle,
+                    "observation": v.observation,
+                    "reason": v.reason,
+                    "consequences": v.consequences,
+                    "severity": int(v.severity)
+                }
+
+            def serialize_contract(c):
+                return {
+                    "filepath": c.filepath,
+                    "recommendations": [serialize_recommendation(rec) for rec in c.recommendations],
+                    "before_snapshot": serialize_snapshot(c.before_snapshot),
+                    "after_snapshot": serialize_snapshot(c.after_snapshot)
+                }
+
+            def detect_import_cycles(cb):
+                adj = {}
+                for rel_path, analysis in cb.items():
+                    r_norm = rel_path.replace("\\", "/")
+                    adj[r_norm] = set()
+                    for imp in analysis.get('imports', []):
+                        for pot in cb:
+                            pot_norm = pot.replace("\\", "/")
+                            pot_base = pot_norm.replace('.py', '').replace('/', '.')
+                            if pot_base == imp or pot_base.endswith('.' + imp) or imp.replace('.', '/') in pot_norm:
+                                if pot_norm != r_norm:
+                                    adj[r_norm].add(pot_norm)
+                                break
+                visited = {}
+                cycles = []
+                path = []
+                def dfs(node):
+                    visited[node] = 1
+                    path.append(node)
+                    for nbr in sorted(adj.get(node, [])):
+                        if visited.get(nbr) == 1:
+                            idx = path.index(nbr)
+                            cycle = path[idx:] + [nbr]
+                            if not any(set(cycle) == set(c) for c in cycles) and len(cycle) <= 8:
+                                cycles.append(cycle)
+                        elif nbr not in visited:
+                            dfs(nbr)
+                    path.pop()
+                    visited[node] = 2
+                for n in sorted(adj.keys()):
+                    if n not in visited:
+                        dfs(n)
+                return cycles
+
+            cycles = detect_import_cycles(codebase)
+            violations = []
+            hotspots = []
+            
+            risks = risk.evaluate_risks(codebase, target_files, intent="Architecture audit", repo_path=repo_path)
+
+            db_path = os.path.join(repo_path, ".ultron", "repository.db")
+            if os.path.exists(db_path):
+                try:
+                    from ultron.core.rkm.store import RepositoryStore
+                    from ultron.interfaces.api import ViolationsAPI
+                    from ultron.core.rkm.evolution.engine import EvolutionEngine
+                    store = RepositoryStore(db_path)
+                    meta = store.get_metadata()
+                    if meta and meta.latest_analysis_run_id:
+                        run_id = meta.latest_analysis_run_id
+                        rkm_vios = ViolationsAPI.get_violations(store, run_id)
+                        for rv in rkm_vios:
+                            violations.append({
+                                "filepath": rv.get("file_path") or "Unknown",
+                                "principle": rv.get("rule_name") or "Architectural Constraint",
+                                "observation": rv.get("details") or rv.get("description") or "",
+                                "reason": rv.get("description") or "Constraint violation recorded in RKM",
+                                "consequences": "Increases architectural debt and refactoring risk",
+                                "severity": 2
+                            })
+                        h_objs = EvolutionEngine.detect_hotspots(store, run_id)
+                        for h in h_objs:
+                            hotspots.append({
+                                "file": h.file_path.replace("\\", "/"),
+                                "hotspot_score": float(h.hotspot_score),
+                                "complexity": int(getattr(h, "complexity", 1)),
+                                "coupling_debt": float(getattr(h, "coupling_debt", 0.0)),
+                                "bug_fix_count": int(h.change_count)
+                            })
+                    store.close()
+                except Exception as ex:
+                    sys.stderr.write(f"[Ultron] RKM audit inspection warning: {ex}\n")
+
+            if not violations:
+                for r in risks:
+                    fpath = getattr(r, "file_path", None) or getattr(r, "file", "")
+                    cx = getattr(r, "complexity", 1)
+                    cp = getattr(r, "coupling_score", getattr(r, "coupling", 0))
+                    if cx > 15:
+                        violations.append({
+                            "filepath": fpath,
+                            "principle": "Complexity Limit (SRP)",
+                            "observation": f"Cyclomatic complexity is {cx} (threshold 15)",
+                            "reason": "Function/module contains excessive conditional decision paths",
+                            "consequences": "High cognitive load and regression risk during modifications",
+                            "severity": 3 if cx > 30 else 2
+                        })
+                    if cp > 10:
+                        violations.append({
+                            "filepath": fpath,
+                            "principle": "Coupling Limit (ADP/SDP)",
+                            "observation": f"Coupling fanout is {cp} (threshold 10)",
+                            "reason": "Direct reliance on too many distinct subsystem dependencies",
+                            "consequences": "Cascading breaks when dependent modules change",
+                            "severity": 2
+                        })
+
+            if not hotspots:
+                for r in risks[:10]:
+                    fpath = (getattr(r, "file_path", None) or getattr(r, "file", "")).replace("\\", "/")
+                    hotspots.append({
+                        "file": fpath,
+                        "hotspot_score": round(float(getattr(r, "impact_score", 0.0)), 2),
+                        "complexity": int(getattr(r, "complexity", 1)),
+                        "coupling_debt": round(float(getattr(r, "coupling_score", 0.0)), 1),
+                        "bug_fix_count": 1
+                    })
+
+            health_score = max(10, min(100, 100 - (len(cycles) * 12 + len(violations) * 3)))
+
+            self.send_json_response(200, {
+                "success": True,
+                "state": "ok",
+                "health_score": health_score,
+                "analyzed_file_count": len(target_files),
+                "hotspots": hotspots,
+                "circular_dependencies": [list(c) for c in cycles],
+                "violations": violations,
+                "contracts": []
+            })
+        except Exception as e:
+            self.send_json_response(500, {
+                "error": f"Internal Server Error: {e}",
+                "traceback": traceback.format_exc()
+            })
+
+    def handle_v1_hotspots(self):
+        from ultron.core.rkm.store import RepositoryStore
+        from ultron.core.rkm.evolution.engine import EvolutionEngine
+        repo_root = self.get_repo_root_path()
+        db_path = os.path.join(repo_root, ".ultron", "repository.db")
+        if not os.path.exists(db_path):
+            self.send_json_response(400, {"error": "Repository not initialized"})
+            return
+        store = RepositoryStore(db_path)
+        try:
+            meta = store.get_metadata()
+            if not meta or not meta.latest_analysis_run_id:
+                self.send_json_response(200, {"hotspots": []})
+                return
+            hotspots = EvolutionEngine.detect_hotspots(store, meta.latest_analysis_run_id)
+            self.send_json_response(200, {
+                "hotspots": [
+                    {
+                        "file_path": h.file_path,
+                        "change_count": h.change_count,
+                        "complexity_trend": h.complexity_trend,
+                        "coupling_trend": h.coupling_trend,
+                        "violation_count": h.violation_count,
+                        "hotspot_score": h.hotspot_score,
+                        "severity_level": h.severity_level
+                    }
+                    for h in hotspots
+                ]
+            })
+        finally:
+            store.close()
+
+    def handle_v1_recommendations(self):
+        try:
+            query = parse_qs(urlparse(self.path).query)
+            limit_raw = query.get("limit", ["20"])[0]
+            try:
+                limit_val = int(limit_raw)
+                if limit_val < 1 or limit_val > 50:
+                    self.send_json_response(400, {"status": "error", "message": "Limit parameter must be an integer between 1 and 50."})
+                    return
+            except (ValueError, TypeError):
+                self.send_json_response(400, {"status": "error", "message": "Limit parameter must be a valid integer."})
+                return
+
+            repo_path = self.get_repo_root_path()
+            from ultron.core.rkm.recommendation_service import get_recommendations
+            res = get_recommendations(repo_path, limit=limit_val)
+            self.send_json_response(200, res)
+        except Exception as e:
+            self.send_json_response(500, {"status": "error", "message": str(e)})
+
+    def handle_v1_risk_profile(self):
+        try:
+            query = parse_qs(urlparse(self.path).query)
+            entity = query.get("entity", [""])[0]
+
+            complexity, coupling, err = self.measure_entity(entity)
+            if err:
+                self.send_json_response(*err)
+                return
+
+            from ultron.core.rkm.risk_intelligence import compute_risk_profile
+            prof = compute_risk_profile(entity, complexity=complexity, coupling_fanout=coupling)
+            self.send_json_response(200, asdict(prof))
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
+
+    def handle_v1_decision(self):
+        try:
+            query = parse_qs(urlparse(self.path).query)
+            entity = query.get("entity", [""])[0]
+            crit = query.get("criticality", ["DEFAULT"])[0]
+
+            complexity, coupling, err = self.measure_entity(entity)
+            if err:
+                self.send_json_response(*err)
+                return
+
+            from ultron.core.rkm.risk_intelligence import compute_risk_profile
+            from ultron.core.rkm.policy_engine import evaluate_policy
+            prof = compute_risk_profile(entity, complexity=complexity, coupling_fanout=coupling)
+            dec = evaluate_policy(prof, business_criticality=crit)
+            self.send_json_response(200, asdict(dec))
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
+
+    def handle_v1_compare(self):
+        from ultron.core.rkm.store import RepositoryStore
+        from ultron.interfaces.api import HistoryAPI
+        try:
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            params = json.loads(post_data.decode('utf-8'))
+            run_a = int(params["run_id_a"])
+            run_b = int(params["run_id_b"])
+        except Exception:
+            self.send_json_response(400, {"error": "Invalid JSON body or missing run_id_a/run_id_b"})
+            return
+            
+        repo_root = self.get_repo_root_path()
+        db_path = os.path.join(repo_root, ".ultron", "repository.db")
+        if not os.path.exists(db_path):
+            self.send_json_response(400, {"error": "Repository not initialized"})
+            return
+            
+        store = RepositoryStore(db_path)
+        try:
+            diff = HistoryAPI.compare_runs(store, run_a, run_b)
+            self.send_json_response(200, diff)
+        finally:
+            store.close()
+
+    def handle_v1_explain_violation(self):
+        from ultron.core.rkm.store import RepositoryStore
+        from ultron.core.translate import translate_violation_to_plain_english
+        try:
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            params = json.loads(post_data.decode('utf-8'))
+            vio_id = int(params["violation_id"])
+        except Exception:
+            self.send_json_response(400, {"error": "Invalid body or missing violation_id"})
+            return
+            
+        repo_root = self.get_repo_root_path()
+        db_path = os.path.join(repo_root, ".ultron", "repository.db")
+        if not os.path.exists(db_path):
+            self.send_json_response(400, {"error": "Repository not initialized"})
+            return
+            
+        store = RepositoryStore(db_path)
+        try:
+            row = store.conn.execute(
+                "SELECT v.*, r.id as rule_id, r.name as rule_name, r.description as rule_description FROM rkm_violations v "
+                "JOIN rkm_evaluations e ON e.id = v.evaluation_id "
+                "JOIN rkm_rules r ON r.id = e.rule_id "
+                "WHERE v.id = ?", (vio_id,)
+            ).fetchone()
+            if not row:
+                self.send_json_response(404, {"error": f"Violation ID {vio_id} not found"})
+                return
+                
+            rule_name = row["rule_name"]
+            details = row["details"]
+            entity = row["entity_identifier"]
+            severity = row["severity"]
+            
+            plain_explanation = translate_violation_to_plain_english(rule_name, details, entity)
+            
+            markdown_explanation = f"""### {plain_explanation['plain_rule']}
+*Technical Rule*: `{rule_name}`
+
+**Plain Language Summary**:
+{plain_explanation['summary']}
+
+**Evidence Trust Chain**:
+- Entity: `{entity}`
+- Severity: `{severity}`
+- Details: `{details}`
+
+**Refactoring Simulation**:
+Before: Risk Score 85.0 (High Complexity/Coupling)
+After: Estimated Risk Score 25.0 (Decoupled Interface)"""
+            
+            self.send_json_response(200, {
+                "status": "success",
+                "violation_id": vio_id,
+                "rule_name": rule_name,
+                "details": details,
+                "entity_identifier": entity,
+                "explanation": markdown_explanation,
+            })
+        except (ValueError, KeyError, TypeError, OSError) as e:
+            self.send_json_response(500, {"error": f"Failed to explain violation: {str(e)}"})

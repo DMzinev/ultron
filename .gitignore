@@ -12,6 +12,7 @@ __pycache__/
 
 # Runtime output written by the server (saved sessions)
 /data/
+**/data/
 
 # Environments and IDEs
 .venv/
