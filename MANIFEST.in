@@ -1,0 +1,17 @@
+include README.md
+include LICENSE*
+include pyproject.toml
+include setup.py
+include requirements.txt
+
+# Recursively include all static UI assets, configuration models, migrations, and rulepacks
+recursive-include ultron/interfaces/web *
+recursive-include ultron/resources *
+recursive-include ultron/core/rkm/migrations *.sql
+recursive-include ultron/core/rkm/rulepacks *.json
+
+# Exclude compiled bytecode and temporary artifacts
+global-exclude *.py[cod]
+global-exclude __pycache__
+global-exclude *.so *.dylib *.dll
+global-exclude .DS_Store

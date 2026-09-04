@@ -5,18 +5,24 @@ import unittest
 import importlib.util
 from unittest.mock import patch, MagicMock
 
-# Dynamically import consult_plan_api.py from skill directory
+# Check if optional skill script consult_plan_api.py exists
 script_path = os.path.normpath(os.path.join(
     os.path.dirname(__file__), "..", "..", ".agents", "skills", "openai-plan-reviewer", "scripts", "consult_plan_api.py"
 ))
-spec = importlib.util.spec_from_file_location("consult_plan_api", script_path)
-consult_plan_module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(consult_plan_module)
+script_exists = os.path.exists(script_path)
 
-check_proxy_online = consult_plan_module.check_proxy_online
-review_plan = consult_plan_module.review_plan
+if script_exists:
+    spec = importlib.util.spec_from_file_location("consult_plan_api", script_path)
+    consult_plan_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(consult_plan_module)
+    check_proxy_online = consult_plan_module.check_proxy_online
+    review_plan = consult_plan_module.review_plan
+else:
+    check_proxy_online = None
+    review_plan = None
 
 
+@unittest.skipUnless(script_exists, "Optional skill script consult_plan_api.py not found on disk")
 class TestOpenAIPlanReviewer(unittest.TestCase):
 
     def setUp(self):
