@@ -14,7 +14,7 @@ if os.path.exists(readme_path):
 
 setup(
     name="ultron-risk-scorer",
-    version="0.2.0",
+    version="1.1.0",
     description="AI-Assisted Software Architecture Platform",
     long_description=readme,
     long_description_content_type="text/markdown",
@@ -53,6 +53,7 @@ setup(
     entry_points={
         "console_scripts": [
             "ultron = ultron.interfaces.ultron:main",
+            "ultron-server = ultron.interfaces.server:main",
             "ultron-mcp = ultron.interfaces.mcp_server:main",
         ],
     },

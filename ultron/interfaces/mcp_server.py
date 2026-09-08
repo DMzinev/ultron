@@ -440,5 +440,7 @@ def run_mcp_server():
             sys.stdout.write(json.dumps(resp) + "\n")
             sys.stdout.flush()
 
+main = run_mcp_server
+
 if __name__ == "__main__":
-    run_mcp_server()
+    main()

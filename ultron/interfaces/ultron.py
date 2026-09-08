@@ -131,7 +131,7 @@ def main():
         print(pkg["prompt_package"])
         sys.exit(0)
     # Subcommand Handling
-    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate"):
+    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate", "scan"):
         cmd = sys.argv[1]
         sub_parser = argparse.ArgumentParser(prog=f"ultron {cmd}")
         sub_parser.add_argument("--repo", default=".", help="Path to codebase repository")
@@ -145,6 +145,11 @@ def main():
             sub_parser.add_argument("file", nargs="?", default="", help="Target file path to generate mission brief for")
             sub_parser.add_argument("--intent", default="", help="Natural language change intent")
             sub_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+        elif cmd == "dashboard":
+            sub_parser.add_argument("--port", type=int, default=8000, help="Initial port to bind (default: 8000)")
+            sub_parser.add_argument("--no-browser", action="store_true", default=False, help="Do not open browser automatically")
+        elif cmd in ("analyze", "scan"):
+            sub_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON to stdout")
         elif cmd == "gate":
             sub_parser.add_argument("--max-high", type=int, default=None, help="Maximum allowed HIGH risk files")
             sub_parser.add_argument("--min-health", type=float, default=None, help="Minimum allowed health score (0-100)")
@@ -463,7 +468,11 @@ class InterfaceHandler:
             
         elif cmd == "dashboard":
             from ultron.interfaces import server as server_module
-            server_module.serve()
+            server_module.serve(
+                port=getattr(sub_args, "port", 8000),
+                open_browser=not getattr(sub_args, "no_browser", False),
+                repo=sub_args.repo
+            )
             sys.exit(0)
 
         elif cmd == "brief":
@@ -494,7 +503,31 @@ class InterfaceHandler:
             )
             sys.exit(code)
 
-    parser = argparse.ArgumentParser(description="Ultron: AI Pre-Execution Boundary Optimizer")
+        elif cmd == "scan":
+            from ultron.interfaces.cli.commands.gate import extract_current_analysis
+            try:
+                analysis = extract_current_analysis(repo_path)
+                payload = {
+                    "status": "success",
+                    "repo": analysis["repo"],
+                    "total_files": analysis["total_files"],
+                    "health_score": analysis["health_score"],
+                    "risks": analysis["risks"],
+                    "policy_violations": analysis["policy_violations"]
+                }
+                if getattr(sub_args, "json", False):
+                    print(json.dumps(payload, indent=2))
+                else:
+                    print(f"[+] Ultron: Scanned {analysis['total_files']} files in {analysis['repo']}. Health score: {analysis['health_score']:.1f}/100")
+                sys.exit(0)
+            except Exception as e:
+                if getattr(sub_args, "json", False):
+                    print(json.dumps({"status": "error", "error": str(e)}))
+                else:
+                    print(f"[-] Scan failed: {e}", file=sys.stderr)
+                sys.exit(1)
+
+    parser = argparse.ArgumentParser(description="Ultron: Code Architecture Risk & AI Mission Control")
     parser.add_argument("--repo", default=".", help="Path to codebase repository")
     parser.add_argument("--intent", help="Natural language change intent description (required for prompt generation)")
     parser.add_argument("--files", help="Comma-separated relative paths of files to modify")
@@ -517,7 +550,7 @@ class InterfaceHandler:
     
     if args.serve:
         from ultron.interfaces import server as server_module
-        server_module.serve()
+        server_module.serve(open_browser=True, repo=args.repo)
         sys.exit(0)
         
     def log(msg):

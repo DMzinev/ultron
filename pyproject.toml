@@ -22,6 +22,8 @@ dependencies = [
 
 [project.scripts]
 ultron = "ultron.interfaces.ultron:main"
+ultron-server = "ultron.interfaces.server:main"
+ultron-mcp = "ultron.interfaces.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -34,4 +36,17 @@ exclude = [
 ]
 
 [tool.setuptools.package-data]
-"ultron.interfaces" = ["web/*.html", "web/*.css", "web/*.js"]
+"ultron.interfaces" = [
+    "web/*.html",
+    "web/*.css",
+    "web/*.js",
+    "web/modules/*.js",
+    "web/*.json"
+]
+"ultron" = [
+    "resources/*.json"
+]
+"ultron.core.rkm" = [
+    "migrations/*.sql",
+    "rulepacks/**/*.json"
+]
