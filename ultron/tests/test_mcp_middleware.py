@@ -40,8 +40,17 @@ class TestMCPMiddleware(unittest.TestCase):
         self.assertEqual(resp["id"], 2)
         tools = resp["result"]["tools"]
         tool_names = [t["name"] for t in tools]
-        self.assertIn("get_context_brief", tool_names)
-        self.assertIn("evaluate_repository", tool_names)
+        expected_tools = [
+            "get_context_brief",
+            "evaluate_repository",
+            "explain_violation",
+            "get_risk_profile",
+            "get_blast_radius",
+            "compile_mission",
+            "audit_file"
+        ]
+        for t in expected_tools:
+            self.assertIn(t, tool_names)
 
     def test_mcp_tools_call_get_context_brief(self):
         req = json.dumps({
