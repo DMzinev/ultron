@@ -35,13 +35,15 @@ def serialize_risk_packet(r: Any) -> Dict[str, Any]:
 
 def extract_current_analysis(repo_path: str) -> Dict[str, Any]:
     """
-    Executes headless AST analysis, evaluates risk profiles, and runs governance policy engine.
+    Executes headless AST analysis, evaluates risk profiles, runs governance policy engine,
+    and computes calibrated composite health score.
     """
     abs_repo = os.path.abspath(os.path.normpath(repo_path))
     try:
         codebase = analyzer.analyze_directory(abs_repo)
         if not codebase:
             return {
+                "repo": abs_repo.replace("\\", "/"),
                 "risks": [],
                 "policy_violations": [],
                 "health_score": 100.0,
@@ -59,9 +61,36 @@ def extract_current_analysis(repo_path: str) -> Dict[str, Any]:
         })
 
         violations = policy_res.get("violations", [])
-        health_score = CIReporter._extract_health({"risks": serialized_risks})
+
+        # Calibrated health score via EvolutionEngine & RKM store
+        db_path = os.path.join(abs_repo, ".ultron", "repository.db")
+        health_score = 100.0
+        try:
+            from ultron.core.pipeline import orchestrator
+            from ultron.core.rkm.store import RepositoryStore
+            from ultron.core.rkm.evolution.engine import EvolutionEngine
+
+            orchestrator.analyze_repository(abs_repo, force=True)
+            if os.path.exists(db_path):
+                store = RepositoryStore(db_path)
+                try:
+                    meta = store.get_metadata()
+                    if meta and meta.latest_analysis_run_id:
+                        health_run = EvolutionEngine.evaluate_health_score(store, meta.latest_analysis_run_id)
+                        health_score = round(
+                            (health_run.architecture_stability * 0.4 +
+                             health_run.rule_compliance * 0.4 +
+                             health_run.complexity_trend * 0.2) * 100, 1
+                        )
+                finally:
+                    store.close()
+            else:
+                health_score = CIReporter._extract_health({"risks": serialized_risks})
+        except Exception:
+            health_score = CIReporter._extract_health({"risks": serialized_risks})
 
         return {
+            "repo": abs_repo.replace("\\", "/"),
             "risks": serialized_risks,
             "policy_violations": violations,
             "health_score": health_score,
@@ -70,6 +99,7 @@ def extract_current_analysis(repo_path: str) -> Dict[str, Any]:
     except Exception as e:
         print(f"[Ultron Gate Warning] Current analysis encountered an issue: {e}", file=sys.stderr)
         return {
+            "repo": abs_repo.replace("\\", "/"),
             "risks": [],
             "policy_violations": [],
             "health_score": 100.0,
@@ -135,7 +165,10 @@ def run_gate_command(
     fail_on_high: bool = False,
     strict: bool = False,
     json_output: bool = False,
-    output_comment: Optional[str] = None
+    output_comment: Optional[str] = None,
+    max_high: Optional[int] = None,
+    min_health: Optional[float] = None,
+    github_annotations: bool = False
 ) -> int:
     """
     Executes the Ultron Architectural Quality Gate.
@@ -172,7 +205,9 @@ def run_gate_command(
         current_analysis=current_analysis,
         baseline_analysis=baseline_analysis,
         max_health_drop=max_health_drop,
-        fail_on_high=fail_on_high
+        fail_on_high=fail_on_high,
+        max_high=max_high,
+        min_health=min_health
     )
 
     # If strict, ensure any negative health delta is explicitly flagged
@@ -189,7 +224,9 @@ def run_gate_command(
         baseline_analysis=baseline_analysis,
         project_name=project_name,
         max_health_drop=max_health_drop,
-        fail_on_high=fail_on_high
+        fail_on_high=fail_on_high,
+        max_high=max_high,
+        min_health=min_health
     )
 
     # 5. Output to file if specified
@@ -212,7 +249,14 @@ def run_gate_command(
         except Exception as e:
             safe_print(f"[Ultron Gate Warning] Failed writing to GITHUB_STEP_SUMMARY: {e}", file=sys.stderr)
 
-    # 7. Output Result Payload
+    # 7. Emit GitHub Actions Workflow Annotations
+    should_emit_annotations = github_annotations or (os.environ.get("GITHUB_ACTIONS") == "true")
+    if should_emit_annotations:
+        annotations = CIReporter.format_github_annotations(gate_decision, current_analysis)
+        for ann in annotations:
+            safe_print(ann, file=sys.stdout if not json_output else sys.stderr)
+
+    # 8. Output Result Payload
     if json_output:
         result_payload = {
             "status": "PASSED" if gate_decision["passed"] else "FAILED",
@@ -223,13 +267,16 @@ def run_gate_command(
                 "health_score": current_analysis.get("health_score", 100.0),
                 "total_files": current_analysis.get("total_files", 0),
                 "high_violations_count": gate_decision.get("high_violations_count", 0),
-                "total_violations_count": gate_decision.get("total_violations_count", 0)
+                "total_violations_count": gate_decision.get("total_violations_count", 0),
+                "high_risk_count": gate_decision.get("high_risk_count", 0)
             },
             "thresholds": {
                 "max_health_drop": max_health_drop,
                 "fail_on_high": fail_on_high,
                 "strict": strict,
-                "fail_on_regression": fail_on_regression
+                "fail_on_regression": fail_on_regression,
+                "max_high": max_high,
+                "min_health": min_health
             }
         }
         safe_print(json.dumps(result_payload, indent=2))
@@ -243,7 +290,7 @@ def run_gate_command(
         else:
             safe_print(f"\n[Ultron Gate: PASSED] Codebase health: {gate_decision.get('current_health', 100.0):.1f}/100 (delta: {gate_decision.get('health_delta', 0.0):+.1f} pts).", file=sys.stderr)
 
-    # 8. Return Exit Code
+    # 9. Return Exit Code
     if fail_on_regression and not gate_decision["passed"]:
         return 1
     return 0

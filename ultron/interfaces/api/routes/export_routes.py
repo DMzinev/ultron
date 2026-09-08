@@ -28,7 +28,9 @@ def handle_v1_export_brief(handler: Any) -> None:
         brief_md = context_brief.generate_vibe_context_package(norm_path)
 
         if fmt == "json":
-            exported_content = {"repo": norm_path, "brief": brief_md, "format": fmt}
+            if isinstance(brief_md, dict):
+                brief_md["schema_version"] = "1.0.0"
+            exported_content = {"repo": norm_path, "brief": brief_md, "format": fmt, "schema_version": "1.0.0"}
         elif fmt == "html":
             exported_content = f"<html><body><pre>{brief_md}</pre></body></html>"
         else:
@@ -37,6 +39,7 @@ def handle_v1_export_brief(handler: Any) -> None:
         payload = {
             "format": fmt,
             "repo": norm_path,
+            "schema_version": "1.0.0",
             "content": exported_content,
             "exported_at": datetime.now(timezone.utc).isoformat()
         }

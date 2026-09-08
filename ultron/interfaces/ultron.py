@@ -131,7 +131,7 @@ def main():
         print(pkg["prompt_package"])
         sys.exit(0)
     # Subcommand Handling
-    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo"):
+    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate"):
         cmd = sys.argv[1]
         sub_parser = argparse.ArgumentParser(prog=f"ultron {cmd}")
         sub_parser.add_argument("--repo", default=".", help="Path to codebase repository")
@@ -141,6 +141,22 @@ def main():
         elif cmd == "report":
             sub_parser.add_argument("--format", default="markdown", choices=["markdown", "html", "json"], help="Output format")
             sub_parser.add_argument("--output", help="Output file path (optional)")
+        elif cmd == "brief":
+            sub_parser.add_argument("file", nargs="?", default="", help="Target file path to generate mission brief for")
+            sub_parser.add_argument("--intent", default="", help="Natural language change intent")
+            sub_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+        elif cmd == "gate":
+            sub_parser.add_argument("--max-high", type=int, default=None, help="Maximum allowed HIGH risk files")
+            sub_parser.add_argument("--min-health", type=float, default=None, help="Minimum allowed health score (0-100)")
+            sub_parser.add_argument("--max-health-drop", type=float, default=5.0, help="Maximum allowed health score drop")
+            sub_parser.add_argument("--base", default=None, help="Git baseline ref (e.g. main, HEAD~1)")
+            sub_parser.add_argument("--baseline", default=None, help="Path to baseline analysis JSON file")
+            sub_parser.add_argument("--fail-on-regression", action="store_true", default=True, help="Exit 1 if regression occurs")
+            sub_parser.add_argument("--fail-on-high", action="store_true", default=False, help="Exit 1 if any HIGH risk files or violations exist")
+            sub_parser.add_argument("--strict", action="store_true", default=False, help="Strict mode (0 health drop, fail on any high)")
+            sub_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON to stdout")
+            sub_parser.add_argument("--output-comment", default=None, help="Path to write PR comment markdown")
+            sub_parser.add_argument("--github-annotations", action="store_true", default=False, help="Explicitly emit GitHub Actions workflow annotations")
             
         sub_args = sub_parser.parse_known_args(sys.argv[2:])[0]
         repo_path = os.path.abspath(sub_args.repo)
@@ -449,6 +465,34 @@ class InterfaceHandler:
             from ultron.interfaces import server as server_module
             server_module.serve()
             sys.exit(0)
+
+        elif cmd == "brief":
+            from ultron.interfaces.cli.commands.brief import run_brief_command
+            code = run_brief_command(
+                target_file=sub_args.file,
+                repo_path=sub_args.repo,
+                intent=sub_args.intent,
+                json_output=sub_args.json
+            )
+            sys.exit(code)
+
+        elif cmd == "gate":
+            from ultron.interfaces.cli.commands.gate import run_gate_command
+            code = run_gate_command(
+                repo_path=sub_args.repo,
+                base=sub_args.base,
+                baseline=sub_args.baseline,
+                max_health_drop=sub_args.max_health_drop,
+                fail_on_regression=sub_args.fail_on_regression,
+                fail_on_high=sub_args.fail_on_high,
+                strict=sub_args.strict,
+                json_output=sub_args.json,
+                output_comment=sub_args.output_comment,
+                max_high=sub_args.max_high,
+                min_health=sub_args.min_health,
+                github_annotations=sub_args.github_annotations
+            )
+            sys.exit(code)
 
     parser = argparse.ArgumentParser(description="Ultron: AI Pre-Execution Boundary Optimizer")
     parser.add_argument("--repo", default=".", help="Path to codebase repository")

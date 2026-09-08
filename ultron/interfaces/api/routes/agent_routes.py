@@ -123,31 +123,34 @@ class AgentRoutesMixin:
                     from ultron.core.rkm.evolution.engine import EvolutionEngine
 
                     store = RepositoryStore(db_path)
-                    meta = store.get_metadata()
-                    if meta and meta.latest_analysis_run_id:
-                        run_id = meta.latest_analysis_run_id
-                        vios = store.get_violations(run_id)
-                        health_run = EvolutionEngine.evaluate_health_score(store, run_id)
-                        health_score = round(
-                            (health_run.architecture_stability * 0.4 +
-                             health_run.rule_compliance * 0.4 +
-                             health_run.complexity_trend * 0.2) * 100, 1
-                        )
-                        top_risks = []
-                        for v in vios[:5]:
-                            top_risks.append({
-                                "entity_id": v[0].details or "Unknown Entity",
-                                "priority": getattr(v[0], "severity", "HIGH"),
-                                "reasons": [getattr(v[1], "name", "ARCHITECTURAL_VIOLATION")]
-                            })
-                        canonical_brief = {
-                            "repo_name": repo_name,
-                            "repository_uuid": meta.repository_uuid,
-                            "health_score": health_score,
-                            "top_risks": top_risks,
-                            "target_file": target_file
-                        }
-                    store.close()
+                    try:
+                        meta = store.get_metadata()
+                        if meta and meta.latest_analysis_run_id:
+                            run_id = meta.latest_analysis_run_id
+                            vios = store.get_violations(run_id)
+                            health_run = EvolutionEngine.evaluate_health_score(store, run_id)
+                            health_score = round(
+                                (health_run.architecture_stability * 0.4 +
+                                 health_run.rule_compliance * 0.4 +
+                                 health_run.complexity_trend * 0.2) * 100, 1
+                            )
+                            top_risks = []
+                            for v in vios[:5]:
+                                top_risks.append({
+                                    "entity_id": v[0].details or "Unknown Entity",
+                                    "priority": getattr(v[0], "severity", "HIGH"),
+                                    "reasons": [getattr(v[1], "name", "ARCHITECTURAL_VIOLATION")]
+                                })
+                            canonical_brief = {
+                                "schema_version": "1.0.0",
+                                "repo_name": repo_name,
+                                "repository_uuid": meta.repository_uuid,
+                                "health_score": health_score,
+                                "top_risks": top_risks,
+                                "target_file": target_file
+                            }
+                    finally:
+                        store.close()
                 except Exception:
                     pass
 
@@ -155,9 +158,15 @@ class AgentRoutesMixin:
                 from ultron.core.context_brief import compile_brief_data
                 canonical_brief = compile_brief_data(repo_path)
                 canonical_brief["target_file"] = target_file
+                canonical_brief["schema_version"] = "1.0.0"
 
             if fmt == "json":
-                self.send_json_response(200, {"status": "ok", "format": fmt, "brief": canonical_brief})
+                self.send_json_response(200, {
+                    "status": "ok",
+                    "format": fmt,
+                    "schema_version": "1.0.0",
+                    "brief": canonical_brief
+                })
                 return
 
             h_score = canonical_brief.get("health_score", 80.0)
@@ -171,7 +180,12 @@ class AgentRoutesMixin:
                 norm_target = abs_target.replace("\\", "/")
                 content = f"# Google Antigravity / Gemini Architectural Brief\nTarget Workspace: [{repo_name}](file:///{norm_target})\nHealth Score: {h_score}/100\n"
 
-            self.send_json_response(200, {"status": "ok", "format": fmt, "content": content})
+            self.send_json_response(200, {
+                "status": "ok",
+                "format": fmt,
+                "schema_version": "1.0.0",
+                "content": content
+            })
         except Exception as e:
             self.send_json_response(500, {"status": "error", "message": str(e)})
 
