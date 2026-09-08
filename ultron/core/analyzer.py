@@ -56,7 +56,7 @@ def analyze_file(filepath):
             definitions.append({'type': 'class', 'name': node.name, 'lineno': node.lineno, 'methods': methods})
     return {'imports': list(set(imports)), 'definitions': definitions}
 
-def analyze_directory(dirpath, os=os):
+def analyze_directory(dirpath, os=os, cancel_token=None):
     """
     Walks a directory and analyzes all python files.
     Returns a unified codebase representation.
@@ -67,6 +67,15 @@ def analyze_directory(dirpath, os=os):
         dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('venv', 'env', 'test_env', '__pycache__', 'tests', 'node_modules', 'scratch', 'dist', 'synapse_project', 'docs', 'ultron_risk_scorer.egg-info')]
         
         for file in files:
+            if cancel_token is not None:
+                if callable(cancel_token):
+                    if cancel_token():
+                        raise InterruptedError("Analysis cancelled by cancel_token")
+                elif getattr(cancel_token, "is_set", None):
+                    if cancel_token.is_set():
+                        raise InterruptedError("Analysis cancelled by cancel_token")
+                elif bool(cancel_token):
+                    raise InterruptedError("Analysis cancelled by cancel_token")
             if file.endswith('.py'):
                 abs_path = os.path.join(root, file)
                 rel_path = os.path.relpath(abs_path, dirpath).replace(os.sep, '/')

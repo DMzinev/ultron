@@ -18,6 +18,106 @@ class GitEvidenceAdapter:
     Extracts commit counts, distinct authors, bug fixes, and churn metrics into immutable EvidenceObject records.
     """
 
+    def __init__(self, max_commits: int = 500, max_mass_commit_files: int = 100):
+        self.max_commits = max_commits
+        self.max_mass_commit_files = max_mass_commit_files
+
+    def extract_raw_git_log(self, repo_path: str) -> str:
+        """Extracts raw git log output from repository."""
+        if not self.is_git_repository(repo_path):
+            return ""
+        try:
+            cmd = [
+                "git", "log", f"-n{self.max_commits}", "--since=180.days", "--relative",
+                "--name-only", "--pretty=format:COMMIT:%H|%aN|%s"
+            ]
+            proc = subprocess.run(
+                cmd,
+                cwd=os.path.abspath(repo_path),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=15
+            )
+            return proc.stdout if proc.returncode == 0 else ""
+        except (subprocess.SubprocessError, FileNotFoundError, OSError):
+            return ""
+
+    def analyze_repository(self, repo_path: str) -> Dict[str, Any]:
+        """
+        Analyzes repository git history and co-change statistics.
+        Returns summary, hotspots, files, and co_change_matrix.
+        """
+        raw_log = self.extract_raw_git_log(repo_path)
+        if not raw_log or not raw_log.strip():
+            return {
+                "summary": {"commits_parsed": 0, "total_files_tracked": 0},
+                "hotspots": [],
+                "files": {},
+                "co_change_matrix": {}
+            }
+
+        file_commits: Dict[str, int] = {}
+        co_change: Dict[str, Dict[str, int]] = {}
+        current_commit_files: List[str] = []
+        commits_count = 0
+
+        for line in raw_log.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("COMMIT:"):
+                commits_count += 1
+                if current_commit_files and len(current_commit_files) <= self.max_mass_commit_files:
+                    for i, f1 in enumerate(current_commit_files):
+                        for f2 in current_commit_files[i + 1:]:
+                            co_change.setdefault(f1, {})[f2] = co_change.setdefault(f1, {}).get(f2, 0) + 1
+                            co_change.setdefault(f2, {})[f1] = co_change.setdefault(f2, {}).get(f1, 0) + 1
+                current_commit_files = []
+            else:
+                parts = line.split("\t")
+                fpath = parts[-1].strip()
+                norm_p = os.path.normpath(fpath).replace("\\", "/")
+                if norm_p.endswith(".py"):
+                    file_commits[norm_p] = file_commits.get(norm_p, 0) + 1
+                    if norm_p not in current_commit_files:
+                        current_commit_files.append(norm_p)
+
+        if current_commit_files and len(current_commit_files) <= self.max_mass_commit_files:
+            for i, f1 in enumerate(current_commit_files):
+                for f2 in current_commit_files[i + 1:]:
+                    co_change.setdefault(f1, {})[f2] = co_change.setdefault(f1, {}).get(f2, 0) + 1
+                    co_change.setdefault(f2, {})[f1] = co_change.setdefault(f2, {}).get(f1, 0) + 1
+
+        co_change_matrix: Dict[str, List[Dict[str, Any]]] = {}
+        for f1, partners in co_change.items():
+            f1_total = max(1, file_commits.get(f1, 1))
+            co_change_matrix[f1] = [
+                {
+                    "file": f2,
+                    "co_change_ratio": round(joint / f1_total, 3),
+                    "joint_commits": joint
+                }
+                for f2, joint in sorted(partners.items(), key=lambda item: item[1], reverse=True)
+            ]
+
+        hotspots = sorted(
+            [{"file": f, "commits": c} for f, c in file_commits.items()],
+            key=lambda x: x["commits"],
+            reverse=True
+        )[:20]
+
+        return {
+            "summary": {
+                "commits_parsed": commits_count,
+                "total_files_tracked": len(file_commits)
+            },
+            "hotspots": hotspots,
+            "files": file_commits,
+            "co_change_matrix": co_change_matrix
+        }
+
     def is_git_repository(self, repo_path: str) -> bool:
         """Determines if repo_path is inside a valid git working tree."""
         if not repo_path or not os.path.isdir(repo_path):

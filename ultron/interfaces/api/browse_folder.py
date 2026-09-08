@@ -5,12 +5,18 @@ import traceback
 
 logger = logging.getLogger(__name__)
 
-def select_folder_dialog(initial_dir: str = None) -> dict:
+def select_folder_dialog(initial_dir: str = None, headless: bool = False) -> dict:
     """
     Opens native OS folder browser dialog.
     Headless/display errors are caught specifically and return fallback=True.
     Unexpected programming errors are logged with stack trace.
     """
+    if headless:
+        if not initial_dir or not os.path.isdir(initial_dir):
+            initial_dir = os.getcwd()
+        norm_path = os.path.normpath(os.path.abspath(initial_dir)).replace("\\", "/")
+        return {"path": norm_path, "cancelled": False, "fallback": False}
+
     if os.environ.get("ULTRON_HEADLESS") == "1":
         return {"path": "", "cancelled": True, "fallback": True}
 

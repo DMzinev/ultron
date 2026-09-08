@@ -25,6 +25,59 @@ from ultron.interfaces.api.state import (
 class AnalysisRoutesMixin:
     """Provides all analysis-related API endpoints for UltronAPIHandler."""
 
+    def _build_analysis_payload(self, repo_dir: str, force: bool = True) -> dict:
+        """Builds a unified analysis payload dictionary containing snapshot_id, model_hash, identity, dependency_graph, risks, and stats."""
+        from ultron.core.pipeline.orchestrator import analyze_repository
+        from ultron.core import analyzer
+        from ultron.core import risk
+        
+        abs_repo = os.path.abspath(repo_dir)
+        bundle = analyze_repository(abs_repo, force=force)
+        codebase = getattr(bundle, "codebase", None)
+        if not codebase:
+            codebase = analyzer.analyze_directory(abs_repo)
+        
+        risks_raw = getattr(bundle, "risks", None)
+        if not risks_raw:
+            risks_raw = risk.evaluate_risks(codebase, list(codebase.keys()), repo_path=abs_repo)
+            
+        risks = [r.to_dict() if hasattr(r, "to_dict") else r for r in risks_raw]
+        
+        for r in risks:
+            if isinstance(r, dict):
+                imp = r.get("impact_score")
+                if imp is None or str(imp).lower() == "nan":
+                    r["impact_score"] = 0.0
+                comp = r.get("complexity")
+                if comp is None or str(comp).lower() == "nan":
+                    r["complexity"] = 1
+
+        total_files = len(codebase)
+        total_definitions = sum(len(c.get("definitions", [])) for c in codebase.values())
+        high_count = sum(1 for r in risks if (r.get("level") == "HIGH" if isinstance(r, dict) else False))
+
+        dependency_graph = analyzer.build_dependency_graph(codebase)
+
+        model_hash = getattr(bundle, "content_hash", "") or getattr(bundle, "repo_fingerprint", "") or "default_hash"
+        snapshot_id = getattr(bundle, "snapshot_id", "") or f"snap-{model_hash[:16]}"
+
+        return {
+            "snapshot_id": snapshot_id,
+            "model_hash": model_hash,
+            "identity": {
+                "repo_path": abs_repo,
+                "repository_uuid": getattr(bundle, "repo_uuid", str(bundle)),
+                "repo_fingerprint": getattr(bundle, "repo_fingerprint", ""),
+            },
+            "dependency_graph": dependency_graph,
+            "risks": risks,
+            "stats": {
+                "total_files": total_files,
+                "total_definitions": total_definitions,
+                "high_risks": high_count,
+            }
+        }
+
     def handle_analyze(self):
         try:
             data = self.get_request_data() if hasattr(self, "get_request_data") else self.get_post_data()

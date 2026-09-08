@@ -250,15 +250,39 @@ class AgentContextBuilder:
             co_changes = files_data[norm_target].get("co_changes", [])
 
         companions = []
-        for entry in co_changes:
-            partner_file = str(entry.get("file", "")).replace("\\", "/").lstrip("./")
-            ratio = float(entry.get("co_change_ratio", 0.0))
-            if partner_file and partner_file != norm_target and ratio >= threshold:
-                companions.append({
-                    "file": partner_file,
-                    "co_change_ratio": ratio,
-                    "joint_commits": entry.get("joint_commits", 0)
-                })
+        if isinstance(co_changes, dict):
+            for partner, val in co_changes.items():
+                partner_file = str(partner).replace("\\", "/").lstrip("./")
+                if isinstance(val, dict):
+                    ratio = float(val.get("co_change_ratio", 0.0))
+                    joint_commits = val.get("joint_commits", 0)
+                else:
+                    ratio = 1.0
+                    joint_commits = int(val) if isinstance(val, (int, float)) else 1
+                if partner_file and partner_file != norm_target and ratio >= threshold:
+                    companions.append({
+                        "file": partner_file,
+                        "co_change_ratio": ratio,
+                        "joint_commits": joint_commits
+                    })
+        elif isinstance(co_changes, list):
+            for entry in co_changes:
+                if isinstance(entry, dict):
+                    partner_file = str(entry.get("file", "")).replace("\\", "/").lstrip("./")
+                    ratio = float(entry.get("co_change_ratio", 0.0))
+                    joint_commits = entry.get("joint_commits", 0)
+                elif isinstance(entry, str):
+                    partner_file = str(entry).replace("\\", "/").lstrip("./")
+                    ratio = 1.0
+                    joint_commits = 1
+                else:
+                    continue
+                if partner_file and partner_file != norm_target and ratio >= threshold:
+                    companions.append({
+                        "file": partner_file,
+                        "co_change_ratio": ratio,
+                        "joint_commits": joint_commits
+                    })
 
         companions.sort(key=lambda x: (x["co_change_ratio"], x["joint_commits"]), reverse=True)
         return companions

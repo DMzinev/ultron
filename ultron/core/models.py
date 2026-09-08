@@ -1,6 +1,105 @@
 import os
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from enum import Enum
+
+
+def build_snapshot_id(hash_str: str) -> str:
+    if not hash_str:
+        return "snap-0000000000000000"
+    return f"snap-{hash_str[:16]}"
+
+
+class FileCategory(str, Enum):
+    TEST_CODE = "TEST_CODE"
+    CONFIGURATION = "CONFIGURATION"
+    DOCUMENTATION = "DOCUMENTATION"
+    GENERATED = "GENERATED"
+    TOOLING = "TOOLING"
+    PRODUCTION_CODE = "PRODUCTION_CODE"
+    UNKNOWN = "UNKNOWN"
+
+
+class RecommendationAction(str, Enum):
+    DO_NOT_RECOMMEND = "DO_NOT_RECOMMEND"
+    PROTECT = "PROTECT"
+    INVESTIGATE = "INVESTIGATE"
+    REFACTOR = "REFACTOR"
+    DEFER = "DEFER"
+
+
+class SelectionOutcome(str, Enum):
+    PENDING = "PENDING"
+    USEFUL = "USEFUL"
+    PLAUSIBLE = "PLAUSIBLE"
+    WRONG = "WRONG"
+    INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
+
+
+class DecisionOutcome(str, Enum):
+    PENDING = "PENDING"
+    RESOLVED = "RESOLVED"
+    FAILED = "FAILED"
+    ROLLED_BACK = "ROLLED_BACK"
+
+
+@dataclass
+class RecommendationPacket:
+    target_file: str
+    category: str
+    priority_score: float
+    priority_level: str
+    confidence_tier: str
+    recommendation_action: str
+    why_this: str
+    why_now: str
+    what_it_affects: list
+    what_could_break: str
+    evidence_tier: str
+    confidence_reason: str
+    next_action: str
+    complexity: int
+    coupling: int
+    impact_score: float
+    public_surface: str
+    evidence_records: list = field(default_factory=list)
+    limitations: list = field(default_factory=list)
+    policy_version: str = ""
+    engine_version: str = ""
+    alternatives_compared: list = field(default_factory=list)
+
+    def to_dict(self):
+        return asdict(self)
+
+
+@dataclass
+class DecisionRecord:
+    decision_id: str
+    recommendation_id: str
+    policy_version: str
+    engine_version: str
+    created_at: str
+    recommended_target: str
+    human_selected_target: str
+    final_target_changed: bool
+    top_alternatives: list
+    confidence_tier: str
+    evidence_tier: str
+    selection_source: str
+    selection_outcome: str
+    human_feedback: str
+    mission_id: str
+    attempt_id: str
+    checkpoint_id: str
+    outcome_of_selected_target: str
+    value_delta: dict
+    priority_score: float
+    recommendation_action: str
+    why_this: str
+    evidence_ids: list = field(default_factory=list)
+    evidence_status: str = "FRESH"
+
+    def to_dict(self):
+        return asdict(self)
 
 
 # ---------------------------------------------------------------------------

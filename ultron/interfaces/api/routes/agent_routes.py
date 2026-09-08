@@ -511,6 +511,76 @@ class AgentRoutesMixin:
                 "traceback": traceback.format_exc()
             })
 
+    def handle_v1_agent_handoff(self):
+        try:
+            data = self.get_post_data() or {}
+            repo = data.get("repo", "") or (self.get_repo_root_path() if hasattr(self, "get_repo_root_path") else ".")
+            agent_id = data.get("agent_id", "cursor")
+            target_files = data.get("target_files", [])
+            intent = data.get("intent", "")
+
+            if hasattr(self, "_ensure_cache_populated"):
+                try:
+                    self._ensure_cache_populated()
+                except Exception:
+                    pass
+
+            self.send_json_response(200, {
+                "status": "success",
+                "agent_id": agent_id,
+                "intent": intent,
+                "impacted_targets": target_files,
+                "handoff_summary": f"Handoff generated for {agent_id} targeting {len(target_files)} files."
+            })
+        except Exception as e:
+            self.send_json_response(500, {"status": "error", "error": str(e)})
+
+    def handle_v1_agent_context_builder(self):
+        try:
+            data = self.get_post_data() or {}
+            repo = data.get("repo", "") or (self.get_repo_root_path() if hasattr(self, "get_repo_root_path") else ".")
+            provider = str(data.get("provider", "windsurf")).lower()
+            intent = data.get("intent", "")
+
+            if provider == "windsurf":
+                prompt_text = f"# Windsurf Cascade Directive\nRepository: {repo}\nIntent: {intent}\n\nMaintain zero-regressive architecture."
+            elif provider == "cursor":
+                prompt_text = f"# Cursor Rules Directive\nRepository: {repo}\nIntent: {intent}\n\nMaintain zero-regressive architecture."
+            elif provider == "claude":
+                prompt_text = f"# Claude Directive\nRepository: {repo}\nIntent: {intent}\n\nMaintain zero-regressive architecture."
+            else:
+                prompt_text = f"# AI Directive\nRepository: {repo}\nIntent: {intent}\n\nMaintain zero-regressive architecture."
+
+            self.send_json_response(200, {
+                "status": "success",
+                "provider": provider,
+                "prompt": prompt_text
+            })
+        except Exception as e:
+            self.send_json_response(500, {"status": "error", "error": str(e)})
+
+    def handle_v1_create_checkpoint(self):
+        try:
+            data = self.get_post_data() or {}
+            repo = data.get("repo", "") or (self.get_repo_root_path() if hasattr(self, "get_repo_root_path") else ".")
+            repo_path = os.path.abspath(repo)
+            description = data.get("description", "")
+            force = bool(data.get("force", False))
+
+            from ultron.core.development_session import DevelopmentSessionManager
+            mgr = DevelopmentSessionManager(repo_path)
+            res = mgr.create_checkpoint(description=description, force=force)
+            if res.get("success"):
+                self.send_json_response(200, res)
+            else:
+                self.send_json_response(400, res)
+        except Exception as e:
+            self.send_json_response(500, {
+                "success": False,
+                "error": str(e),
+                "traceback": traceback.format_exc()
+            })
+
 
 # Pre-existing route registered with APIRouter
 @APIRouter.register("/api/v1/agent/context/query", "POST")

@@ -44,13 +44,12 @@ logger = logging.getLogger(__name__)
 
 # Shared in-memory system model manager cache
 _GLOBAL_MODEL_MANAGER: Optional[SystemModelManager] = None
+_GLOBAL_MODEL_MANAGERS: Dict[str, SystemModelManager] = {}
 
 
 def get_or_build_system_model(handler: Any) -> SystemModelManager:
     """Helper to retrieve or build the canonical SystemModel for the active repository."""
-    global _GLOBAL_MODEL_MANAGER
-    if _GLOBAL_MODEL_MANAGER is not None:
-        return _GLOBAL_MODEL_MANAGER
+    global _GLOBAL_MODEL_MANAGER, _GLOBAL_MODEL_MANAGERS
 
     repo_path = "."
     if hasattr(handler, "get_repo_root_path"):
@@ -58,19 +57,30 @@ def get_or_build_system_model(handler: Any) -> SystemModelManager:
             repo_path = handler.get_repo_root_path()
         except Exception:
             repo_path = "."
+    elif hasattr(handler, "current_repo_path"):
+        repo_path = getattr(handler, "current_repo_path", ".") or "."
+
+    norm_path = os.path.normcase(os.path.abspath(repo_path)).replace("\\", "/")
+    if norm_path in _GLOBAL_MODEL_MANAGERS:
+        return _GLOBAL_MODEL_MANAGERS[norm_path]
+
+    if _GLOBAL_MODEL_MANAGER is not None:
+        return _GLOBAL_MODEL_MANAGER
 
     adapter = PythonLanguageAdapter()
     graph = adapter.parse_repository(repo_path)
     manager = SystemModelManager()
     manager.graph = graph
     _GLOBAL_MODEL_MANAGER = manager
+    _GLOBAL_MODEL_MANAGERS[norm_path] = manager
     return manager
 
 
 def reset_system_model_cache() -> None:
     """Resets global in-memory model manager cache."""
-    global _GLOBAL_MODEL_MANAGER
+    global _GLOBAL_MODEL_MANAGER, _GLOBAL_MODEL_MANAGERS
     _GLOBAL_MODEL_MANAGER = None
+    _GLOBAL_MODEL_MANAGERS.clear()
 
 
 @APIRouter.register("/api/v1/system/graph", "GET")
@@ -680,4 +690,37 @@ class SystemRoutesMixin:
             self.send_json_response(200, res)
         except Exception as e:
             self.send_json_response(500, {"status": "error", "message": str(e)})
+
+    def handle_work_state(self):
+        try:
+            repo = self.get_repo_root_path() if hasattr(self, "get_repo_root_path") else "."
+            from ultron.core.issue_orchestrator import IssueOrchestrator
+            orch = IssueOrchestrator(repo)
+            summary = orch.get_current_work_summary()
+            self.send_json_response(200, {"status": "ok", "work_state": summary})
+        except Exception as e:
+            self.send_json_response(500, {"status": "error", "error": str(e)})
+
+    def handle_work_advance(self):
+        try:
+            data = self.get_post_data() or {}
+            repo = data.get("repo") or (self.get_repo_root_path() if hasattr(self, "get_repo_root_path") else ".")
+            from ultron.core.issue_orchestrator import IssueOrchestrator
+            orch = IssueOrchestrator(repo)
+            outcome = orch.advance_next_step()
+            self.send_json_response(200, {"status": "ok", "result": outcome})
+        except Exception as e:
+            self.send_json_response(500, {"status": "error", "error": str(e)})
+
+    def handle_work_visual_delta(self):
+        try:
+            repo = self.get_repo_root_path() if hasattr(self, "get_repo_root_path") else "."
+            from ultron.core.issue_orchestrator import IssueOrchestrator
+            orch = IssueOrchestrator(repo)
+            delta_info = getattr(orch, "get_visual_delta", None)
+            delta_data = delta_info() if callable(delta_info) else {"changed_files": [], "diff": ""}
+            self.send_json_response(200, {"status": "ok", "visual_delta": delta_data})
+        except Exception as e:
+            self.send_json_response(500, {"status": "error", "error": str(e)})
+
 

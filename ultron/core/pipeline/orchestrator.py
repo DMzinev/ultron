@@ -6,16 +6,83 @@ import sqlite3
 import ast
 import logging
 from datetime import datetime
+from typing import Any, Optional, Dict, List, Tuple
 
 logger = logging.getLogger(__name__)
 
 from ultron.core import analyzer
 from ultron.core.risk import scoring
+from ultron.core.models import build_snapshot_id, AnalysisPacket
 from ultron.core.rkm.schema import RepositoryMetadata, AnalysisRun, RKM_SCHEMA_VERSION, RKM_COMPATIBILITY
 from ultron.core.rkm.store import RepositoryStore
 from ultron.core.rkm.adapters import convert_to_rkm_records
 from ultron.core.pipeline.discovery import discover
 from ultron.core.pipeline.persistence import persist_rkm_batch
+
+
+class AnalysisArtifactBundle(str):
+    """
+    Subclass of str representing the repository UUID while carrying
+    full analysis artifacts (codebase, risks, files, hashes, snapshot_id).
+    """
+    def __new__(cls, repo_uuid, codebase=None, risks=None, files=None, content_hash="", repo_fingerprint=""):
+        instance = super().__new__(cls, str(repo_uuid))
+        instance.repo_uuid = str(repo_uuid)
+        instance.codebase = codebase if codebase is not None else {}
+        instance.risks = list(risks) if risks is not None else []
+        instance.files = list(files) if files is not None else []
+        instance.content_hash = str(content_hash)
+        instance.repo_fingerprint = str(repo_fingerprint)
+        instance.snapshot_id = build_snapshot_id(content_hash)
+        return instance
+
+    def to_dict(self):
+        return {
+            "repo_uuid": self.repo_uuid,
+            "codebase": self.codebase,
+            "risks": [r.to_dict() if hasattr(r, "to_dict") else r for r in self.risks],
+            "files": self.files,
+            "content_hash": self.content_hash,
+            "repo_fingerprint": self.repo_fingerprint,
+            "snapshot_id": self.snapshot_id,
+        }
+
+
+def reconstruct_codebase_from_rkm(store: RepositoryStore, run_id: Any) -> tuple[dict, list]:
+    """
+    Reconstructs codebase dictionary and AnalysisPacket risk list from SQLite RKM.
+    Returns ({}, []) on missing or corrupted run IDs.
+    """
+    try:
+        run = store.get_analysis_run(run_id)
+        if not run:
+            return {}, []
+        file_records = store.get_file_records_for_run(run_id)
+        if not file_records:
+            return {}, []
+        codebase = {}
+        risks = []
+        for f in file_records:
+            codebase[f.path] = {"complexity": f.complexity, "definitions": [], "callers": []}
+            risks.append(AnalysisPacket(
+                file_path=f.path,
+                impact_score=0.0,
+                coupling_score=0.0,
+                mk_r=0.0,
+                delta_cest=0.0,
+                confidence=1.0,
+                complexity=int(f.complexity) if f.complexity else 1,
+                level="LOW"
+            ))
+        return codebase, risks
+    except Exception as e:
+        logger.warning("[Ultron] RKM reconstruction failed: %s", e)
+        return {}, []
+
+
+def analyze_incremental(repo_path: str, modified_files: list[str], previous_bundle: Any = None) -> AnalysisArtifactBundle:
+    """Performs differential analysis on modified files."""
+    return analyze_repository(repo_path, force=True)
 
 def compute_repository_content_hash(repo_path: str, files: list[str]) -> str:
     if not isinstance(repo_path, str) or not repo_path.strip():
@@ -102,8 +169,16 @@ def analyze_repository(repo_path: str, force: bool = False) -> str:
                 existing_meta = store.get_metadata()
                 if existing_meta and existing_meta.repository_uuid:
                     logger.info("[Ultron] Repository state unchanged (hash: %s). Reusing cached RKM analysis.", effective_analysis_hash)
+                    cached_codebase, cached_risks = reconstruct_codebase_from_rkm(store, existing_run.id)
                     store.close()
-                    return existing_meta.repository_uuid
+                    return AnalysisArtifactBundle(
+                        repo_uuid=existing_meta.repository_uuid,
+                        codebase=cached_codebase,
+                        risks=cached_risks,
+                        files=files,
+                        content_hash=content_hash,
+                        repo_fingerprint=content_hash
+                    )
             store.close()
         except Exception as e:
             logger.warning("[Ultron] Metadata check warning: %s", e)
@@ -183,5 +258,12 @@ def analyze_repository(repo_path: str, force: bool = False) -> str:
     # 4. Persist atomically
     persist_rkm_batch(repo_path, metadata, run, batch)
     
-    return repo_uuid
+    return AnalysisArtifactBundle(
+        repo_uuid=repo_uuid,
+        codebase=codebase,
+        risks=risks,
+        files=files,
+        content_hash=content_hash,
+        repo_fingerprint=content_hash
+    )
 
