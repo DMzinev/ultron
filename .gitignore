@@ -75,7 +75,8 @@ prn
 %00
 ..*
 
-# Generated and historical audit reports & data dumps (Task A2)
+# Generated and historical audit reports & data dumps (Task A2 & Task E2)
+docs/audits/legacy_phase_reports/
 *_TRACE.md
 *_REPORT.md
 *_AUDIT.md
