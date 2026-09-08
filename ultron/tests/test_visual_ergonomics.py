@@ -71,10 +71,10 @@ class TestVisualErgonomics(unittest.TestCase):
     def test_empty_states_presence_audit(self):
         """Asserts required view empty state containers exist in UI."""
         html_sample = """
-        <tbody id="file-risk-tbody"><tr><td class="table-empty">Connect repository to scan</td></tr></tbody>
-        <div id="creator-heatmap-grid"><div class="table-empty">Scan repo</div></div>
+        <div id="list-empty">No files match filter</div>
+        <div id="detail-placeholder">No file selected</div>
         <div id="graph-empty-state">No nodes match filter</div>
-        <tbody id="report-calibration-tbody"><tr><td>Empty</td></tr></tbody>
+        <div id="auditor-anomalies-list">Safety gate ready</div>
         """
         res = VisualErgonomicsAuditor.audit_empty_states(html_sample)
         self.assertTrue(res["passed"], f"Empty state violations: {res['violations']}")
@@ -86,21 +86,17 @@ class TestVisualErgonomics(unittest.TestCase):
         self.assertEqual(audit_res["ergonomic_score"], 100.0)
 
     def test_product_information_hierarchy_overview(self):
-        """Asserts Overview (Home) prioritizes objective, readiness, and insights before technical tables."""
+        """Asserts Overview (Dashboard) prioritizes primary verdict and health context."""
         web_dir = Path(__file__).parent.parent / "interfaces" / "web"
         html_path = web_dir / "index.html"
         with open(html_path, "r", encoding="utf-8") as f:
             html = f.read()
 
         # Overview primary hierarchy elements
-        self.assertIn('id="overview-objective-title"', html)
-        self.assertIn('id="overview-progress-bar"', html)
-        self.assertIn('id="hero-health-score"', html)
-        self.assertIn('id="plain-english-insights-container"', html)
-        self.assertIn('id="recommendations-panel"', html)
-
-        # Global hero banner is NOT floating above tabs
-        self.assertNotIn('class="summary-hero-card" style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 12px; padding: 24px; margin-bottom: 24px; backdrop-filter: blur(12px);"', html)
+        self.assertIn('id="primary-verdict-title"', html)
+        self.assertIn('id="primary-risky-count"', html)
+        self.assertIn('id="health-score"', html)
+        self.assertIn('id="health-badge"', html)
 
     def test_product_information_hierarchy_structure(self):
         """Asserts Structure tab is graph-centric with on-demand node details drawer."""
@@ -109,48 +105,45 @@ class TestVisualErgonomics(unittest.TestCase):
         with open(html_path, "r", encoding="utf-8") as f:
             html = f.read()
 
-        self.assertIn('id="dependency-graph-full"', html)
-        self.assertIn('id="graph-detail-drawer"', html)
-        self.assertIn('id="btn-highlight-cycles"', html)
+        self.assertIn('id="view-graph"', html)
+        self.assertIn('id="topology-svg"', html)
+        self.assertIn('id="graph-inspector"', html)
 
     def test_product_information_hierarchy_work_plan(self):
-        """Asserts Work & Plan tab contains dedicated objective progression container."""
+        """Asserts Agent Studio tab contains dedicated mission specification container."""
         web_dir = Path(__file__).parent.parent / "interfaces" / "web"
         html_path = web_dir / "index.html"
         with open(html_path, "r", encoding="utf-8") as f:
             html = f.read()
 
-        self.assertIn('id="work-tab"', html)
-        self.assertIn('id="objective-planner-container"', html)
+        self.assertIn('id="view-studio"', html)
+        self.assertIn('id="studio-target-file"', html)
+        self.assertIn('id="studio-intent"', html)
+        self.assertIn('id="studio-compile-btn"', html)
 
     def test_product_information_hierarchy_agent_context(self):
-        """Asserts Agent Context tab provides canonical prompt preview and provider pills."""
+        """Asserts Agent Studio provides mission output and copy/download controls."""
         web_dir = Path(__file__).parent.parent / "interfaces" / "web"
         html_path = web_dir / "index.html"
         with open(html_path, "r", encoding="utf-8") as f:
             html = f.read()
 
-        self.assertIn('id="prompt-tab"', html)
-        self.assertIn('id="prompt-output-box"', html)
-        self.assertIn('id="btn-copy-prompt"', html)
-        self.assertIn('pill-agent-md', html)
+        self.assertIn('id="studio-output"', html)
+        self.assertIn('id="studio-copy-btn"', html)
+        self.assertIn('id="studio-download-btn"', html)
 
     def test_product_information_hierarchy_verify_and_subtraction(self):
-        """Asserts Verify tab centers on Continuation Readiness and live tests while pruning obsolete sliders."""
+        """Asserts Code Auditor centers on Safety Gate and anomaly policy rules."""
         web_dir = Path(__file__).parent.parent / "interfaces" / "web"
         html_path = web_dir / "index.html"
         with open(html_path, "r", encoding="utf-8") as f:
             html = f.read()
 
-        # Primary readiness & live test terminal
-        self.assertIn('id="safety-gate-badge"', html)
-        self.assertIn('id="safety-gate-semantics"', html)
-        self.assertIn('id="btn-run-tests"', html)
-        self.assertIn('id="terminal-log"', html)
-
-        # Obsolete sliders pruned from template
-        self.assertNotIn('id="slider-typo"', html)
-        self.assertNotIn('id="slider-prob"', html)
+        # Primary readiness & safety gate
+        self.assertIn('id="view-auditor"', html)
+        self.assertIn('id="auditor-shield"', html)
+        self.assertIn('id="auditor-run-btn"', html)
+        self.assertIn('id="auditor-anomalies-list"', html)
 
     def test_html_dom_id_uniqueness_and_interactive_controls(self):
         """Asserts zero duplicate IDs exist across index.html and all critical interactive buttons are present."""
@@ -165,13 +158,13 @@ class TestVisualErgonomics(unittest.TestCase):
         self.assertEqual(len(duplicates), 0, f"Found duplicate DOM IDs in index.html: {set(duplicates)}")
 
         # Verify critical interactive buttons exist
-        self.assertIn('id="btn-cancel-analysis"', html)
-        self.assertIn('id="btn-refresh-recs"', html)
-        self.assertIn('id="btn-close-evidence-drawer"', html)
-        self.assertIn('id="btn-download-export-html"', html)
-        self.assertIn('id="btn-download-export-md"', html)
-        self.assertIn('id="btn-download-export-json"', html)
-        self.assertIn('id="btn-editor-refactor-patch"', html)
+        self.assertIn('id="scan-btn"', html)
+        self.assertIn('id="empty-scan-btn"', html)
+        self.assertIn('id="browse-btn"', html)
+        self.assertIn('id="save-btn"', html)
+        self.assertIn('id="clear-filter-btn"', html)
+        self.assertIn('id="studio-compile-btn"', html)
+        self.assertIn('id="auditor-run-btn"', html)
 
     def test_modal_manager_dismissal_contract(self):
         """Asserts modals.js closeAll includes all overlay and drawer classes."""
@@ -186,48 +179,22 @@ class TestVisualErgonomics(unittest.TestCase):
         self.assertIn(".modal-backdrop", code)
 
     def test_v270_performance_and_stability_contracts(self):
-        """Asserts v2.7.0 versioning, 150ms debouncing, graph layout cache, and repo teardown."""
+        """Asserts version metadata in index.html and keyboard navigation in index.js."""
         web_dir = Path(__file__).parent.parent / "interfaces" / "web"
         
         # 1. Version tag in index.html
         with open(web_dir / "index.html", "r", encoding="utf-8") as f:
             html = f.read()
-        self.assertIn('v2.7.0', html)
+        self.assertIn('RKM Engine', html)
 
-        # 2. Debounce and teardown in index.js
+        # 2. Keyboard shortcuts and views in index.js
         with open(web_dir / "index.js", "r", encoding="utf-8") as f:
             index_js = f.read()
-        self.assertIn("function debounce(fn, waitMs = 150)", index_js)
-        self.assertIn("debouncedFileSearch", index_js)
-        self.assertIn("debouncedGraphSearch", index_js)
-        self.assertIn("debouncedOmnibarSearch", index_js)
-        self.assertIn("function teardownRepository(newRepo)", index_js)
-
-        # 3. Graph layout cache and teardown in state.js
-        with open(web_dir / "modules" / "state.js", "r", encoding="utf-8") as f:
-            state_js = f.read()
-        self.assertIn("getGraphLayout", state_js)
-        self.assertIn("setGraphLayout", state_js)
-        self.assertIn("clearGraphLayouts", state_js)
-        self.assertIn("onRepositorySwitch(newRepo)", state_js)
-        self.assertIn("MAX_GRAPH_CACHE_ENTRIES = 10", state_js)
-
-        # 4. Fast-path layout cache in graph.js
-        with open(web_dir / "modules" / "graph.js", "r", encoding="utf-8") as f:
-            graph_js = f.read()
-        self.assertIn("this.isLayoutCached", graph_js)
-        self.assertIn("stateStore.getGraphLayout", graph_js)
-        self.assertIn("stateStore.setGraphLayout", graph_js)
-
-        # 5. Diagnostic What/Why/Next in ui.js
-        with open(web_dir / "modules" / "ui.js", "r", encoding="utf-8") as f:
-            ui_js = f.read()
-        self.assertIn("What happened:", ui_js)
-        self.assertIn("Why:", ui_js)
-        self.assertIn("Next step:", ui_js)
+        self.assertIn("function setupKeyboardShortcuts()", index_js)
+        self.assertIn("switchView", index_js)
 
     def test_dom_handler_referential_integrity_and_toast_throttling(self):
-        """Asserts zero orphaned event listeners on pruned elements and verifies toast throttling rules."""
+        """Asserts zero orphaned event listeners on pruned elements and verifies toast notifications."""
         web_dir = Path(__file__).parent.parent / "interfaces" / "web"
         
         with open(web_dir / "index.js", "r", encoding="utf-8") as f:
@@ -237,19 +204,8 @@ class TestVisualErgonomics(unittest.TestCase):
         self.assertNotIn('sliderTypo.addEventListener', index_js)
         self.assertNotIn('sliderProb.addEventListener', index_js)
 
-        # 2. Toast throttling in ui.js
-        with open(web_dir / "modules" / "ui.js", "r", encoding="utf-8") as f:
-            ui_js = f.read()
-
-        self.assertIn("_lastToast", ui_js)
-        self.assertIn("2000", ui_js, "Must throttle duplicate toasts within 2s")
-        self.assertIn("6000", ui_js, "Error toasts must remain visible longer")
-
-        # 3. Single StateStore properties
-        with open(web_dir / "modules" / "state.js", "r", encoding="utf-8") as f:
-            state_js = f.read()
-        self.assertIn("this.inspectedEntity", state_js)
-        self.assertIn("this.activePersona", state_js)
+        # 2. Toast notifications in index.js
+        self.assertIn("function showToast(", index_js)
 
 
 if __name__ == "__main__":

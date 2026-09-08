@@ -219,6 +219,23 @@ class SystemRoutesMixin:
             }
         })
 
+    def handle_v1_mcp_setup(self):
+        try:
+            from ultron.interfaces.mcp_setup import install_mcp_config
+            data = self.get_post_data() if hasattr(self, "get_post_data") else {}
+            if not isinstance(data, dict):
+                data = {}
+            target = str(data.get("target", "cursor")).strip().lower()
+            repo_path = self.get_repo_root_path()
+            config_path = install_mcp_config(target, repo_path)
+            self.send_json_response(200, {
+                "success": True,
+                "target": target,
+                "config_path": config_path
+            })
+        except Exception as e:
+            self.send_json_response(500, {"error": str(e)})
+
     def handle_config(self):
         try:
             self.send_json_response(200, {

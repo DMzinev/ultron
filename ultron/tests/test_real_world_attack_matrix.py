@@ -129,16 +129,16 @@ class TestRealWorldAttackMatrix(unittest.TestCase):
         with open(index_css, "r", encoding="utf-8") as f:
             css_content = f.read()
 
-        # Assert Current Work hero card elements are defined
+        # Assert Primary Verdict and Dashboard elements are defined
         required_elements = [
-            "overview-work-state-card",
-            "current-work-issue-title",
-            "btn-current-work-action",
-            "current-work-what-changed",
-            "current-work-what-improved",
-            "current-work-what-worse",
-            "current-work-snapshot-id",
-            "current-work-attempt-json"
+            "primary-verdict-title",
+            "primary-risky-count",
+            "primary-verdict-desc",
+            "health-score",
+            "health-badge",
+            "health-explain",
+            "risk-list",
+            "detail-title"
         ]
         for elem_id in required_elements:
             self.assertIn(f'id="{elem_id}"', html_content, f"Missing required UI element: {elem_id}")

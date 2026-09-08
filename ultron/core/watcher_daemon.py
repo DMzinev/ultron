@@ -104,14 +104,14 @@ class IncrementalWatcherDaemon:
                             self.file_mtimes[rel_path] = mtime
                             self.file_hashes[rel_path] = self.get_fingerprint(full_path)
                             added.append(rel_path)
-                        elif mtime != self.file_mtimes[rel_path]:
-                            # Timestamp changed -> verify content hash
+                        else:
+                            # Check if content hash changed (robust against low-resolution mtime on Windows NTFS)
                             new_hash = self.get_fingerprint(full_path)
                             if new_hash != self.file_hashes.get(rel_path, ""):
                                 self.file_mtimes[rel_path] = mtime
                                 self.file_hashes[rel_path] = new_hash
                                 modified.append(rel_path)
-                            else:
+                            elif mtime != self.file_mtimes[rel_path]:
                                 # mtime changed but content identical (touch)
                                 self.file_mtimes[rel_path] = mtime
                     except (OSError, IOError):

@@ -98,15 +98,15 @@ class _DOMTreeParser(HTMLParser):
         line, col = self.getpos()
 
         # Track active stage tab container
-        if el_id in ["dashboard-tab", "overview-tab"]:
+        if el_id in ["dashboard-tab", "overview-tab", "view-dashboard"]:
             self.current_stage = "OVERVIEW"
-        elif el_id in ["graph-tab", "structure-tab"]:
+        elif el_id in ["graph-tab", "structure-tab", "view-graph"]:
             self.current_stage = "STRUCTURE"
         elif el_id in ["work-tab", "plan-tab"]:
             self.current_stage = "WORK_PLAN"
-        elif el_id in ["prompt-tab", "agent-tab"]:
+        elif el_id in ["prompt-tab", "agent-tab", "view-studio"]:
             self.current_stage = "AGENT_CONTEXT"
-        elif el_id in ["auditor-tab", "verify-tab"]:
+        elif el_id in ["auditor-tab", "verify-tab", "view-auditor"]:
             self.current_stage = "VERIFY"
         elif el_id and el_id.startswith("modal-"):
             self.current_stage = "MODAL"
@@ -178,19 +178,21 @@ class UIRealityCompiler:
 
     # Known Full-Stack API Action Registry
     FULL_STACK_ACTIONS = {
-        "btn-load-repo": {"endpoint": "/api/v1/analyze", "method": "POST", "state_target": "READY"},
-        "btn-empty-connect-repo": {"endpoint": "/api/v1/analyze", "method": "POST", "state_target": "READY"},
-        "btn-browse-folder": {"endpoint": "/api/browse-folder", "method": "POST", "state_target": None},
-        "btn-run-tests": {"endpoint": "/api/v1/run-tests", "method": "POST", "state_target": None},
-        "btn-save-file": {"endpoint": "/api/v1/save-file", "method": "POST", "state_target": None},
-        "btn-run-audit": {"endpoint": "/api/v1/audit", "method": "POST", "state_target": None},
-        "btn-calibrate": {"endpoint": "/api/v1/calibrate", "method": "POST", "state_target": None},
-        "btn-generate-prompt": {"endpoint": "/api/v1/agent/context", "method": "POST", "state_target": None},
-        "btn-copy-context-brief": {"endpoint": "/api/v1/export-brief", "method": "POST", "state_target": None},
-        "btn-watch-mode-toggle": {"endpoint": "/api/v1/workspace/watcher/scan", "method": "POST", "state_target": None},
-        "btn-current-work-action": {"endpoint": "/api/v1/work/advance", "method": "POST", "state_target": None},
-        "btn-current-work-repair": {"endpoint": "/api/v1/work/advance", "method": "POST", "state_target": None},
-        "btn-current-work-rollback": {"endpoint": "/api/v1/work/advance", "method": "POST", "state_target": None}
+        "scan-btn": {"endpoint": "/api/v1/analyze", "method": "POST", "state_target": "READY"},
+        "empty-scan-btn": {"endpoint": "/api/v1/analyze", "method": "POST", "state_target": "READY"},
+        "browse-btn": {"endpoint": "/api/browse-folder", "method": "POST", "state_target": None},
+        "save-btn": {"endpoint": "/api/save-file", "method": "POST", "state_target": None},
+        "copy-brief": {"endpoint": "/api/v1/context-brief", "method": "POST", "state_target": None},
+        "studio-compile-btn": {"endpoint": "/api/v1/context-brief", "method": "POST", "state_target": None},
+        "studio-copy-btn": {"endpoint": "/api/v1/export-brief", "method": "POST", "state_target": None},
+        "studio-download-btn": {"endpoint": "/api/v1/export-brief", "method": "POST", "state_target": None},
+        "auditor-run-btn": {"endpoint": "/api/audit", "method": "POST", "state_target": None},
+        "graph-reload-btn": {"endpoint": "/api/dependency-graph", "method": "POST", "state_target": None},
+        "clear-filter-btn": {"endpoint": "/api/v1/overview", "method": "POST", "state_target": None},
+        "picker-use": {"endpoint": "/api/set-repo-root", "method": "POST", "state_target": None},
+        "btn-jump-graph": {"endpoint": "/api/dependency-graph", "method": "POST", "state_target": None},
+        "btn-jump-studio": {"endpoint": "/api/v1/context-brief", "method": "POST", "state_target": None},
+        "btn-jump-auditor": {"endpoint": "/api/audit", "method": "POST", "state_target": None},
     }
 
     # Client-Only UI Interaction Controls (Tabs, Zoom, Modals, Local Drawers)
@@ -485,6 +487,8 @@ class UIRealityCompiler:
             server_content = f.read()
 
         registered_routes: Set[str] = set()
+        for m in re.finditer(r'["\'](/api[^"\']*)["\']\s*:', server_content):
+            registered_routes.add(m.group(1))
         for m in re.finditer(r'(?:elif|if)\s+(?:req_path|parsed\.path|self\.path)\s*==\s*["\']([^"\']+)["\']', server_content):
             registered_routes.add(m.group(1))
 
@@ -547,12 +551,11 @@ class UIRealityCompiler:
         conflicts: List[str] = []
 
         PRIMARY_CTAS = {
-            "GLOBAL": "btn-connect-repo",
-            "OVERVIEW": "btn-browse-repo",
-            "STRUCTURE": "btn-refresh-graph",
-            "WORK_PLAN": "btn-create-task",
-            "AGENT_CONTEXT": "btn-copy-claude",
-            "VERIFY": "btn-run-tests"
+            "GLOBAL": "scan-btn",
+            "OVERVIEW": "save-btn",
+            "STRUCTURE": "graph-reload-btn",
+            "AGENT_CONTEXT": "studio-compile-btn",
+            "VERIFY": "auditor-run-btn"
         }
 
         by_stage: Dict[str, List[SpatialElement]] = {}

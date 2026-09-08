@@ -1256,6 +1256,9 @@ async function runCodeAudit() {
 
   try {
     const res = await api("/api/audit", payload);
+    if (!res.success) {
+      throw new Error(res.error || "Audit Incomplete");
+    }
     const anomalies = res.anomalies || [];
 
     const targetPath = payload.target_file || "";

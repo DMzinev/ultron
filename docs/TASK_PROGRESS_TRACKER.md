@@ -32,6 +32,19 @@
 
 ---
 
+## 2. Phase 2: Independent Verification & Modernization Follow-up
+
+| # | Task ID | Branch | Status | Commit Hash | Verified Acceptance Evidence |
+|:---|:---|:---|:---|:---|:---|
+| 19 | **P2-A1** | `agent/P2-A1-repair-import-breakage` | **COMPLETED** | `3f5ec28` | Import-time breakage repaired across models, orchestrator, routes, MCP; `errors=0` across full discovery (down from 40). Modern regression suite: 176/176 passed in 25.1s. |
+| 20 | **P2-A2** | `agent/P2-A2-repair-stale-ui-assertions` | **COMPLETED** | *(active)* | `python -m unittest discover -s ultron/tests -p "test_*.py"` → `Ran 731 tests in 489.008s: OK (skipped=9, failures=0, errors=0)`. 100% of all 38 failures resolved across 5 clusters. Modern suite: 176/176 passed. `server.py` at 296 lines (< 300). |
+| 21 | **P2-A3** | `agent/P2-A3-reconcile-file-counts` | **NOT STARTED** | — | Reconcile self-scan file count discrepancy (71 vs 148). |
+| 22 | **P2-B1** | `agent/P2-B1-single-source-test-command` | **NOT STARTED** | — | Single source-of-truth verification command + CI wiring. |
+| 23 | **P2-B2** | `agent/P2-B2-project-log-full-suite` | **NOT STARTED** | — | Standardized full-suite metrics reporting in PROJECT_LOG.md. |
+| 24 | **P2-C1** | `agent/P2-C1-empirical-confidence-weights` | **NOT STARTED** | — | Empirically calibrate 4-signal confidence weights against labeled datasets. |
+
+---
+
 ## 2. Directory & Component State History
 
 - `ultron/tests/fixtures/`:

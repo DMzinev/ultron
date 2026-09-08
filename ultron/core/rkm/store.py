@@ -28,9 +28,12 @@ class RepositoryStore:
             db_dir = os.path.dirname(self.db_path)
             os.makedirs(db_dir, exist_ok=True)
         
-        self.conn = sqlite3.connect(self.db_path)
+        self.conn = sqlite3.connect(self.db_path, timeout=30.0)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON;")
+        if self.db_path != ":memory:":
+            self.conn.execute("PRAGMA journal_mode = WAL;")
+            self.conn.execute("PRAGMA busy_timeout = 5000;")
         self._run_migrations()
         self._check_compatibility()
 

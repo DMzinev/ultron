@@ -45,7 +45,9 @@ def translate_dynamic_decision_to_plain_english(complexity: float, coupling: int
         score = round(min(100.0, raw_score * 10), 1)
         tier = "HIGH" if score >= 70.0 else ("MEDIUM" if score >= 30.0 else "LOW")
         action = "Review complexity and coupling metrics for potential refactoring."
-        breakdown = f"Calculated based on local metrics: Complexity={complexity}, Coupling={coupling}"
+        cc = int(complexity) if complexity else 0
+        cp = coupling or 0
+        breakdown = f"{cc} decision branches, {cp} connected callers"
     
     return {
         "plain_summary": f"Dynamic Architectural Risk: {score}/100 ({tier} Priority)",
@@ -185,6 +187,7 @@ def detailed_breakdown(packet) -> str:
         f"Detailed Risk Breakdown for {file_path}:\n"
         f"  Impact Score: {impact_score:.4f}\n"
         f"  Coupling Count: {coupling_count}\n"
+        f"  Blast Radius: {coupling_count} connected modules\n"
         f"  Formula: Impact = Complexity * (1 + Coupling)"
     )
 

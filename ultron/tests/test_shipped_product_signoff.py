@@ -53,11 +53,11 @@ class TestZeroJargonCompliance(unittest.TestCase):
         self.assertNotIn("Markov causal sequence", html)
         self.assertNotIn("Coupling (Efferent/Afferent)", html)
 
-        # Check for user-friendly terminology
-        self.assertIn("Decision Branches", html)
-        self.assertIn("Blast Radius", html)
-        self.assertIn("Repository Health Score Guide", html)
-        self.assertIn("1-Click Copy AI Prompt", html)
+        # Check for user-friendly terminology in C4 UI
+        self.assertIn("Health Score", html)
+        self.assertIn("blast radius", html)
+        self.assertIn("Agent Studio", html)
+        self.assertIn("Compile Agent Mission Package", html)
 
 
 class TestMultiAgentPromptExport(unittest.TestCase):

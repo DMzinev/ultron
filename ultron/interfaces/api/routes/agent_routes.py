@@ -5,6 +5,7 @@ Ultron REST API — Agent, AI & Design Oracle Route Mixin & Handlers
 import os
 import sys
 import json
+import hashlib
 import traceback
 import urllib.request
 import urllib.error
@@ -701,25 +702,46 @@ def handle_v1_agent_query(handler: Any) -> None:
         })
 
     elif query_type == "RISK_EXPLANATION":
+        role_val = getattr(target_node, "architectural_role", None) or (target_node.facts.get("architectural_role") if hasattr(target_node, "facts") else None) or "MODULE"
+        role_str = role_val.value if hasattr(role_val, "value") else str(role_val)
+        strat_val = getattr(target_node, "change_strategy", None) or (target_node.facts.get("change_strategy") if hasattr(target_node, "facts") else None) or "SAFE_TO_EDIT"
+        strat_str = strat_val.value if hasattr(strat_val, "value") else str(strat_val)
         evidence.append({
             "type": "risk_explanation",
             "metric": "architectural_role",
-            "value": target_node.architectural_role.value if hasattr(target_node.architectural_role, "value") else str(target_node.architectural_role),
-            "description": f"Node role: {target_node.architectural_role}, change strategy: {target_node.change_strategy}"
+            "value": role_str,
+            "description": f"Node role: {role_str}, change strategy: {strat_str}"
         })
+
+    unique_nodes = {n["id"]: n for n in nodes}
+    sorted_nodes = [unique_nodes[k] for k in sorted(unique_nodes.keys())]
+    sorted_edges = sorted(edges, key=lambda e: (e.get("source", ""), e.get("target", ""), e.get("relation", "")))
+
+    model_hash = getattr(manager, "model_hash", None) or (getattr(manager.graph, "graph_hash", None) if hasattr(manager, "graph") else None) or "sha256-canonical-model"
+    snapshot_id = getattr(manager, "snapshot_id", None) or f"snap-{hashlib.sha256(str(model_hash).encode('utf-8')).hexdigest()[:12]}"
+
+    telemetry = {
+        "node_count": len(sorted_nodes),
+        "edge_count": len(sorted_edges),
+        "evidence_count": len(evidence),
+        "query_depth": depth
+    }
 
     payload = {
         "success": True,
         "data": {
             "query_type": query_type,
+            "model_hash": model_hash,
+            "snapshot_id": snapshot_id,
             "target": target_node.to_dict(),
-            "nodes": nodes,
-            "edges": edges,
-            "evidence": evidence
+            "nodes": sorted_nodes,
+            "edges": sorted_edges,
+            "evidence": evidence,
+            "telemetry": telemetry
         },
         "error": None
     }
     handler.send_response(200)
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler.end_headers()
-    handler.wfile.write(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
+    handler.wfile.write(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8"))

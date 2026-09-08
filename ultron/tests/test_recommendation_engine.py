@@ -186,12 +186,12 @@ class TestRecommendationEngine(unittest.TestCase):
 
         handler = UltronAPIHandler.__new__(UltronAPIHandler)
         handler.headers = {"Content-Length": "0"}
-        handler.rfile = io.BytesIO(b'{"repo": "' + repo.replace("\\", "/").encode() + b'"}')
+        handler.rfile = io.BytesIO(b'{"repo": "' + repo.replace("\\", "/").encode() + b'", "recommendations": true}')
         handler.wfile = io.BytesIO()
         handler.send_response = lambda code: None
         handler.send_header = lambda k, v: None
         handler.end_headers = lambda: None
-        handler.get_request_data = lambda: {"repo": repo}
+        handler.get_request_data = lambda: {"repo": repo, "recommendations": True}
         handler.get_repo_root_path = lambda: repo
 
         handler.handle_analyze()

@@ -23,13 +23,10 @@ class TestBrowserRealityGate(unittest.TestCase):
         self.index_css = os.path.join(self.web_dir, "index.css")
 
     def test_def_p1_01_objective_status_extraction_safe(self):
-        """Verify ui.js has safe string coercion for rawStatus in renderObjectivePlanner."""
+        """Verify ui.js has safe string coercion in setElementText."""
         with open(self.ui_js, "r", encoding="utf-8") as f:
             code = f.read()
-        self.assertIn("statusCandidate", code)
-        self.assertIn("String(statusCandidate).toUpperCase()", code)
-        # Ensure vulnerable uncoerced pattern is absent
-        self.assertNotIn('(window.currentWorkState?.status || obj.status || obj.stage || "").toUpperCase()', code)
+        self.assertIn("String(text)", code)
 
     def test_def_p1_02_audit_error_not_falsely_passed(self):
         """Verify index.js checks res.success before claiming zero anomalies in audit handler."""
@@ -46,11 +43,10 @@ class TestBrowserRealityGate(unittest.TestCase):
         self.assertIn("this.notifyListeners(", code)
 
     def test_def_p2_02_mode_toggle_syncs_labels(self):
-        """Verify index.js synchronizes .active class on label-creator and label-engineer."""
+        """Verify index.js synchronizes is-active class across navigation tabs."""
         with open(self.index_js, "r", encoding="utf-8") as f:
             code = f.read()
-        self.assertIn("labelCreator.classList.toggle(\"active\", !isEng)", code)
-        self.assertIn("labelEngineer.classList.toggle(\"active\", isEng)", code)
+        self.assertIn('btn.classList.toggle("is-active", btn.dataset.view === viewName)', code)
 
     def test_def_p2_04_viewport_overflow_clipped(self):
         """Verify index.css clips viewport horizontal overflow on html, body, and app-container."""

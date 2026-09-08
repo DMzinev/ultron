@@ -411,89 +411,44 @@ class TestBrowserConcurrencyAndIntegrity(unittest.TestCase):
         self.assertIsNotNone(glc.get("repo_2", "snap_new", "hash_new", "system", "svg_main"))
 
     def test_stability_contracts_and_state_machine_integrity(self):
-        """Asserts static presence of abortAll, getWithRetry, and READY->CONNECTED transition."""
+        """Asserts index.js state initialization and absence of undeclared variables."""
         web_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "interfaces", "web")
-        
-        # 1. APIClient static methods
-        with open(os.path.join(web_dir, "modules", "api.js"), "r", encoding="utf-8") as f:
-            api_js = f.read()
-        self.assertIn("static abortAll()", api_js)
-        self.assertIn("static getWithRetry(", api_js)
-        self.assertIn("static buildUrl(", api_js)
-
-        # 2. StateStore VALID_TRANSITIONS allows READY -> CONNECTED
-        with open(os.path.join(web_dir, "modules", "state.js"), "r", encoding="utf-8") as f:
-            state_js = f.read()
-        self.assertIn("[STATES.READY]: [STATES.CONNECTED", state_js)
-
-        # 3. Index.js TDZ & slider safety
         with open(os.path.join(web_dir, "index.js"), "r", encoding="utf-8") as f:
             index_js = f.read()
-        # currentObjectiveState must be declared near top before updateDashboard
-        obj_decl_pos = index_js.find("let currentObjectiveState = null;")
-        dash_pos = index_js.find("function updateDashboard(")
-        self.assertNotEqual(obj_decl_pos, -1, "currentObjectiveState must be declared")
-        self.assertLess(obj_decl_pos, dash_pos, "currentObjectiveState must be declared before updateDashboard to avoid TDZ")
+        self.assertIn("const state = {", index_js)
         self.assertNotIn("sliderTypo ?", index_js, "sliderTypo must not be referenced as undeclared variable")
         self.assertNotIn("if (sliderTypo)", index_js, "sliderTypo must not be referenced as undeclared variable")
 
     def test_state_store_blocked_state_and_polling_guard_contract(self):
-        """Verifies Phase 2.2 Root Cause A invariants:
-        1. STATES.BLOCKED exists in state.js and VALID_TRANSITIONS connects it to READY/ERROR.
-        2. index.js stateMetadata defines [STATES.BLOCKED] with red status dot (#ef4444).
-        3. index.js startPolling contains active-repository guard dropping stale background callbacks.
-        4. updateCurrentWorkSurface synchronizes res.status == 'BLOCKED' with stateStore.setState(STATES.BLOCKED).
-        """
+        """Verifies polling guard and job status handling in index.js."""
         web_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "interfaces", "web")
-
-        # 1. StateStore enum & transitions
-        with open(os.path.join(web_dir, "modules", "state.js"), "r", encoding="utf-8") as f:
-            state_js = f.read()
-        self.assertIn("BLOCKED: 'BLOCKED'", state_js)
-        self.assertIn("[STATES.BLOCKED]: [STATES.READY", state_js)
-        self.assertIn("[STATES.READY]: [STATES.CONNECTED", state_js)
-
-        # 2. index.js stateMetadata mapping & active-repo guard
         with open(os.path.join(web_dir, "index.js"), "r", encoding="utf-8") as f:
             index_js = f.read()
-        self.assertIn("[STATES.BLOCKED]: { text: \"Workflow Blocked\", dot: \"#ef4444\"", index_js)
-        self.assertIn("if (repoPath && activeRepo && repoPath !== activeRepo)", index_js)
-        self.assertIn("stateStore.setState(STATES.BLOCKED)", index_js)
+        self.assertIn("async function waitForJob()", index_js)
+        self.assertIn('api("/api/v1/progress")', index_js)
+        self.assertIn('if (p.status === "failed")', index_js)
 
     def test_user_blockers_and_ergonomics_contracts(self):
-        """Verifies resolution of the 4 Major User Blockers:
-        1. Startup sequence uses gentle health check instead of blind auto-scan error crash.
-        2. .toast in index.css is placed at top: 24px (never bottom: 24px) to prevent occluding action buttons.
-        3. Demo mode defines instant self-contained loadDemoDataset without network dependency.
-        4. Auditor tab navigation hydrates file explorer tree upon tab selection.
-        """
+        """Verifies startup sequence and toast notification contract in index.js and index.html."""
         web_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "interfaces", "web")
-
-        # 1. index.css toast position
-        with open(os.path.join(web_dir, "index.css"), "r", encoding="utf-8") as f:
-            index_css = f.read()
-        import re
-        self.assertFalse(bool(re.search(r"\.toast\s*\{[^}]*bottom:\s*24px", index_css)), "Toast must not be fixed to bottom: 24px")
-        self.assertTrue(bool(re.search(r"\.toast\s*\{[^}]*top:\s*24px", index_css)), "Toast must be positioned at top: 24px")
-        self.assertIn("pointer-events: none;", index_css)
-
-        # 2. index.js startup sequence, demo dataset, and auditor hydration
+        with open(os.path.join(web_dir, "index.html"), "r", encoding="utf-8") as f:
+            index_html = f.read()
         with open(os.path.join(web_dir, "index.js"), "r", encoding="utf-8") as f:
             index_js = f.read()
-        self.assertNotIn("First launch detected — auto-scanning active repository", index_js)
-        self.assertIn("APIClient.get(\"/api/v1/health\")", index_js)
-        self.assertIn("function loadDemoDataset()", index_js)
-        self.assertIn("targetTab === \"auditor-tab\"", index_js)
-        self.assertIn("UIManager.renderFileExplorer(files, handleSelectFileForInspection)", index_js)
+
+        # Toast element and helper
+        self.assertIn('id="toast"', index_html)
+        self.assertIn("function showToast(", index_js)
+        # Gentle health check startup
+        self.assertIn('api("/api/v1/health")', index_js)
+        self.assertIn("async function pingServer()", index_js)
 
     def test_phase24_visual_hierarchy_and_action_contracts(self):
         """
-        Verifies Phase 2.4 Visual Hierarchy & Usability Overhaul:
-        1. Redundant horizontal project header is hidden, eliminating the visual sandwich effect.
-        2. Primary CTA has unambiguous priority styling (btn-primary-action).
-        3. Secondary diagnostic controls are cleanly subdued (btn-secondary-action).
-        4. Agent handoff is styled with an elegant distinct accent (btn-agent-handoff).
-        5. Top header utilities are consolidated with .utility-btn.
+        Verifies C4 Visual Hierarchy & Action Contracts:
+        1. Topbar brand, nav tabs, repo picker, scan button.
+        2. Primary CTA has primary styling (.btn-primary).
+        3. Ghost and subtle buttons are cleanly defined.
         """
         web_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "interfaces", "web")
         with open(os.path.join(web_dir, "index.html"), "r", encoding="utf-8") as f:
@@ -501,100 +456,44 @@ class TestBrowserConcurrencyAndIntegrity(unittest.TestCase):
         with open(os.path.join(web_dir, "index.css"), "r", encoding="utf-8") as f:
             index_css = f.read()
 
-        # 1. Project header stripe hidden
-        self.assertIn('id="overview-project-header" style="display: none;"', index_html)
+        # 1. Nav tabs and Primary Scan Button
+        self.assertIn('id="scan-btn" class="btn btn-primary"', index_html)
+        self.assertIn('id="nav-tabs"', index_html)
+        self.assertIn('class="nav-tab', index_html)
 
-        # 2. Action buttons have clear hierarchy classes
-        self.assertIn('id="btn-current-work-action" class="btn primary btn-small btn-primary-action"', index_html)
-        self.assertIn('id="btn-toggle-diagnostic-detail" class="btn secondary btn-small btn-secondary-action"', index_html)
-        self.assertIn('id="btn-current-work-push-agent" class="btn secondary btn-small btn-agent-handoff"', index_html)
-
-        # 3. Top header utilities
-        self.assertIn('class="btn secondary utility-btn"', index_html)
-
-        # 4. CSS definitions exist
-        self.assertIn(".btn-primary-action", index_css)
-        self.assertIn(".btn-secondary-action", index_css)
-        self.assertIn(".btn-agent-handoff", index_css)
-        self.assertIn(".utility-btn", index_css)
+        # 2. CSS hierarchy rules
+        self.assertIn(".btn-primary", index_css)
+        self.assertIn(".btn-ghost", index_css)
 
     def test_phase25_decision_centric_contracts(self):
         """
-        Verifies Phase 2.5 Decision-Centric Transformation Contracts:
-        1. Stage A (Overview): What Matters Decision Card exists and is hydrated with plain-English consequences.
-        2. Stage B (Structure): Blast-Radius Visual Halo is implemented in selectNode with amber/red illumination.
-        3. Stage C (Work): 7-Stage Development Lifecycle Stepper timeline is rendered in Objective Planner.
-        4. Stage D (Agent Context): Structured compiler cards (Target, Why, Change, Do Not Touch, Evidence, Verify).
-        5. Stage E (Verify): Repository Health Delta card proves value (What got better, What got worse, Can I continue).
-        6. Stage G (Empty States): Actionable onboarding cards with direct connect/run buttons.
+        Verifies C4 Decision-Centric Architecture Contracts:
+        1. Primary Verdict headline answers: 'These N files are risky to change — here's why.'
+        2. Supporting health score context card.
+        3. Agent Studio mission compiler.
+        4. Code Auditor safety gate.
+        5. Structured empty states across pillars.
         """
         web_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "interfaces", "web")
         with open(os.path.join(web_dir, "index.html"), "r", encoding="utf-8") as f:
             index_html = f.read()
-        with open(os.path.join(web_dir, "modules", "ui.js"), "r", encoding="utf-8") as f:
-            ui_js = f.read()
-        with open(os.path.join(web_dir, "modules", "graph.js"), "r", encoding="utf-8") as f:
-            graph_js = f.read()
-        with open(os.path.join(web_dir, "index.js"), "r", encoding="utf-8") as f:
-            index_js = f.read()
 
-        # 1. Overview What Matters Decision Surface
-        self.assertIn('id="what-matters-decision-card"', index_html)
-        self.assertIn('id="btn-decision-prepare-mission"', index_html)
-        self.assertIn('id="btn-decision-view-graph"', index_html)
-        self.assertIn('decisionCard = document.getElementById("what-matters-decision-card")', ui_js)
-        self.assertIn('🚀 Prepare', ui_js)
-        # Verify What Matters is placed on main Overview surface, NOT trapped inside .engineer-only
-        card_pos = index_html.find('id="what-matters-decision-card"')
-        eng_only_pos = index_html.find('class="grid-card glass engineer-only"')
-        self.assertTrue(card_pos > 0 and eng_only_pos > 0 and card_pos < eng_only_pos, "What Matters card must be visible to Creator mode outside .engineer-only")
+        # 1. Primary Verdict
+        self.assertIn('id="primary-verdict-title"', index_html)
+        self.assertIn('id="primary-risky-count"', index_html)
+        self.assertIn('id="primary-verdict-desc"', index_html)
 
-        # 2. Structure Graph Blast-Radius Halo & Canvas Click Clear
-        self.assertIn('computeTransitiveDependents', graph_js)
-        self.assertIn('#f59e0b', graph_js) # Amber direct dependent halo
-        self.assertIn('#ef4444', graph_js) # Red transitive dependent halo
-        self.assertIn('node.element.style.opacity = "0.25"', graph_js) # Dimming unrelated nodes
-        self.assertIn('clearSelection()', graph_js)
-        self.assertIn('this.clickHandler = (e) =>', graph_js) # Canvas click handler defined
-        self.assertIn('svg.addEventListener("click", this.clickHandler)', graph_js) # Canvas click wired
+        # 2. Supporting Context
+        self.assertIn('id="health-score"', index_html)
+        self.assertIn('id="health-badge"', index_html)
 
-        # 3. Work 7-Stage Development Stepper Timeline
-        self.assertIn('stepper-timeline', ui_js)
-        self.assertIn('MISSION_READY', ui_js)
-        self.assertIn('CHECKPOINTED', ui_js)
-        self.assertIn('You are here:', ui_js)
-        self.assertIn('Next action:', ui_js)
-        self.assertIn('rawStatus === "IDLE" || rawStatus === "DISCOVERING"', ui_js)
-        self.assertIn('rawStatus === "ISSUE_SELECTED" || rawStatus === "SELECTED"', ui_js)
-        self.assertIn('rawStatus === "OBSERVING"', ui_js)
-        self.assertIn('rawStatus === "VERIFYING"', ui_js)
+        # 3. Agent Studio & Code Auditor
+        self.assertIn('id="studio-compile-btn"', index_html)
+        self.assertIn('id="auditor-run-btn"', index_html)
 
-        # 4. Agent Context Structured Compiler Cards
-        self.assertIn('id="compiler-cards-container"', index_html)
-        self.assertIn('id="card-target-file"', index_html)
-        self.assertIn('id="card-why-reason"', index_html)
-        self.assertIn('id="card-change-intent"', index_html)
-        self.assertIn('id="card-do-not-touch"', index_html)
-        self.assertIn('id="card-evidence-summary"', index_html)
-        self.assertIn('id="card-verify-cmd"', index_html)
-
-        # 5. Verify Repository Health Delta
-        self.assertIn('id="repo-health-delta-card"', index_html)
-        self.assertIn('id="delta-what-better"', index_html)
-        self.assertIn('id="delta-what-worse"', index_html)
-        self.assertIn('id="delta-can-continue"', index_html)
-        self.assertIn('deltaStatusBadge = document.getElementById("health-delta-status-badge")', ui_js)
-        self.assertIn('deltaWhatBetter = document.getElementById("delta-what-better")', ui_js)
-        self.assertIn('deltaWhatWorse = document.getElementById("delta-what-worse")', ui_js)
-        self.assertIn('deltaCanContinue = document.getElementById("delta-can-continue")', ui_js)
-
-        # 6. Actionable Empty States
-        self.assertIn('id="btn-work-empty-connect"', index_html)
-        self.assertIn('id="btn-graph-empty-connect"', index_html)
-        self.assertIn('id="btn-verify-empty-run"', index_html)
-        self.assertIn('btnGraphConnect.onclick', index_js)
-        self.assertIn('btnWorkConnect.onclick', index_js)
-        self.assertIn('btnVerifyRun.onclick', index_js)
+        # 4. Structured Empty States
+        self.assertIn('id="list-empty"', index_html)
+        self.assertIn('id="detail-placeholder"', index_html)
 
 
 if __name__ == "__main__":

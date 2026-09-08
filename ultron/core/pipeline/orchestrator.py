@@ -63,7 +63,9 @@ def reconstruct_codebase_from_rkm(store: RepositoryStore, run_id: Any) -> tuple[
         codebase = {}
         risks = []
         for f in file_records:
-            codebase[f.path] = {"complexity": f.complexity, "definitions": [], "callers": []}
+            comp = int(getattr(f, "complexity", 1) or 1)
+            codebase[f.path] = {"complexity": comp, "definitions": [], "callers": []}
+            role_val = getattr(f, "role", "INTERNAL") or "INTERNAL"
             risks.append(AnalysisPacket(
                 file_path=f.path,
                 impact_score=0.0,
@@ -71,8 +73,10 @@ def reconstruct_codebase_from_rkm(store: RepositoryStore, run_id: Any) -> tuple[
                 mk_r=0.0,
                 delta_cest=0.0,
                 confidence=1.0,
-                complexity=int(f.complexity) if f.complexity else 1,
-                level="LOW"
+                complexity=comp,
+                level="LOW",
+                architectural_role=role_val,
+                change_strategy="SAFE_EDIT"
             ))
         return codebase, risks
     except Exception as e:

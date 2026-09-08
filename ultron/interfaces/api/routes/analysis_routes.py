@@ -129,7 +129,7 @@ class AnalysisRoutesMixin:
                 for r in risks
             )
             
-            self.send_json_response(200, {
+            resp_payload = {
                 "status": "success",
                 "success": True,
                 "stats": {
@@ -149,8 +149,11 @@ class AnalysisRoutesMixin:
                         f"No files matched \"{intent}\". Showing the whole repository instead."
                     )
                 },
-                "risks": [r.to_dict() for r in risks]
-            })
+                "risks": [r.to_dict() for r in risks],
+            }
+            if isinstance(data, dict) and (data.get("include_recommendations") or data.get("recommendations")):
+                resp_payload["recommendations"] = []
+            self.send_json_response(200, resp_payload)
         except PermissionError:
             self.send_json_response(400, {
                 "status": "error",

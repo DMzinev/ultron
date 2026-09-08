@@ -310,17 +310,16 @@ class TestHTMLContainsPushButtonAndJudgment(unittest.TestCase):
         html_path = os.path.join(ROOT, "ultron", "interfaces", "web", "index.html")
         with open(html_path, "r", encoding="utf-8") as f:
             html = f.read()
-        self.assertIn("btn-current-work-push-agent", html)
-        self.assertIn("Send to Agent Context", html)
+        self.assertIn("studio-compile-btn", html)
+        self.assertIn("Compile Agent Mission Package", html)
 
     def test_human_judgment_card_exists(self):
         html_path = os.path.join(ROOT, "ultron", "interfaces", "web", "index.html")
         with open(html_path, "r", encoding="utf-8") as f:
             html = f.read()
-        self.assertIn("human-judgment-card", html)
-        self.assertIn("btn-judgment", html)
-        self.assertIn("btn-submit-judgment", html)
-        self.assertIn("input-judgment-rationale", html)
+        self.assertIn("auditor-shield", html)
+        self.assertIn("auditor-run-btn", html)
+        self.assertIn("auditor-verdict-title", html)
 
     def test_no_infinite_spinner_on_work_tab(self):
         html_path = os.path.join(ROOT, "ultron", "interfaces", "web", "index.html")

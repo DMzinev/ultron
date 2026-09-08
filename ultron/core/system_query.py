@@ -102,6 +102,47 @@ class SystemQueryEngine:
         tests = [node for node in dependents if node.type == SystemNodeType.TEST or "test" in node.file_path]
         return tests
 
+    def get_downstream_dependents(self, target: str) -> List[str]:
+        """Returns canonical string IDs of outgoing dependencies."""
+        deps = self.find_dependencies(target, depth=1)
+        return [node.id for node in deps]
+
+    def get_upstream_callers(self, target: str) -> List[str]:
+        """Returns canonical string IDs of incoming callers/dependents."""
+        callers = self.find_callers(target)
+        return [node.id for node in callers]
+
+    def trace_blast_radius(self, target: str, max_depth: int = 2) -> Dict[str, Any]:
+        """Traces blast radius for an entity up to max_depth returning affected node IDs and trace path edges."""
+        start_node = self.find_node(target)
+        if not start_node:
+            return {"affected_nodes": [], "trace_path": []}
+
+        visited: Set[str] = {start_node.id}
+        queue = [(start_node.id, 0)]
+        trace_path = []
+
+        while queue:
+            curr_id, curr_depth = queue.pop(0)
+            if curr_depth >= max_depth:
+                continue
+
+            for edge in self.graph.edges:
+                if edge.target_id == curr_id:
+                    trace_path.append({
+                        "source": edge.source_id,
+                        "target": edge.target_id,
+                        "relation": edge.type.value if hasattr(edge.type, "value") else str(edge.type)
+                    })
+                    if edge.source_id not in visited:
+                        visited.add(edge.source_id)
+                        queue.append((edge.source_id, curr_depth + 1))
+
+        return {
+            "affected_nodes": sorted(list(visited)),
+            "trace_path": trace_path
+        }
+
     def get_agent_context(self, target_path: str, depth: int = 2) -> Dict[str, Any]:
         """
         Level 4 Primitive: Targeted Agent Context Extraction.

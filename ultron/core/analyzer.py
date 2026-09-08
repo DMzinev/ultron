@@ -18,6 +18,8 @@ class CallVisitor(ast.NodeVisitor):
             self.calls.append(node.func.attr)
         self.generic_visit(node)
 
+MAX_PARSE_SIZE = 1024 * 1024
+
 def analyze_file(filepath):
     """
     Parses a python file and returns:
@@ -25,6 +27,8 @@ def analyze_file(filepath):
     - definitions: list of defined functions/classes with metadata and calls
     """
     try:
+        if os.path.exists(filepath) and os.path.getsize(filepath) > MAX_PARSE_SIZE:
+            return {'imports': [], 'definitions': [], 'skipped': 'file_size_limit_exceeded'}
         with open(filepath, 'r', encoding='utf-8-sig') as f:
             source = f.read()
         tree = ast.parse(source)
@@ -108,37 +112,64 @@ def build_dependency_graph(codebase, granularity="all"):
         mod_path = norm_f[:-3].replace("/", ".") if norm_f.endswith(".py") else norm_f.replace("/", ".")
         mod_map[mod_path] = norm_f
 
-    # 2. Map definition names to their defining file and metadata
-    def_map = {}
+    # 2. Map definition names to their defining files and metadata (multimap)
+    defs_by_name = {}
+    local_defs_by_file = {}
     for rel_path, analysis in codebase.items():
         norm_rel = rel_path.replace("\\", "/")
+        local_defs_by_file[norm_rel] = set()
         for defn in analysis.get('definitions', []):
             name = defn.get('name')
-            def_map[name] = {
+            item = {
                 'file': norm_rel,
                 'type': defn.get('type'),
                 'complexity': defn.get('complexity', 1) if defn.get('type') == 'function' else 1
             }
+            defs_by_name.setdefault(name, []).append(item)
+            local_defs_by_file[norm_rel].add(name)
             if defn.get('type') == 'class':
                 for method in defn.get('methods', []):
                     m_name = method.get('name')
                     full_m_name = f"{name}.{m_name}"
-                    def_map[full_m_name] = {
+                    m_item = {
                         'file': norm_rel,
                         'type': 'method',
                         'complexity': 1
                     }
-                    def_map[m_name] = {
-                        'file': norm_rel,
-                        'type': 'method',
-                        'complexity': 1
-                    }
+                    defs_by_name.setdefault(full_m_name, []).append(m_item)
+                    defs_by_name.setdefault(m_name, []).append(m_item)
+                    local_defs_by_file[norm_rel].add(full_m_name)
+                    local_defs_by_file[norm_rel].add(m_name)
+
+    def _resolve_call_target(caller_file: str, call_name: str, file_imports: list):
+        if call_name in local_defs_by_file.get(caller_file, set()):
+            return caller_file
+        candidates = defs_by_name.get(call_name, [])
+        if not candidates:
+            return None
+        for cand in candidates:
+            c_file = cand['file']
+            if c_file == caller_file:
+                return c_file
+            c_base = os.path.splitext(os.path.basename(c_file))[0]
+            c_mod = c_file[:-3].replace('/', '.') if c_file.endswith('.py') else c_file.replace('/', '.')
+            is_imported = any(
+                imp == call_name or imp.endswith(f".{call_name}") or
+                imp == c_base or imp.startswith(f"{c_base}.") or
+                imp == c_mod or imp.startswith(f"{c_mod}.") or
+                (len(c_base) > 3 and c_base in imp)
+                for imp in file_imports
+            )
+            if is_imported:
+                return c_file
+        return None
 
     symbol_ids = set()
 
     # 3. Add nodes and links
     for rel_path, analysis in codebase.items():
         norm_rel = rel_path.replace("\\", "/")
+        file_imports = analysis.get('imports', [])
         
         # Add file node
         file_node = {
@@ -149,7 +180,7 @@ def build_dependency_graph(codebase, granularity="all"):
         file_nodes.append(file_node)
         
         # File imports -> File links
-        for imp in analysis.get('imports', []):
+        for imp in file_imports:
             parts = imp.split('.')
             matched_target = None
             for i in range(len(parts), 0, -1):
@@ -200,8 +231,8 @@ def build_dependency_graph(codebase, granularity="all"):
             
             # Process calls inside definitions
             for call in defn.get('calls', []):
-                if call in def_map:
-                    target_file = def_map[call]['file']
+                target_file = _resolve_call_target(norm_rel, call, file_imports)
+                if target_file:
                     target_id = f"{target_file}:{call}"
                     call_link = {
                         'source': node_id,
@@ -237,8 +268,8 @@ def build_dependency_graph(codebase, granularity="all"):
                     
                     # Link method calls
                     for call in method.get('calls', []):
-                        if call in def_map:
-                            target_file = def_map[call]['file']
+                        target_file = _resolve_call_target(norm_rel, call, file_imports)
+                        if target_file:
                             target_id = f"{target_file}:{call}"
                             m_call_link = {
                                 'source': m_node_id,

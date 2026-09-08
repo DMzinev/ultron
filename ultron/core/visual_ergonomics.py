@@ -184,10 +184,10 @@ class VisualErgonomicsAuditor:
         Validates that all major view containers contain explicit, legible empty state fallback messaging.
         """
         required_empty_containers = [
-            ("file-risk-tbody", "Risk Matrix Table Empty State"),
-            ("creator-heatmap-grid", "Creator Heatmap Empty State"),
+            ("list-empty", "Risk List Empty State"),
+            ("detail-placeholder", "File Detail Placeholder Empty State"),
             ("graph-empty-state", "Dependency Graph Empty State"),
-            ("report-calibration-tbody", "Calibration Report Empty State"),
+            ("auditor-anomalies-list", "Code Auditor Idle State"),
         ]
 
         results = []

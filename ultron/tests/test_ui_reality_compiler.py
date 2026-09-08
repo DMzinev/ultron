@@ -46,7 +46,7 @@ class TestUIRealityCompiler(unittest.TestCase):
     def test_fault_injection_missing_dom_id(self):
         """Fault injection: Asserts missing DOM ID in HTML is flagged as a contract violation."""
         synthetic_html = "<div><button id='btn-other'>Click</button></div>"
-        synthetic_js = "document.getElementById('btn-load-repo').onclick = () => {};"
+        synthetic_js = "document.getElementById('scan-btn').onclick = () => {};"
         registered_routes = {"/api/v1/analyze"}
 
         violations, broken, _ = UIRealityCompiler.verify_interaction_contracts(
@@ -56,7 +56,7 @@ class TestUIRealityCompiler(unittest.TestCase):
 
     def test_fault_injection_missing_js_handler(self):
         """Fault injection: Asserts DOM element without JS listener is flagged."""
-        synthetic_html = "<div><button id='btn-load-repo'>Load</button></div>"
+        synthetic_html = "<div><button id='scan-btn'>Load</button></div>"
         synthetic_js = "// Empty JS without handler"
         registered_routes = {"/api/v1/analyze"}
 
@@ -67,8 +67,8 @@ class TestUIRealityCompiler(unittest.TestCase):
 
     def test_fault_injection_unregistered_backend_route(self):
         """Fault injection: Asserts missing backend route is detected."""
-        synthetic_html = "<div><button id='btn-load-repo'>Load</button></div>"
-        synthetic_js = "document.getElementById('btn-load-repo').onclick = () => {};"
+        synthetic_html = "<div><button id='scan-btn'>Load</button></div>"
+        synthetic_js = "document.getElementById('scan-btn').onclick = () => {};"
         registered_routes = set()  # Empty routes
 
         violations, broken, _ = UIRealityCompiler.verify_interaction_contracts(

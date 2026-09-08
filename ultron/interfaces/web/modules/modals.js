@@ -62,7 +62,7 @@ export class ModalManager {
     }
 
     static closeAll() {
-        document.querySelectorAll(".modal-backdrop, .drawer-sidebar").forEach(el => {
+        document.querySelectorAll(".modal-backdrop, .drawer-sidebar, .modal-overlay, .evidence-drawer, .drawer-backdrop").forEach(el => {
             el.classList.add("hidden");
         });
     }
