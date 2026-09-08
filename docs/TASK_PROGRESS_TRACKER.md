@@ -2,8 +2,8 @@
 
 **Single Source of Truth**: `docs/AGENT_EXECUTION_PLAN.md`  
 **Total Planned Tasks**: 18  
-**Completed**: 14 / 18 (Tasks A1, A2, C3, A3, A4, A5, B1, B2, B3, B4, C1, C2, C4, D1)  
-**Current Active Task**: D2 (`agent/D2-contract-ci-gate`)
+**Completed**: 15 / 18 (Tasks A1, A2, C3, A3, A4, A5, B1, B2, B3, B4, C1, C2, C4, D1, D2)  
+**Current Active Task**: D3 (`agent/D3-mcp-parity`)
 
 ---
 
@@ -25,8 +25,8 @@
 | 12 | **C2** | `agent/C2-violation-to-fix` | **COMPLETED** | `075ee24` | `python -m unittest ultron.tests.test_violation_to_fix` → 12/12 passed in 0.001s; 17 route contract/signal tests passed; 176 regression tests passed in 17.11s; 1-click violation → file detail, graph node, and fix mission verified |
 | 13 | **C4** | `agent/C4-dashboard-hierarchy` | **COMPLETED** | `9ef8e6a` | `python -m unittest ultron.tests.test_dashboard_hierarchy` → 18/18 passed in 0.001s; 82 cross-module integration tests passed in 16.60s; 176 regression tests passed in 15.71s; primary verdict above fold, supporting context card, 3-part empty states, and keyboard navigation verified |
 | 14 | **D1** | `agent/D1-mission-envelope-quality` | **COMPLETED** | `357e12c` | `python -m unittest ultron.tests.test_ai_handoff` → 10/10 passed in 1.686s; 91 combined modern tests passed in 10.76s; 176 regression tests passed in 16.50s; all 7 envelope fields verified across fixture repos |
-| 15 | **D2** | `agent/D2-contract-ci-gate` | **NEXT** | - | Machine-readable contract and CI gate |
-| 16 | **D3** | `agent/D3-mcp-parity` | PENDING | - | Full MCP stdio tool parity |
+| 15 | **D2** | `agent/D2-contract-ci-gate` | **COMPLETED** | `e2e558e` | `python -m unittest ultron.tests.test_ci_gate_contract` → 11/11 passed in 8.015s; `ultron brief <file> --json` versioned contract (`schema_version: "1.0.0"`); `ultron gate` exit code 0/1 enforcement on `--max-high` & `--min-health`; spec-compliant GHA annotations emitted |
+| 16 | **D3** | `agent/D3-mcp-parity` | **NEXT** | - | Full MCP stdio tool parity |
 | 17 | **E1** | `agent/E1-install-first-run` | PENDING | - | First-run setup & zero-config verification |
 | 18 | **E2** | `agent/E2-docs-match-reality` | PENDING | - | Documentation strictly matches real shipped system |
 
