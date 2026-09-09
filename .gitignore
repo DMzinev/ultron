@@ -28,7 +28,6 @@ build/
 *.egg-info/
 
 # Internal development artifacts (not shipped)
-.agents/
 .synapse/
 scratch/
 synapse_project
@@ -36,11 +35,6 @@ walkthrough.md
 ultron/walkthrough.md
 
 # Internal process documents
-EXECUTION_PLAN.md
-PROJECT_LOG.md
-PROTOCOL.md
-ROADMAP.md
-ROADMAP_CORRECTIONS.md
 RELEASE_CHECKLIST.md
 RELEASE_READINESS_DASHBOARD.md
 release_report.json
@@ -84,6 +78,7 @@ docs/audits/legacy_phase_reports/
 *_MATRIX.json
 *_CENSUS.md
 *_LOG.md
+!PROJECT_LOG.md
 *_LEDGER.md
 *_REGISTER.md
 *_REALITY.json
