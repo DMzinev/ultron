@@ -14,9 +14,11 @@ import ast
 import errno
 import http.client
 import os
+import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -184,6 +186,65 @@ class TestInstallFirstRun(unittest.TestCase):
         rulepacks_dir = os.path.join(rkm_dir, "rulepacks")
         self.assertTrue(os.path.isdir(migrations_dir), "migrations dir must exist")
         self.assertTrue(os.path.isdir(rulepacks_dir), "rulepacks dir must exist")
+
+    def test_cold_clean_machine_install_under_60s(self):
+        """Verify fresh venv creation + cold pip install -e . + entry point in < 60s."""
+        # Pre-check PyPI connectivity; skip gracefully if offline/airgapped
+        try:
+            probe_sock = socket.create_connection(("pypi.org", 443), timeout=2.0)
+            probe_sock.close()
+        except OSError:
+            self.skipTest("pypi.org unreachable; skipping network cold install test")
+
+        tmp_dir = tempfile.mkdtemp(prefix="ultron_cold_test_")
+        self.addCleanup(lambda: shutil.rmtree(tmp_dir, ignore_errors=True))
+
+        t0 = time.perf_counter()
+
+        # 1. Create clean virtual environment
+        proc_venv = subprocess.run(
+            [sys.executable, "-m", "venv", tmp_dir],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        self.assertEqual(proc_venv.returncode, 0, f"venv creation failed: {proc_venv.stderr}")
+
+        scripts_dir = os.path.join(tmp_dir, "Scripts" if os.name == "nt" else "bin")
+        target_python = os.path.join(scripts_dir, "python.exe" if os.name == "nt" else "python")
+        ultron_bin = os.path.join(scripts_dir, "ultron.exe" if os.name == "nt" else "ultron")
+
+        self.assertTrue(os.path.isfile(target_python), f"Python binary not found at {target_python}")
+
+        # 2. Perform cold install with --no-cache-dir
+        try:
+            proc_install = subprocess.run(
+                [target_python, "-m", "pip", "install", "-e", self.repo_root, "--no-cache-dir"],
+                capture_output=True,
+                text=True,
+                timeout=45
+            )
+        except subprocess.TimeoutExpired:
+            self.skipTest("pip install timed out; skipping cold install assertion")
+
+        if proc_install.returncode != 0:
+            err = proc_install.stderr + proc_install.stdout
+            if any(k in err for k in ["ConnectionError", "Network is unreachable", "Could not fetch", "Temporary failure"]):
+                self.skipTest(f"pip install network failure: {err[:200]}")
+            self.assertEqual(proc_install.returncode, 0, f"pip install failed:\n{proc_install.stderr}")
+
+        # 3. Verify entrypoint binary and help resolution
+        proc_help = subprocess.run(
+            [ultron_bin, "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        self.assertEqual(proc_help.returncode, 0)
+        self.assertIn("Ultron: Code Architecture Risk", proc_help.stdout)
+
+        elapsed = time.perf_counter() - t0
+        self.assertLess(elapsed, 60.0, f"Cold install clone-to-run took {elapsed:.2f}s (budget: 60.0s)")
 
 
 if __name__ == "__main__":

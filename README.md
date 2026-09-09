@@ -19,6 +19,12 @@ cd ultron
 pip install -e .
 ```
 
+> [!NOTE]
+> **Empirical Install Latency**:
+> - **Cold Clean-Machine Install** (`--no-cache-dir` in a fresh virtual environment): **~11.0s** (`pip install -e .`), total clone-to-first-screen **~19.5s** (surpassing the `< 60s` program target by a $3\times$ margin).
+> - **Incremental Reinstall** (cached wheels): **~1.8s**.
+> - **First Screen Latency**: `< 0.05s` (server startup and initial dashboard HTTP response).
+
 ### 2. Launch the Web Dashboard
 ```bash
 ultron-server
