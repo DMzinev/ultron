@@ -23,6 +23,42 @@ from .metrics import get_file_complexity
 
 
 # ---------------------------------------------------------------------------
+# 4-Signal Confidence Model & Epistemic Truth Engine Constants
+# See docs/calibration/CONFIDENCE_WEIGHT_CALIBRATION.md for empirical grounding.
+# ---------------------------------------------------------------------------
+
+CONFIDENCE_WEIGHTS = {
+    "ast": 0.35,
+    "coupling": 0.25,
+    "churn": 0.15,
+    "coverage": 0.25,
+}
+
+CONFIDENCE_METADATA = {
+    "ast": {
+        "weight": 0.35,
+        "tier": "OBSERVED",
+        "source": "AST Syntactic Complexity (McCabe / Block Nesting)",
+    },
+    "coupling": {
+        "weight": 0.25,
+        "tier": "DERIVED",
+        "source": "Dependency Coupling & Cycle Topology (Imports / Callers)",
+    },
+    "churn": {
+        "weight": 0.15,
+        "tier": "INFERRED",
+        "source": "Git Churn & Bug-Fix Frequency (180-day History)",
+    },
+    "coverage": {
+        "weight": 0.25,
+        "tier": "VERIFIED",
+        "source": "Test Line Coverage (Cobertura XML / .coverage SQLite)",
+    },
+}
+
+
+# ---------------------------------------------------------------------------
 # Public-module detection
 # ---------------------------------------------------------------------------
 
@@ -455,10 +491,10 @@ def evaluate_risks(codebase, target_files, intent="", repo_path="", os=os):
                 "status": "active" if churn_active else "unavailable"
             }),
             signals={
-                "ast":      {"status": "active",                                          "weight": 0.35},
-                "coupling": {"status": "active",                                          "weight": 0.25},
-                "churn":    {"status": "active" if churn_active else "unavailable",        "weight": 0.15},
-                "coverage": {"status": "active" if coverage_active else "unavailable",     "weight": 0.25},
+                "ast":      {"status": "active",                                          "weight": CONFIDENCE_WEIGHTS["ast"],      "tier": CONFIDENCE_METADATA["ast"]["tier"]},
+                "coupling": {"status": "active",                                          "weight": CONFIDENCE_WEIGHTS["coupling"], "tier": CONFIDENCE_METADATA["coupling"]["tier"]},
+                "churn":    {"status": "active" if churn_active else "unavailable",        "weight": CONFIDENCE_WEIGHTS["churn"],    "tier": CONFIDENCE_METADATA["churn"]["tier"]},
+                "coverage": {"status": "active" if coverage_active else "unavailable",     "weight": CONFIDENCE_WEIGHTS["coverage"], "tier": CONFIDENCE_METADATA["coverage"]["tier"]},
             }
         ))
 
