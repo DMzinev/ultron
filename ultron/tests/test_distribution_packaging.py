@@ -18,7 +18,7 @@ import json
 import subprocess
 import tempfile
 import importlib
-from io import BytesIO
+from io import BytesIO, StringIO
 from unittest.mock import patch, MagicMock
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -334,7 +334,8 @@ def sample_func(a, b):
         import launcher
         
         with patch("ultron.interfaces.server.serve") as mock_serve, \
-             patch("launcher._open_browser_delayed") as mock_browser:
+             patch("launcher._open_browser_delayed") as mock_browser, \
+             patch("sys.stdout", new_callable=StringIO):
             
             launcher.run_dashboard_server(port=8000, repo_path=REPO_ROOT, open_browser=False)
             mock_serve.assert_called_once_with(port=8000, auto_fallback=False, target_repo=REPO_ROOT)
@@ -342,7 +343,8 @@ def sample_func(a, b):
 
         # Test port retry on OSError
         with patch("ultron.interfaces.server.serve", side_effect=[OSError("Address already in use"), None]) as mock_serve, \
-             patch("launcher._open_browser_delayed") as mock_browser:
+             patch("launcher._open_browser_delayed") as mock_browser, \
+             patch("sys.stdout", new_callable=StringIO):
             
             launcher.run_dashboard_server(port=8000, repo_path=REPO_ROOT, open_browser=True)
             self.assertEqual(mock_serve.call_count, 2)
@@ -355,9 +357,10 @@ def sample_func(a, b):
                  patch("ultron.interfaces.server.UltronAPIHandler"):
                 
                 # Mock serve_forever so it returns immediately
-                with patch("http.server.HTTPServer.serve_forever", return_value=None):
+                with patch("http.server.HTTPServer.serve_forever", return_value=None), \
+                     patch("sys.stdout", new_callable=StringIO):
                     try:
-                        server.serve(port=65432, auto_fallback=False, target_repo=tmp_target)
+                        server.serve(port=0, auto_fallback=False, target_repo=tmp_target)
                     except Exception as e:
                         # Even if socket fails to bind in test sandbox, verify no TypeError was raised
                         self.assertNotIsInstance(e, TypeError, f"serve() must accept target_repo: {e}")

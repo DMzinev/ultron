@@ -1,3 +1,4 @@
+import io
 import os
 import sys
 import unittest
@@ -96,38 +97,41 @@ class TestStartScript(unittest.TestCase):
             mock_thread.assert_called_once()
 
     def test_serve_port_cases(self):
-        # 1. Normal exit
-        with patch("ultron.interfaces.server.serve", return_value=None), patch("start._open_browser_delayed"):
-            status = start._serve_port(8000)
-            self.assertEqual(status, "STOPPED")
+        with patch("sys.stdout", new_callable=io.StringIO):
+            # 1. Normal exit
+            with patch("ultron.interfaces.server.serve", return_value=None), patch("start._open_browser_delayed"):
+                status = start._serve_port(8000)
+                self.assertEqual(status, "STOPPED")
 
-        # 2. Port in use
-        in_use_err = OSError("Address already in use")
-        with patch("ultron.interfaces.server.serve", side_effect=in_use_err), patch("start._open_browser_delayed"):
-            status = start._serve_port(8000)
-            self.assertEqual(status, "IN_USE")
+            # 2. Port in use
+            in_use_err = OSError("Address already in use")
+            with patch("ultron.interfaces.server.serve", side_effect=in_use_err), patch("start._open_browser_delayed"):
+                status = start._serve_port(8000)
+                self.assertEqual(status, "IN_USE")
 
-        # 3. KeyboardInterrupt
-        with patch("ultron.interfaces.server.serve", side_effect=KeyboardInterrupt), patch("start._open_browser_delayed"):
-            status = start._serve_port(8000)
-            self.assertEqual(status, "STOPPED")
+            # 3. KeyboardInterrupt
+            with patch("ultron.interfaces.server.serve", side_effect=KeyboardInterrupt), patch("start._open_browser_delayed"):
+                status = start._serve_port(8000)
+                self.assertEqual(status, "STOPPED")
 
-        # 4. Other exception
-        with patch("ultron.interfaces.server.serve", side_effect=ValueError("Bad arg")), patch("start._open_browser_delayed"):
-            status = start._serve_port(8000)
-            self.assertEqual(status, "FAILED")
+            # 4. Other exception
+            with patch("ultron.interfaces.server.serve", side_effect=ValueError("Bad arg")), patch("start._open_browser_delayed"):
+                status = start._serve_port(8000)
+                self.assertEqual(status, "FAILED")
 
     def test_run_server_loop(self):
-        with patch("start._serve_port", side_effect=["IN_USE", "STOPPED"]):
-            success = start._run_server_loop([8000, 8001])
-            self.assertTrue(success)
+        with patch("sys.stdout", new_callable=io.StringIO):
+            with patch("start._serve_port", side_effect=["IN_USE", "STOPPED"]):
+                success = start._run_server_loop([8000, 8001])
+                self.assertTrue(success)
 
-        with patch("start._serve_port", return_value="IN_USE"):
-            success = start._run_server_loop([8000, 8001])
-            self.assertFalse(success)
+            with patch("start._serve_port", return_value="IN_USE"):
+                success = start._run_server_loop([8000, 8001])
+                self.assertFalse(success)
 
     def test_launch_ultron(self):
-        with patch("start._safe_reconfigure_console") as m_rec, \
+        with patch("sys.stdout", new_callable=io.StringIO), \
+             patch("start._safe_reconfigure_console") as m_rec, \
              patch("start._init_rkm", return_value=None) as m_rkm, \
              patch("start._print_executive_summary") as m_sum, \
              patch("start._run_server_loop", return_value=True) as m_loop:

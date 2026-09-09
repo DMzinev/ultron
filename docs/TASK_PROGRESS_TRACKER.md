@@ -1,9 +1,9 @@
 # Ultron — Lifetime Activity & Task Progress Tracker
 
-**Single Source of Truth**: `docs/AGENT_EXECUTION_PLAN.md` & `docs/AGENT_EXECUTION_PLAN_PHASE2.md`  
-**Total Planned Tasks**: 26 (18 Phase 1 + 8 Phase 2)  
-**Completed**: 26 / 26 (Phase 1: A1–E2; Phase 2: P2-A1–P2-D1) — ALL TASKS COMPLETE  
-**Current Active Task**: Modernization & Independent Verification Complete (26 of 26)
+**Single Source of Truth**: `docs/AGENT_EXECUTION_PLAN.md`, `docs/AGENT_EXECUTION_PLAN_PHASE2.md` & `docs/AGENT_EXECUTION_PLAN_PHASE3.md`  
+**Total Planned Tasks**: 36 (18 Phase 1 + 8 Phase 2 + 10 Phase 3)  
+**Completed**: 27 / 36 (Phase 1: A1–E2; Phase 2: P2-A1–P2-D1; Phase 3: P3-A1)  
+**Current Active Task**: Phase 3 in progress (P3-A2 next)
 
 ---
 
@@ -47,7 +47,24 @@
 
 ---
 
-## 2. Directory & Component State History
+## 3. Phase 3: Developer Control Plane & Production Hardening
+
+| # | Task ID | Branch | Status | Commit Hash | Verified Acceptance Evidence |
+|:---|:---|:---|:---|:---|:---|
+| 27 | **P3-A1** | `agent/P3-A1-eliminate-port-flakiness` | **COMPLETED** | *pending commit* | Port-bind flakiness eliminated; `create_server(start_port=0)` bypasses scan loop; HTTPServer EADDRINUSE mocked in `test_deterministic_port_selection`; uncaptured stdout noise silenced in `test_launchers.py`, `test_distribution_packaging.py`, `test_install_first_run.py`; `.github/workflows/ci.yml` upgraded with back-to-back Pass 1 & Pass 2 verification runs; `server.py` strictly 297 lines (< 300); full suite passes with zero failures/errors (`TESTS: 766 ran, 0 failed, 0 errors, 9 skipped`). |
+| 28 | **P3-A2** | `agent/P3-A2-stabilize-skip-count` | **TODO** | — | Audit and enumerate all skipped tests; document environment dependency matrix (online vs offline) in `docs/TASK_PROGRESS_TRACKER.md`. |
+| 29 | **P3-B1** | `agent/P3-B1-browser-smoke-test` | **TODO** | — | Headless browser DOM smoke test verifying C4 pillars render without JS errors. |
+| 30 | **P3-B2** | `agent/P3-B2-mcp-client-roundtrip` | **TODO** | — | End-to-end MCP client integration test verifying all 7 canonical tools over stdio. |
+| 31 | **P3-B3** | `agent/P3-B3-real-coverage-validation` | **TODO** | — | Real `pytest-cov`/`coverage.py` artifact parsing validation on a real codebase. |
+| 32 | **P3-C1** | `agent/P3-C1-modularize-frontend-js` | **TODO** | — | Decompose `index.js` (1,688 lines) into ES modules < 400 lines each. |
+| 33 | **P3-C2** | `agent/P3-C2-not-a-cockpit-audit` | **TODO** | — | UX simplicity and visual clarity overhaul: eliminate visual clutter, enhance colors and hierarchy. |
+| 34 | **P3-D1** | `agent/P3-D1-js-ts-language-adapter` | **TODO** | — | Prototype JS/TS language adapter supporting multi-language repositories. |
+| 35 | **P3-D2** | `agent/P3-D2-visual-onboarding-guide` | **TODO** | — | Rich visual onboarding guide `docs/GETTING_STARTED.md` with diagrams, screenshots, colors, and step-by-step workflow. |
+| 36 | **P3-E1** | `agent/P3-E1-security-hygiene-tests` | **TODO** | — | Security regression suite: path traversal, symlink escapes, unauthorized browsing boundaries. |
+
+---
+
+## 4. Directory & Component State History
 
 - `ultron/tests/fixtures/`:
   - `clean_repo/` (8 files): Standard low-complexity baseline.
@@ -60,9 +77,10 @@
 
 ---
 
-## 3. Anti-Circular Guardrails
+## 5. Anti-Circular Guardrails
 
 1. **One Task Per Branch**: Never mix changes across tasks.
 2. **Acceptance Precedes Commit**: No commit without passing the task acceptance command.
 3. **No Speculative Rewrites**: Only touch files declared under `Files` for the active task.
 4. **Permanent Inventory**: Any untracked or deleted file is recorded in `docs/UNTRACKED_INVENTORY.md`.
+

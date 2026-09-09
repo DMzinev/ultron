@@ -13,6 +13,7 @@ Verifies:
 import ast
 import errno
 import http.client
+import io
 import os
 import shutil
 import socket
@@ -22,7 +23,7 @@ import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from ultron.interfaces.api.state import LOOPBACK_HOST, WEB_DIR
 from ultron.interfaces.server import UltronAPIHandler, create_server, serve
@@ -66,36 +67,35 @@ class TestInstallFirstRun(unittest.TestCase):
 
     def test_deterministic_port_selection(self):
         """Verify sequential port fallback when starting port is occupied."""
-        # Find an open port to use as test anchor
-        sock_find = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock_find.bind((LOOPBACK_HOST, 0))
-        anchor_port = sock_find.getsockname()[1]
-        sock_find.close()
+        # 1. Single port collision on 8000; port 8001 succeeds
+        with patch("http.server.HTTPServer") as mock_http_server:
+            mock_inst = MagicMock()
+            mock_inst.server_address = (LOOPBACK_HOST, 8001)
+            mock_http_server.side_effect = [
+                OSError(errno.EADDRINUSE, "Address already in use"),
+                mock_inst
+            ]
+            httpd, bound_port = create_server(host=LOOPBACK_HOST, start_port=8000, max_attempts=10)
+            self.assertEqual(bound_port, 8001)
+            self.assertEqual(mock_http_server.call_count, 2)
 
-        # Occupy anchor_port
-        occupier1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        occupier1.bind((LOOPBACK_HOST, anchor_port))
-        occupier1.listen(1)
-        self.addCleanup(occupier1.close)
+        # 2. Multi-hop: ports 8002 and 8003 busy; 8004 succeeds
+        with patch("http.server.HTTPServer") as mock_http_server2:
+            mock_inst2 = MagicMock()
+            mock_inst2.server_address = (LOOPBACK_HOST, 8004)
+            mock_http_server2.side_effect = [
+                OSError(errno.EADDRINUSE, "Address already in use"),
+                OSError(10048, "WSAEADDRINUSE"),
+                mock_inst2
+            ]
+            httpd2, bound_port2 = create_server(host=LOOPBACK_HOST, start_port=8002, max_attempts=5)
+            self.assertEqual(bound_port2, 8004)
+            self.assertEqual(mock_http_server2.call_count, 3)
 
-        # create_server should skip anchor_port and bind anchor_port + 1
-        httpd, bound_port = create_server(host=LOOPBACK_HOST, start_port=anchor_port, max_attempts=10)
-        self.addCleanup(httpd.server_close)
-        self.assertEqual(bound_port, anchor_port + 1)
-
-        # Also occupy anchor_port + 2 to test multi-port hopping
-        occupier2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        occupier2.bind((LOOPBACK_HOST, anchor_port + 2))
-        occupier2.listen(1)
-        self.addCleanup(occupier2.close)
-
-        httpd2, bound_port2 = create_server(host=LOOPBACK_HOST, start_port=anchor_port + 2, max_attempts=5)
-        self.addCleanup(httpd2.server_close)
-        self.assertEqual(bound_port2, anchor_port + 3)
-
-        # Test exhaustion raises OSError
-        with self.assertRaises(OSError):
-            create_server(host=LOOPBACK_HOST, start_port=anchor_port, max_attempts=1)
+        # 3. Exhaustion raises OSError
+        with patch("http.server.HTTPServer", side_effect=OSError(errno.EADDRINUSE, "Address already in use")):
+            with self.assertRaises(OSError):
+                create_server(host=LOOPBACK_HOST, start_port=8000, max_attempts=3)
 
     def test_server_output_canonical_url(self):
         """Verify server prints one clear canonical URL and normalizes 0.0.0.0."""
@@ -166,7 +166,8 @@ class TestInstallFirstRun(unittest.TestCase):
 
     def test_serve_backward_compatibility(self):
         """Verify server.serve accepts target_repo and auto_fallback without TypeError."""
-        with patch("http.server.HTTPServer.serve_forever", return_value=None):
+        with patch("http.server.HTTPServer.serve_forever", return_value=None), \
+             patch("sys.stdout", new_callable=io.StringIO):
             try:
                 serve(port=0, target_repo=".", auto_fallback=False)
             except Exception as e:

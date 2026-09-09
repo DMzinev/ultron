@@ -230,6 +230,9 @@ def _persist_repo_root(active_repo):
 
 def create_server(host=LOOPBACK_HOST, start_port=8000, max_attempts=50):
     """Deterministically binds to the first free port starting at start_port."""
+    if start_port == 0:
+        httpd = http.server.HTTPServer((host, 0), UltronAPIHandler)
+        return httpd, httpd.server_address[1]
     import errno as _errno
     for offset in range(max_attempts):
         candidate_port = start_port + offset
@@ -239,11 +242,9 @@ def create_server(host=LOOPBACK_HOST, start_port=8000, max_attempts=50):
             httpd = http.server.HTTPServer((host, candidate_port), UltronAPIHandler)
             return httpd, httpd.server_address[1]
         except OSError as e:
-            is_in_use = (
-                getattr(e, "errno", None) in (_errno.EADDRINUSE, _errno.EACCES, 48, 98, 10048, 10013)
-                or getattr(e, "winerror", None) in (10048, 10013)
-                or any(k in str(e).lower() for k in ("address already in use", "already permitted", "access permissions"))
-            )
+            errs = (_errno.EADDRINUSE, _errno.EACCES, 48, 98, 10048, 10013)
+            is_in_use = (getattr(e, "errno", None) in errs or getattr(e, "winerror", None) in (10048, 10013)
+                         or any(k in str(e).lower() for k in ("address already in use", "already permitted", "access permissions")))
             if not is_in_use or offset == max_attempts - 1:
                 raise
     raise OSError(f"Could not bind to any free port in range {start_port}-{start_port + max_attempts - 1} on {host}")
