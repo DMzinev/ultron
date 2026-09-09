@@ -128,12 +128,24 @@ MCP_TOOLS = list(CANONICAL_TOOLS) + [
 
 def _execute_tool(tool_name: str, arguments: dict, default_repo: str = ".") -> dict:
     """Dispatches tool execution returning a standard MCP result dictionary."""
+    if not isinstance(arguments, dict):
+        arguments = {}
     tool_name = LEGACY_ALIASES.get(tool_name, tool_name)
     if tool_name == "ultron_generate_fix":
         from ultron.interfaces.cli.commands.fix import build_fix_envelope_for_file
-        repo = arguments.get("repo_path") or default_repo or "."
-        target = arguments.get("target_file") or arguments.get("file_path", "")
-        envelope = build_fix_envelope_for_file(repo_path=repo, target_file=target)
+        raw_target = arguments.get("target_file") or arguments.get("file_path", "")
+        if not raw_target:
+            return {
+                "content": [{"type": "text", "text": "Missing required parameter: 'target_file'"}],
+                "isError": True
+            }
+        abs_repo, abs_target, norm_rel = _resolve_paths(raw_target, arguments.get("repo_path") or default_repo or ".")
+        if not os.path.exists(abs_target):
+            return {
+                "content": [{"type": "text", "text": f"File not found: '{abs_target}'"}],
+                "isError": True
+            }
+        envelope = build_fix_envelope_for_file(repo_path=abs_repo, target_file=norm_rel)
         return {
             "content": [{"type": "text", "text": envelope.get("prompt_envelope", "")}],
             "isError": envelope.get("status") != "success"
@@ -365,9 +377,32 @@ def handle_mcp_request(raw_line):
             "error": {"code": -32700, "message": "Parse error"}
         }
 
+    if not isinstance(req, dict):
+        log_err(f"Invalid JSON-RPC payload type: {type(req).__name__} (expected object)")
+        return {
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {"code": -32600, "message": "Invalid Request: root payload must be an object"}
+        }
+
     req_id = req.get("id")
     method = req.get("method")
-    params = req.get("params", {})
+    if not isinstance(method, str) or not method.strip():
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "error": {"code": -32600, "message": "Invalid Request: 'method' must be a non-empty string"}
+        }
+
+    params = req.get("params")
+    if params is None:
+        params = {}
+    elif not isinstance(params, dict):
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "error": {"code": -32602, "message": "Invalid params: 'params' must be an object"}
+        }
 
     log_err(f"Received MCP method: {method}")
 
@@ -391,7 +426,21 @@ def handle_mcp_request(raw_line):
         }
     elif method == "tools/call":
         tool_name = params.get("name")
-        arguments = params.get("arguments", {})
+        if not tool_name or not isinstance(tool_name, str):
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "error": {"code": -32602, "message": "Missing or invalid required parameter: 'name'"}
+            }
+        arguments = params.get("arguments")
+        if arguments is None:
+            arguments = {}
+        elif not isinstance(arguments, dict):
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "error": {"code": -32602, "message": "Invalid parameter: 'arguments' must be an object"}
+            }
         try:
             res = _execute_tool(tool_name, arguments, default_repo=os.getcwd())
             result_payload = dict(res)
@@ -418,20 +467,31 @@ def handle_mcp_request(raw_line):
                     "isError": True
                 }
             }
-    else:
+    elif method == "ping":
         return {
             "jsonrpc": "2.0",
             "id": req_id,
             "result": {}
         }
+    elif method.startswith("notifications/"):
+        return None
+    else:
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "error": {"code": -32601, "message": f"Method not found: {method}"}
+        }
 
 def run_mcp_server():
     log_err("Ultron MCP Middleware Server listening on stdio...")
     for line in sys.stdin:
-        resp = handle_mcp_request(line)
-        if resp:
-            sys.stdout.write(json.dumps(resp) + "\n")
-            sys.stdout.flush()
+        try:
+            resp = handle_mcp_request(line)
+            if resp is not None:
+                sys.stdout.write(json.dumps(resp) + "\n")
+                sys.stdout.flush()
+        except Exception as e:
+            log_err(f"Unhandled server loop exception: {e}")
 
 main = run_mcp_server
 
