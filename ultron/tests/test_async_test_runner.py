@@ -35,16 +35,17 @@ class TestAsyncTestRunner(unittest.TestCase):
             self.assertIn("OK", data["output"])
 
     def test_run_cancellation(self):
-        # Start a run in a valid repo
-        record = self.service.start_test_run(
-            repo_path=self.repo_root,
-            timeout=30.0
-        )
-        # Cancel immediately
-        cancelled = self.service.cancel_run(record.run_id)
-        # It's either cancelled or already finished if extremely fast
-        data = record.to_dict()
-        self.assertTrue(data["is_finished"])
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdir:
+            record = self.service.start_test_run(
+                repo_path=tmpdir,
+                timeout=30.0
+            )
+            # Cancel immediately
+            cancelled = self.service.cancel_run(record.run_id)
+            # It's either cancelled or already finished if extremely fast
+            data = record.to_dict()
+            self.assertTrue(data["is_finished"])
 
     def test_invalid_directory_handling(self):
         record = self.service.start_test_run(

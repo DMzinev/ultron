@@ -207,7 +207,8 @@ class SubprocessCleanTest(unittest.TestCase):
             capture_output=True,
             text=True,
             encoding="utf-8",
-            errors="replace"
+            errors="replace",
+            timeout=15
         )
         self.assertEqual(res.returncode, 0, f"Expected 0, got {res.returncode}. Stderr: {res.stderr}")
         self.assertIn("TESTS: 1 ran, 0 failed, 0 errors, 0 skipped", res.stdout)
@@ -227,7 +228,8 @@ class SubprocessBrokenTest(unittest.TestCase):
             capture_output=True,
             text=True,
             encoding="utf-8",
-            errors="replace"
+            errors="replace",
+            timeout=15
         )
         self.assertEqual(res.returncode, 1, f"Expected exit code 1 on broken test, got {res.returncode}")
         self.assertIn("TESTS: 1 ran, 1 failed, 0 errors, 0 skipped", res.stdout)
@@ -239,7 +241,8 @@ class SubprocessBrokenTest(unittest.TestCase):
             [sys.executable, self.script_path, "--help"],
             capture_output=True,
             text=True,
-            encoding="utf-8"
+            encoding="utf-8",
+            timeout=15
         )
         self.assertEqual(res_script.returncode, 0)
         self.assertIn("--pattern", res_script.stdout)
@@ -250,7 +253,8 @@ class SubprocessBrokenTest(unittest.TestCase):
             [sys.executable, "-m", "ultron.interfaces.ultron", "verify", "--help"],
             capture_output=True,
             text=True,
-            encoding="utf-8"
+            encoding="utf-8",
+            timeout=15
         )
         self.assertEqual(res_ultron.returncode, 0)
         self.assertIn("--pattern", res_ultron.stdout)

@@ -118,6 +118,11 @@ class TestRunnerService:
         return record
 
     def _execute_run(self, record: TestRunRecord, feedback_params: Optional[Dict[str, Any]]):
+        if record._cancelled or record.status == "cancelled":
+            record.status = "cancelled"
+            record.completed_at = time.time()
+            return
+
         record.status = "running"
         record.started_at = time.time()
 
@@ -143,14 +148,28 @@ class TestRunnerService:
             )
             record.process = proc
 
+            if record._cancelled or record.status == "cancelled":
+                try:
+                    proc.kill()
+                    proc.wait(timeout=1.0)
+                except Exception:
+                    pass
+                return
+
             try:
                 stdout, stderr = proc.communicate(timeout=record.timeout)
                 record.output = (stdout or "") + "\n" + (stderr or "")
                 record.exit_code = proc.returncode
                 record.status = "completed" if proc.returncode == 0 else "failed"
             except subprocess.TimeoutExpired:
-                proc.kill()
-                stdout, stderr = proc.communicate()
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+                try:
+                    stdout, stderr = proc.communicate(timeout=2.0)
+                except Exception:
+                    stdout, stderr = "", ""
                 record.output = (stdout or "") + "\n" + (stderr or "") + f"\n[TestRunner Warning] Test execution exceeded timeout ({record.timeout}s)."
                 record.exit_code = 1
                 record.status = "timed_out"

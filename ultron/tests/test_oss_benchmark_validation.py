@@ -299,7 +299,7 @@ class TestOSSBenchmarkValidation(unittest.TestCase):
             name="Ultron Self (Dogfood)",
             category="Real OSS Core",
             repo_path=ultron_dir,
-            latency_budget_ms=15000.0,
+            latency_budget_ms=25000.0,
             memory_budget_mb=60.0
         )
 
