@@ -73,6 +73,7 @@ prn
 docs/audits/legacy_phase_reports/
 *_TRACE.md
 *_REPORT.md
+!docs/benchmarks/*
 *_AUDIT.md
 *_MATRIX.md
 *_MATRIX.json
