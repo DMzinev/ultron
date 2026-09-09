@@ -41,5 +41,5 @@ jobs:
       - name: Verify ES Module Syntax
         run: python -c "import glob, subprocess; [subprocess.check_call(['node', '-c', f]) for f in glob.glob('ultron/interfaces/web/**/*.js', recursive=True)]"
 
-      - name: Execute Master Unit & Integration Test Suite
-        run: python -m unittest discover -s ultron/tests -p "test_*.py"
+      - name: Execute Master Verification (Single Source of Truth)
+        run: python scripts/verify.py

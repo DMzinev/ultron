@@ -151,6 +151,12 @@ ultron brief ultron/core/analyzer.py --intent "optimize loop performance" --json
 # Enforce architectural thresholds in CI pipelines
 ultron gate --repo . --max-high 12 --min-health 65.0 --github-annotations
 
+# Execute master test verification with greppable summary
+ultron verify
+
+# Or output clean JSON for pipeline metrics
+ultron verify --json
+
 # Initialize Repository Knowledge Model (RKM) database
 ultron init --repo .
 
@@ -162,18 +168,29 @@ ultron-server --port 8000 --host 127.0.0.1
 
 ## 🧪 Verification & Testing
 
-Ultron includes an extensive test suite verifying mathematical bounds, packaging, MCP protocols, and defect sensitivity:
+Ultron provides a single source-of-truth canonical test verification runner that executes full discovery across all unit, integration, and architecture tests, fails loudly on any test failure or runtime error, and outputs a standardized, greppable summary line:
 
 ```bash
-# Run all modern unit and integration test suites
-python -m unittest discover -s ultron/tests -p "test_*.py"
+# Canonical test verification via CLI
+ultron verify
 
-# Run full baseline regression suite
-python -m unittest ultron.tests.run_tests
+# Direct script execution (standard CI entry point)
+python scripts/verify.py
 
-# Verify packaging and first-run server behavior
-python -m unittest ultron.tests.test_install_first_run ultron.tests.test_distribution_packaging
+# Machine-readable JSON metrics for CI dashboards
+python scripts/verify.py --json
+
+# Run targeted pattern subsets
+python scripts/verify.py --pattern "test_verify_*.py"
 ```
+
+The canonical summary format strictly adheres to:
+```text
+TESTS: <ran> ran, <failed> failed, <errors> errors, <skipped> skipped
+```
+- **Exit Code 0**: All discovered tests passed cleanly (or skipped).
+- **Exit Code 1**: Any test failed or encountered a runtime error.
+
 
 ---
 

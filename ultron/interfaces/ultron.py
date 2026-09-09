@@ -131,7 +131,7 @@ def main():
         print(pkg["prompt_package"])
         sys.exit(0)
     # Subcommand Handling
-    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate", "scan"):
+    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate", "scan", "verify"):
         cmd = sys.argv[1]
         sub_parser = argparse.ArgumentParser(prog=f"ultron {cmd}")
         sub_parser.add_argument("--repo", default=".", help="Path to codebase repository")
@@ -162,6 +162,12 @@ def main():
             sub_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON to stdout")
             sub_parser.add_argument("--output-comment", default=None, help="Path to write PR comment markdown")
             sub_parser.add_argument("--github-annotations", action="store_true", default=False, help="Explicitly emit GitHub Actions workflow annotations")
+        elif cmd == "verify":
+            sub_parser.add_argument("--pattern", default="test_*.py", help="Test file naming pattern (default: test_*.py)")
+            sub_parser.add_argument("--test-dir", default="ultron/tests", help="Directory containing tests relative to repo (default: ultron/tests)")
+            sub_parser.add_argument("--failfast", action="store_true", default=False, help="Stop test execution on first failure or error")
+            sub_parser.add_argument("--json", action="store_true", default=False, help="Output machine-readable JSON summary exclusively")
+            sub_parser.add_argument("--quiet", action="store_true", default=False, help="Suppress runner progress and emit only the final summary line")
             
         sub_args = sub_parser.parse_known_args(sys.argv[2:])[0]
         repo_path = os.path.abspath(sub_args.repo)
@@ -526,6 +532,18 @@ class InterfaceHandler:
                 else:
                     print(f"[-] Scan failed: {e}", file=sys.stderr)
                 sys.exit(1)
+
+        elif cmd == "verify":
+            from ultron.interfaces.cli.commands.verify import run_verify_command
+            code = run_verify_command(
+                repo_path=sub_args.repo,
+                pattern=sub_args.pattern,
+                test_dir=sub_args.test_dir,
+                failfast=sub_args.failfast,
+                json_output=sub_args.json,
+                quiet=sub_args.quiet
+            )
+            sys.exit(code)
 
     parser = argparse.ArgumentParser(description="Ultron: Code Architecture Risk & AI Mission Control")
     parser.add_argument("--repo", default=".", help="Path to codebase repository")
