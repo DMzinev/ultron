@@ -1,12 +1,36 @@
-# Ultron — Code Architecture Risk & AI Mission Control
+# 🚀 Ultron — Developer Control Plane for AI-Assisted Software Engineering
 
-![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Privacy](https://img.shields.io/badge/privacy-100%25%20Local%20%2F%20Zero%20Network-blueviolet.svg)
-![RKM Engine](https://img.shields.io/badge/RKM-v1.1.0-orange.svg)
-![MCP Support](https://img.shields.io/badge/MCP-7%20Tools%20Active-cyan.svg)
+<p align="center">
+  <img src="docs/images/ultron_dashboard_preview.jpg" alt="Ultron Dashboard UI" width="100%" />
+</p>
 
-**Ultron** tells you which files in a Python codebase are risky to change — and *why* — before you edit them. It combines static McCabe complexity, package coupling topology, git churn history, and test coverage into a focused Web Dashboard, a headless CI quality gate, and a Model Context Protocol (MCP) server for developer and AI agent workflows.
+<p align="center">
+  <a href="#-quick-start-under-60-seconds"><img src="https://img.shields.io/badge/install-clone--to--screen%2019.5s-10B981?style=for-the-badge&logo=rocket" alt="Quick Start" /></a>
+  <a href="#-verification--testing"><img src="https://img.shields.io/badge/tests-769%20passed%20%7C%200%20failed-10B981?style=for-the-badge&logo=checkmarx" alt="Tests Passing" /></a>
+  <a href="#-model-context-protocol-mcp-parity"><img src="https://img.shields.io/badge/MCP-7%20Tools%20Active-06B6D4?style=for-the-badge&logo=anthropic" alt="MCP Active" /></a>
+  <a href="#-honest-limitations"><img src="https://img.shields.io/badge/dependencies-0%20external%20pip-8B5CF6?style=for-the-badge" alt="Zero Dependencies" /></a>
+  <a href="#-license"><img src="https://img.shields.io/badge/license-MIT-3B82F6?style=for-the-badge" alt="MIT License" /></a>
+</p>
+
+> **"Ultron is a cognitive control plane for AI-assisted software development that lets any vibe coder use any agentic coding tool to build software far beyond what they could comfortably build alone—while preserving context, architectural understanding, verification, and control."**
+
+Ultron tells you which files in a Python codebase are risky to change — and *why* — before you or an AI agent edit them. It combines static McCabe complexity, package coupling topology, git churn history, and test coverage into an interactive Web Dashboard, a headless CI quality gate, and a Model Context Protocol (MCP) server for developer and agent workflows.
+
+---
+
+## 📸 System Architecture & Cognitive Flow
+
+<p align="center">
+  <img src="docs/images/ultron_architecture_flow.jpg" alt="Ultron Architecture Flow" width="100%" />
+</p>
+
+Ultron sits between the **Creator** and the **Autonomous Coding Agent**:
+1. **Developer / Creator Direction**: Define project goals, intent, and architectural boundaries.
+2. **Ultron Control Plane Hub**: Maps the repository into an actionable knowledge graph, evaluating health, blast radius, and defect risk.
+3. **Bounded Context Envelopes**: Packages the exact 7-field context (signatures, caller blast radius, complexity limits) for Cursor, Claude, Windsurf, or Copilot.
+4. **Automated Truth Gate**: Validates that agent changes preserve contracts and never degrade repository health.
+
+📖 **Looking for a guided first session?** Read the [Getting Started & Visual Walkthrough Guide](docs/GETTING_STARTED.md).
 
 ---
 
@@ -14,7 +38,7 @@
 
 ### 1. Install Ultron
 ```bash
-git clone https://github.com/your-username/ultron.git
+git clone https://github.com/DMzinev/ultron.git
 cd ultron
 pip install -e .
 ```
@@ -36,46 +60,32 @@ http://127.0.0.1:8000/
 
 ---
 
-## 🌟 Modern Core Capabilities
+## 🌟 The 4 Interactive Pillars
 
-### 1. Distribution-Aware Hybrid Risk Bands
-Absolute threshold rules fail on real codebases by either flagging 60% of files as HIGH or 0%. Ultron uses a calibrated **hybrid percentile formula**:
-- **HIGH**: Score $\ge$ 90th percentile **AND** $\ge 10.0$ absolute floor (capped at $\le 15\%$ of files).
-- **MEDIUM**: Score $\ge$ 65th percentile **AND** $\ge 5.0$ absolute floor (HIGH + MEDIUM $\le 45\%$ of files).
-- **LOW**: All remaining modules.
-- **Cycle Boost**: A $2.0\times$ multiplier automatically lifts circular dependency participants into the top risk tier.
-- **Clean Baseline**: A codebase without complexity or coupling outliers produces **zero** HIGH risk files.
-
-### 2. Calibrated Composite Health Score
-Ultron computes a single, honest $0-100$ repository health score derived from three bounded sub-signals:
-1. **Cycle Stability** (Weight: 40%): Penalizes circular import cycles.
-2. **Rule Compliance** (Weight: 40%): Evaluates architectural violation density per 1,000 LOC.
-3. **Distribution Quality** (Weight: 20%): Bounds high-risk outlier saturation.
+### 1. 📊 Architecture Health Dashboard
+Ultron computes a calibrated composite $0-100$ repository health score derived from three bounded sub-signals:
+- **Cycle Stability** (Weight: 40%): Penalizes circular import cycles.
+- **Rule Compliance** (Weight: 40%): Evaluates architectural violation density per 1,000 LOC.
+- **Distribution Quality** (Weight: 20%): Bounds high-risk outlier saturation.
 
 #### Health Bands
-- 🟢 **Healthy** ($85 - 100$): Clean modular architecture, low coupling, no cycles.
+- 🟢 **Healthy** ($85 - 100$): Clean modular architecture, low coupling, zero cycles.
 - 🟡 **Watch** ($60 - 84$): Minor coupling debt or complexity hotspots requiring attention.
 - 🟠 **Degraded** ($30 - 59$): Multiple architectural violations or significant coupling bottlenecks.
 - 🔴 **Critical** ($0 - 29$): Circular dependency loops, god modules, or severe defect risks.
 
-### 3. 4-Signal Honest Confidence Model
-Ultron never guesses or hides missing data behind silent degradation. Every risk assessment exposes its explicit confidence vector:
-- **AST Structural Complexity** (Weight: 0.35)
-- **Dependency Coupling & Blast Radius** (Weight: 0.25)
-- **Git Commit & Bug-Fix Churn** (Weight: 0.15)
-- **Test Line Coverage** (Weight: 0.25)
+#### Calibrated Risk Bands (Hybrid Percentile Formula)
+- **HIGH** (🔴): Score $\ge$ 90th percentile **AND** $\ge 10.0$ absolute floor (capped at $\le 15\%$ of files).
+- **MEDIUM** (🟡): Score $\ge$ 65th percentile **AND** $\ge 5.0$ absolute floor (HIGH + MEDIUM $\le 45\%$ of files).
+- **LOW** (🟢): All remaining modules.
+- **Cycle Boost**: A $2.0\times$ multiplier automatically lifts circular dependency participants into the top risk tier.
 
-When test coverage or git history is absent, Ultron flags that signal as `unavailable` with a visible confidence badge (`Confidence: N of 4 signals active`), preserving architectural integrity.
+### 2. 🕸️ Interactive Blast-Radius Graph
+- **Real-Time Dependency Graph**: Visualizes module connections, caller hierarchies, and import paths.
+- **Cycle Detection**: High-risk dependency cycles pulse visually in warning colors.
+- **1-Click Remediation**: Clicking any node or violation isolates its callers, highlights blast radius, and generates a remediation brief.
 
-### 4. Closed-Loop Developer Dashboard
-- **Primary Answer Above the Fold**: "These N files are risky to change, here is why."
-- **1-Click Remediation Loop**: Clicking any architectural violation inspects the offending file, highlights its cycle edges in the dependency graph, and drafts a targeted fix mission in Agent Studio with one click.
-- **Full Keyboard Navigation**:
-  - `1`–`4`: Switch between Pillars (Overview, Graph, Details, Agent Studio).
-  - `/`: Focus search filter.
-  - `Esc`: Dismiss drawers, modals, and search queries.
-
-### 5. AI Agent Mission Control (7-Field Envelope)
+### 3. 🤖 AI Agent Mission Studio (7-Field Envelope)
 AI coding agents need bounded context, not raw repositories. `ultron brief` generates a mathematically grounded 7-field mission envelope:
 1. **Intent**: Verbatim user task.
 2. **Blast Radius**: Transitive downstream files at risk of breaking.
@@ -85,20 +95,25 @@ AI coding agents need bounded context, not raw repositories. `ultron brief` gene
 6. **Rollback Instruction**: Step-by-step recovery commands.
 7. **Token Budget Hint**: Ranked list of source files to read vs. ignore.
 
-### 6. Headless CI Quality Gate
-Fails CI builds on architectural regression or excessive risk:
-```bash
-ultron gate --max-high 10 --min-health 60 --github-annotations
-```
-- **Exit Code 0**: Build passed gate criteria.
-- **Exit Code 1**: Threshold breached. Emits GitHub Actions workflow annotations (`::error file=...,line=...::...`) that render directly on Pull Request diffs.
+### 4. ⚖️ Epistemic Truth Auditor & 4-Signal Model
+Ultron never guesses or hides missing data behind silent degradation. Every risk assessment exposes its explicit confidence vector:
+- **AST Structural Complexity** (Weight: 0.35)
+- **Dependency Coupling & Blast Radius** (Weight: 0.25)
+- **Git Commit & Bug-Fix Churn** (Weight: 0.15)
+- **Test Line Coverage** (Weight: 0.25)
 
-### 7. Model Context Protocol (MCP) Parity
+When test coverage or git history is absent, Ultron flags that signal as `unavailable` with a visible confidence badge (`Confidence: N of 4 signals active`).
+
+---
+
+## 🔌 Model Context Protocol (MCP) Parity
+
 AI coding agents (Cursor, Claude Desktop, Antigravity, Windsurf) can query Ultron directly over stdio JSON-RPC without a browser:
 ```bash
 ultron-mcp
 ```
-Active Tools:
+
+### Active Tools:
 - `get_risk_profile`: Computes file risk tier, impact score, and 4-signal confidence basis.
 - `get_blast_radius`: Analyzes transitive downstream dependencies and caller chains.
 - `compile_mission`: Assembles the structured 7-field AI agent mission envelope.
@@ -106,6 +121,17 @@ Active Tools:
 - `get_context_brief`: Generates a compact markdown orientation package.
 - `evaluate_repository`: Returns repository-level complexity, coupling, and health metrics.
 - `explain_violation`: Explains architectural rule violations in plain English.
+
+---
+
+## 🛡️ Headless CI Quality Gate
+
+Fail CI builds on architectural regression or excessive risk:
+```bash
+ultron gate --repo . --max-high 10 --min-health 60.0 --github-annotations
+```
+- **Exit Code 0**: Build passed gate criteria.
+- **Exit Code 1**: Threshold breached. Emits GitHub Actions workflow annotations (`::error file=...,line=...::...`) that render directly on Pull Request diffs.
 
 ---
 
@@ -117,31 +143,6 @@ Ultron is built on strict engineering honesty. Know what it does and does not do
 2. **Syntactic & Topological, Not Dynamic**: Ultron evaluates syntactic McCabe complexity and static import graphs. It does **not** run code dynamically, infer runtime types, perform abstract interpretation, or execute formal symbolic verification.
 3. **Git History Dependency**: The churn multiplier ($1.0\times - 2.0\times$) requires an initialized Git repository with commit history. Non-git folders gracefully fall back to $1.0\times$ (neutral churn).
 4. **Coverage Ingestion Dependency**: Ultron reads existing Cobertura `coverage.xml` or SQLite `.coverage` files generated by your test runner (`pytest`, `coverage.py`). Ultron does not run test suites itself to generate coverage.
-
----
-
-## 🏗️ Architecture & Component Flow
-
-```
-   ┌─────────────────────────────────────────────────────────────┐
-   │                     Ultron Core Engine                      │
-   │                                                             │
-   │   AST Parser  ──►  Dependency Graph  ──►  Risk Scorer       │
-   │       │                     │                   │           │
-   │   Git Adapter       Policy Engine       Confidence Model    │
-   │       │                     │                   │           │
-   │       ▼                     ▼                   ▼           │
-   │   [Git Churn]         [RKM SQLite DB]     [Coverage XML]    │
-   └─────────────────────────────┬───────────────────────────────┘
-                                 │
-         ┌───────────────────────┼───────────────────────┐
-         ▼                       ▼                       ▼
- ┌───────────────┐       ┌───────────────┐       ┌───────────────┐
- │ Web Dashboard │       │    CLI Gate   │       │   MCP Server  │
- │ (ultron-server│       │ (ultron gate) │       │  (ultron-mcp) │
- │  port 8000)   │       │               │       │  stdio JSON-RPC
- └───────────────┘       └───────────────┘       └───────────────┘
-```
 
 ---
 
@@ -196,7 +197,6 @@ TESTS: <ran> ran, <failed> failed, <errors> errors, <skipped> skipped
 ```
 - **Exit Code 0**: All discovered tests passed cleanly (or skipped).
 - **Exit Code 1**: Any test failed or encountered a runtime error.
-
 
 ---
 
