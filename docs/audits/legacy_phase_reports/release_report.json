@@ -1,0 +1,43 @@
+{
+  "release_version": "1.0.0-RC1",
+  "timestamp": "2026-08-06T19:27:08.825279+00:00",
+  "audit_context": {
+    "python_version": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "system": "Windows",
+    "release": "11",
+    "architecture": "64bit",
+    "executed_by": "This PC",
+    "timestamp_utc": "2026-08-06T19:23:33.110361+00:00"
+  },
+  "hard_freeze_active": true,
+  "test_suite": {
+    "passed": false,
+    "tests_run": 89,
+    "failures": 1,
+    "total_duration_seconds": 214.24
+  },
+  "frontend_syntax": {
+    "passed": true
+  },
+  "performance_benchmark": {
+    "benchmark_a_100_files": {
+      "latency_seconds": 1.126,
+      "budget_seconds": 2.0,
+      "passed": true
+    },
+    "benchmark_b_1000_files": {
+      "latency_seconds": 12.037,
+      "budget_seconds": 15.0,
+      "passed": true
+    },
+    "passed": true
+  },
+  "overall_status": "FAIL",
+  "ai_review": {
+    "status": "OFFLINE_FALLBACK",
+    "summary": "AI Gateway offline or request failed: <urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>",
+    "gateway_url": "http://127.0.0.1:10531/v1/chat/completions",
+    "timestamp": "2026-08-06T19:27:08.825225+00:00"
+  }
+}

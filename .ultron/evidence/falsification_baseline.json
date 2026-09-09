@@ -1,0 +1,32 @@
+{
+  "agent": "Agent 10 (Skeptical Product Judge)",
+  "phase": "2.0_falsification_baseline",
+  "timestamp": "2026-08-26T14:23:00Z",
+  "falsification_results": {
+    "defect_1_compile_button_calls_legacy_endpoint": {
+      "confirmed": false,
+      "endpoint_called": "/api/v1/generate",
+      "canonical_endpoint_expected": "/api/v1/agent/context",
+      "selected_provider_forwarded": false,
+      "symptom": "Clicking Compile AI Instruction Prompt calls legacy /api/v1/generate and drops active provider pill."
+    },
+    "defect_2_dom_input_statestore_desynchronization": {
+      "confirmed": false,
+      "intent_updates_statestore": true,
+      "files_update_statestore": true,
+      "symptom": "Typing into #prompt-intent or picking file in #prompt-file-select fails to sync to StateStore, wiping edits upon provider switch."
+    },
+    "defect_3_copy_button_lacks_feedback": {
+      "confirmed": true,
+      "button_text_feedback_present": false,
+      "symptom": "Clicking #btn-copy-prompt gives zero visual feedback on the button itself."
+    },
+    "defect_4_server_generate_endpoint_disconnected": {
+      "confirmed": true,
+      "uses_agent_context_builder": false,
+      "symptom": "/api/v1/generate uses legacy PromptManager, bypassing canonical AgentContextBuilder."
+    }
+  },
+  "disproof_verdict": "FALSIFICATION_FAILED (All defects confirmed real in baseline code)",
+  "implementation_authorized": true
+}

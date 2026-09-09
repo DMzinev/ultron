@@ -609,20 +609,24 @@ class UIRealityCompiler:
             "stages_covered": list(report.stage_wireframes.keys())
         }
 
-        # Write to scratch and brain directories
-        scratch_path = os.path.join(root, "scratch", "PHASE15_BROWSER_REALITY_SNAPSHOT.json")
-        try:
-            with open(scratch_path, "w", encoding="utf-8") as f:
-                json.dump(snapshot, f, indent=2)
-        except Exception as e:
-            sys.stderr.write(f"Scratch snapshot write warning: {e}\n")
+        # Write to scratch and brain directories if available
+        scratch_dir = os.path.join(root, "scratch")
+        if os.path.exists(scratch_dir):
+            try:
+                scratch_path = os.path.join(scratch_dir, "PHASE15_BROWSER_REALITY_SNAPSHOT.json")
+                with open(scratch_path, "w", encoding="utf-8") as f:
+                    json.dump(snapshot, f, indent=2)
+            except Exception:
+                pass
 
-        brain_path = os.path.join(r"C:\Users\dimmiz\.gemini\antigravity\brain\c331a2ae-2b83-43db-a010-388bf6739e8a", "PHASE15_BROWSER_REALITY_SNAPSHOT.json")
-        try:
-            with open(brain_path, "w", encoding="utf-8") as f:
-                json.dump(snapshot, f, indent=2)
-        except Exception as e:
-            sys.stderr.write(f"Brain snapshot write warning: {e}\n")
+        brain_dir = os.environ.get("ANTIGRAVITY_BRAIN_DIR")
+        if brain_dir and os.path.isdir(brain_dir):
+            try:
+                brain_path = os.path.join(brain_dir, "PHASE15_BROWSER_REALITY_SNAPSHOT.json")
+                with open(brain_path, "w", encoding="utf-8") as f:
+                    json.dump(snapshot, f, indent=2)
+            except Exception:
+                pass
 
         return snapshot
 

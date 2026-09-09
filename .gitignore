@@ -7,8 +7,15 @@ __pycache__/
 
 # Local databases and RKM state
 .ultron/
+!/.ultron/
+/.ultron/*
+!/.ultron/evidence/
+/.ultron/evidence/*
+!/.ultron/evidence/falsification_baseline.json
 *.db
 *.sqlite
+*.db-shm
+*.db-wal
 
 # Runtime output written by the server (saved sessions)
 /data/
@@ -70,7 +77,6 @@ prn
 ..*
 
 # Generated and historical audit reports & data dumps (Task A2 & Task E2)
-docs/audits/legacy_phase_reports/
 *_TRACE.md
 *_REPORT.md
 !docs/benchmarks/*
@@ -104,3 +110,7 @@ ultron_report.md
 ultron/meta/dogfood_session.json
 ultron/meta/state_census.json
 uv.lock
+
+# Historical phase reports archive
+!docs/audits/legacy_phase_reports/
+!docs/audits/legacy_phase_reports/**

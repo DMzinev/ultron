@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" width="100%" height="100%" style="background:#0B0F19;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <defs>
+    <linearGradient id="dashBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B0F19" />
+      <stop offset="100%" stop-color="#111827" />
+    </linearGradient>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1E293B" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+    <filter id="dashShadow" x="-2%" y="-2%" width="104%" height="106%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.6" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="700" fill="url(#dashBg)" />
+
+  <!-- Main App Window Frame -->
+  <g transform="translate(40, 30)" filter="url(#dashShadow)">
+    <rect width="1120" height="640" rx="12" fill="#0F172A" stroke="#1E293B" stroke-width="1.5" />
+
+    <!-- Window Titlebar -->
+    <path d="M0 12 C0 5.373 5.373 0 12 0 L1108 0 C1114.627 0 1120 5.373 1120 12 L1120 48 L0 48 Z" fill="url(#headerGrad)" />
+    <line x1="0" y1="48" x2="1120" y2="48" stroke="#334155" stroke-width="1" />
+
+    <!-- Window Controls (Red/Yellow/Green dots) -->
+    <circle cx="24" cy="24" r="6" fill="#EF4444" fill-opacity="0.8" />
+    <circle cx="44" cy="24" r="6" fill="#F59E0B" fill-opacity="0.8" />
+    <circle cx="64" cy="24" r="6" fill="#10B981" fill-opacity="0.8" />
+
+    <!-- Navigation Tabs (C4 4 Pillars) -->
+    <g transform="translate(110, 10)">
+      <!-- Tab 1: Overview & Health (Active) -->
+      <rect x="0" y="0" width="160" height="30" rx="6" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" />
+      <text x="18" y="20" fill="#10B981" font-size="12" font-weight="700">01 OVERVIEW &amp; HEALTH</text>
+
+      <!-- Tab 2: Topology Graph -->
+      <rect x="170" y="0" width="160" height="30" rx="6" fill="#1E293B" />
+      <text x="188" y="20" fill="#94A3B8" font-size="12" font-weight="600">02 TOPOLOGY GRAPH</text>
+
+      <!-- Tab 3: Mission Studio -->
+      <rect x="340" y="0" width="150" height="30" rx="6" fill="#1E293B" />
+      <text x="358" y="20" fill="#94A3B8" font-size="12" font-weight="600">03 MISSION STUDIO</text>
+
+      <!-- Tab 4: Truth Auditor -->
+      <rect x="500" y="0" width="140" height="30" rx="6" fill="#1E293B" />
+      <text x="518" y="20" fill="#94A3B8" font-size="12" font-weight="600">04 TRUTH AUDITOR</text>
+    </g>
+
+    <!-- Top-Right Server Port Status -->
+    <g transform="translate(940, 14)">
+      <rect width="150" height="22" rx="4" fill="#0B0F19" stroke="#334155" stroke-width="1" />
+      <circle cx="12" cy="11" r="3.5" fill="#10B981" />
+      <text x="22" y="15" fill="#E2E8F0" font-size="11" font-family="monospace">localhost:8000</text>
+    </g>
+
+    <!-- Content Workspace -->
+    <g transform="translate(24, 70)">
+      <!-- Left Column: KPI Cards (Width 320) -->
+      <g>
+        <!-- Card 1: Health Score -->
+        <rect width="320" height="150" rx="8" fill="#131C2E" stroke="#1E293B" stroke-width="1" />
+        <text x="20" y="32" fill="#94A3B8" font-size="11" font-weight="700" letter-spacing="0.05em">CODEBASE HEALTH SCORE</text>
+        <text x="20" y="86" fill="#10B981" font-size="44" font-weight="800">94.2</text>
+        <text x="135" y="86" fill="#64748B" font-size="16" font-weight="600">/ 100</text>
+        <rect x="20" y="106" width="280" height="6" rx="3" fill="#1E293B" />
+        <rect x="20" y="106" width="263" height="6" rx="3" fill="#10B981" />
+        <text x="20" y="132" fill="#34D399" font-size="11" font-weight="600">✓ All architectural quality gates passing</text>
+
+        <!-- Card 2: Risk Distribution -->
+        <g transform="translate(0, 166)">
+          <rect width="320" height="175" rx="8" fill="#131C2E" stroke="#1E293B" stroke-width="1" />
+          <text x="20" y="30" fill="#94A3B8" font-size="11" font-weight="700" letter-spacing="0.05em">RISK RATIO HONESTY</text>
+          
+          <text x="20" y="60" fill="#F8FAFC" font-size="13" font-weight="600">HIGH Risk Files:</text>
+          <text x="150" y="60" fill="#EF4444" font-size="13" font-weight="700">16 / 148 (10.8%)</text>
+          <text x="250" y="60" fill="#10B981" font-size="11">≤ 15.0% cap</text>
+
+          <text x="20" y="86" fill="#F8FAFC" font-size="13" font-weight="600">MEDIUM Risk Files:</text>
+          <text x="150" y="86" fill="#F59E0B" font-size="13" font-weight="700">32 / 148 (21.6%)</text>
+          <text x="250" y="86" fill="#10B981" font-size="11">≤ 45.0% cap</text>
+
+          <text x="20" y="112" fill="#F8FAFC" font-size="13" font-weight="600">LOW Risk Files:</text>
+          <text x="150" y="112" fill="#10B981" font-size="13" font-weight="700">100 / 148 (67.6%)</text>
+          
+          <line x1="20" y1="130" x2="300" y2="130" stroke="#1E293B" stroke-width="1" />
+          <text x="20" y="152" fill="#64748B" font-size="10">Zero test/fixture denominator dilution</text>
+        </g>
+
+        <!-- Card 3: 4-Signal Calibration Status -->
+        <g transform="translate(0, 357)">
+          <rect width="320" height="175" rx="8" fill="#131C2E" stroke="#1E293B" stroke-width="1" />
+          <text x="20" y="30" fill="#94A3B8" font-size="11" font-weight="700" letter-spacing="0.05em">4-SIGNAL CONFIDENCE TIERS</text>
+          
+          <circle cx="28" cy="56" r="4" fill="#06B6D4" />
+          <text x="40" y="60" fill="#E2E8F0" font-size="12">AST Syntactic Complexity</text>
+          <text x="260" y="60" fill="#38BDF8" font-size="12" font-weight="700">35%</text>
+
+          <circle cx="28" cy="84" r="4" fill="#10B981" />
+          <text x="40" y="88" fill="#E2E8F0" font-size="12">Co-Change Coupling Matrix</text>
+          <text x="260" y="88" fill="#34D399" font-size="12" font-weight="700">25%</text>
+
+          <circle cx="28" cy="112" r="4" fill="#F59E0B" />
+          <text x="40" y="116" fill="#E2E8F0" font-size="12">Git Churn &amp; Defect History</text>
+          <text x="260" y="116" fill="#FBBF24" font-size="12" font-weight="700">15%</text>
+
+          <circle cx="28" cy="140" r="4" fill="#8B5CF6" />
+          <text x="40" y="144" fill="#E2E8F0" font-size="12">Test Line Coverage Telemetry</text>
+          <text x="260" y="144" fill="#A78BFA" font-size="12" font-weight="700">25%</text>
+        </g>
+      </g>
+
+      <!-- Right Column: Interactive Mission Envelope & Topology View (Width 730) -->
+      <g transform="translate(340, 0)">
+        <rect width="730" height="532" rx="8" fill="#111928" stroke="#1E293B" stroke-width="1" />
+
+        <!-- Panel Header -->
+        <rect x="0" y="0" width="730" height="42" rx="8" fill="#1A2333" />
+        <line x1="0" y1="42" x2="730" y2="42" stroke="#1E293B" stroke-width="1" />
+        <text x="20" y="26" fill="#F8FAFC" font-size="13" font-weight="700">AGENT PRE-EXECUTION INTELLIGENCE ENVELOPE (MISSION STUDIO)</text>
+        
+        <g transform="translate(600, 10)">
+          <rect width="110" height="22" rx="4" fill="#8B5CF6" fill-opacity="0.2" stroke="#8B5CF6" stroke-width="1" />
+          <text x="12" y="15" fill="#C4B5FD" font-size="10" font-weight="600">MCP READY</text>
+        </g>
+
+        <!-- Prompt Envelope Terminal Preview -->
+        <g transform="translate(20, 60)">
+          <rect width="690" height="450" rx="6" fill="#080C14" stroke="#1E293B" stroke-width="1" />
+          
+          <text x="20" y="30" fill="#38BDF8" font-size="12" font-family="monospace">=== ULTRON PRE-EXECUTION INTELLIGENCE LAYER: MISSION ENVELOPE ===</text>
+          <text x="20" y="55" fill="#E2E8F0" font-size="11" font-family="monospace">Target File: <tspan fill="#FBBF24">ultron/interfaces/server.py</tspan> | Risk: <tspan fill="#EF4444">HIGH (Complexity: 19, Coupling: 8)</tspan></text>
+          
+          <text x="20" y="90" fill="#10B981" font-size="11" font-family="monospace">[1. INTENT]</text>
+          <text x="20" y="108" fill="#94A3B8" font-size="11" font-family="monospace">Refactor HTTP dispatch logic to eliminate line count bloat (&lt; 300 line invariant).</text>
+          
+          <text x="20" y="140" fill="#10B981" font-size="11" font-family="monospace">[2. BLAST RADIUS (DOWNSTREAM CALLERS)]</text>
+          <text x="20" y="158" fill="#94A3B8" font-size="11" font-family="monospace">- ultron/interfaces/api/routes/system_routes.py</text>
+          <text x="20" y="176" fill="#94A3B8" font-size="11" font-family="monospace">- ultron/interfaces/api/routes/analysis_routes.py</text>
+          
+          <text x="20" y="210" fill="#10B981" font-size="11" font-family="monospace">[3. MUST-NOT-TOUCH LIST (PRESERVE PUBLIC SIGNATURES)]</text>
+          <text x="20" y="228" fill="#F8FAFC" font-size="11" font-family="monospace">✓ def create_server(start_port: int, max_attempts: int)</text>
+          <text x="20" y="246" fill="#F8FAFC" font-size="11" font-family="monospace">✓ class UltronAPIHandler(BaseHTTPRequestHandler)</text>
+          
+          <text x="20" y="280" fill="#10B981" font-size="11" font-family="monospace">[4. COMPLEXITY CEILING]</text>
+          <text x="20" y="298" fill="#94A3B8" font-size="11" font-family="monospace">This file is at McCabe 19; do not add branches (maintain complexity &lt;= 19).</text>
+          
+          <text x="20" y="330" fill="#10B981" font-size="11" font-family="monospace">[5. VERIFICATION COMMAND]</text>
+          <text x="20" y="348" fill="#34D399" font-size="11" font-family="monospace">python scripts/verify.py --pattern "test_server_*.py"</text>
+          
+          <text x="20" y="380" fill="#10B981" font-size="11" font-family="monospace">[6. ROLLBACK INSTRUCTION]</text>
+          <text x="20" y="398" fill="#F87171" font-size="11" font-family="monospace">git restore ultron/interfaces/server.py</text>
+          
+          <text x="20" y="426" fill="#64748B" font-size="10" font-family="monospace">Token Budget Hint: Rank 1 Target: 4,120 tokens | Downstream Callers: 1,840 tokens</text>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

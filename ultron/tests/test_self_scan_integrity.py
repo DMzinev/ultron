@@ -79,6 +79,7 @@ class TestSelfScanIntegrity(unittest.TestCase):
         prod_files = set(f.replace("\\", "/") for f in self.codebase.keys())
         test_files = set(f for f in tracked_files if f.startswith("ultron/tests/"))
         fixture_files = set(f for f in tracked_files if f.startswith("ultron/tests/fixtures/"))
+        agent_files = set(f for f in tracked_files if f.startswith(".agents/"))
 
         # Invariant 1: Fixtures are strictly a subset of tests
         self.assertTrue(
@@ -86,11 +87,21 @@ class TestSelfScanIntegrity(unittest.TestCase):
             "All fixtures must reside within ultron/tests/"
         )
 
-        # Invariant 2: Disjointness — prod files and test files have empty intersection
+        # Invariant 2: Disjointness — prod files, test files, and agent files have empty mutual intersections
         intersection = prod_files.intersection(test_files)
         self.assertEqual(
             intersection, set(),
             f"Found test files intersecting with production codebase: {intersection}"
+        )
+        agent_prod_intersection = prod_files.intersection(agent_files)
+        self.assertEqual(
+            agent_prod_intersection, set(),
+            f"Found agent files intersecting with production codebase: {agent_prod_intersection}"
+        )
+        agent_test_intersection = test_files.intersection(agent_files)
+        self.assertEqual(
+            agent_test_intersection, set(),
+            f"Found agent files intersecting with test files: {agent_test_intersection}"
         )
 
         # Invariant 3: Zero fixture contamination in prod
@@ -101,15 +112,15 @@ class TestSelfScanIntegrity(unittest.TestCase):
         )
 
         # Invariant 4: Complete partition
-        partitioned = prod_files.union(test_files)
+        partitioned = prod_files.union(test_files).union(agent_files)
         unaccounted = set(tracked_files) - partitioned
         self.assertEqual(
             unaccounted, set(),
             f"Tracked Python files not accounted for in partition: {unaccounted}"
         )
         self.assertEqual(
-            len(prod_files) + len(test_files), len(tracked_files),
-            "Sum of prod files and test files must exactly equal total tracked Python files"
+            len(prod_files) + len(test_files) + len(agent_files), len(tracked_files),
+            "Sum of prod files, test files, and agent files must exactly equal total tracked Python files"
         )
 
     def test_self_scan_risk_distribution_honesty(self):

@@ -1,0 +1,264 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="100%" height="100%" style="background:#0B0F19;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B0F19" />
+      <stop offset="100%" stop-color="#111827" />
+    </linearGradient>
+    <linearGradient id="cyanCardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#132338" />
+      <stop offset="100%" stop-color="#0E1928" />
+    </linearGradient>
+    <linearGradient id="emeraldCardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#112C28" />
+      <stop offset="100%" stop-color="#0D211E" />
+    </linearGradient>
+    <linearGradient id="violetCardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#231A38" />
+      <stop offset="100%" stop-color="#181228" />
+    </linearGradient>
+    <linearGradient id="arrowCyan" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#06B6D4" />
+      <stop offset="100%" stop-color="#10B981" />
+    </linearGradient>
+    <linearGradient id="arrowEmerald" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#8B5CF6" />
+    </linearGradient>
+    
+    <!-- Filter for subtle drop shadow -->
+    <filter id="cardShadow" x="-5%" y="-5%" width="110%" height="115%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.45" />
+    </filter>
+    
+    <!-- Markers -->
+    <marker id="arrowHeadCyan" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#06B6D4" />
+    </marker>
+    <marker id="arrowHeadEmerald" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#10B981" />
+    </marker>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="1200" height="800" fill="url(#bgGrad)" />
+
+  <!-- Subtle Architectural Grid Dots -->
+  <g opacity="0.12">
+    <pattern id="dotGrid" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#94A3B8" />
+    </pattern>
+    <rect width="1200" height="800" fill="url(#dotGrid)" />
+  </g>
+
+  <!-- Header Section -->
+  <g transform="translate(60, 40)">
+    <rect x="0" y="0" width="40" height="40" rx="8" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1.5" />
+    <path d="M12 28L20 12L28 28M15 23H25" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="52" y="24" fill="#F8FAFC" font-size="20" font-weight="700" letter-spacing="-0.02em">ULTRON ARCHITECTURAL INTELLIGENCE ENGINE</text>
+    <text x="52" y="40" fill="#94A3B8" font-size="13" font-weight="400">Continuous Cognitive Control Plane • 4-Signal Multi-Criteria Decision Framework</text>
+    
+    <!-- Health Badge -->
+    <g transform="translate(940, 4)">
+      <rect width="140" height="32" rx="16" fill="#10B981" fill-opacity="0.12" stroke="#10B981" stroke-width="1"/>
+      <circle cx="16" cy="16" r="4" fill="#10B981" />
+      <text x="28" y="20" fill="#10B981" font-size="12" font-weight="600">PRODUCTION READY</text>
+    </g>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- TIER 1: INGESTION & GROUND TRUTH OBSERVATION (CYAN)                        -->
+  <!-- ========================================================================= -->
+  <g transform="translate(60, 110)">
+    <!-- Group Container -->
+    <rect width="1080" height="150" rx="12" fill="#0E1726" fill-opacity="0.6" stroke="#1E293B" stroke-width="1.5" />
+    
+    <!-- Section Header Tag -->
+    <rect x="20" y="14" width="180" height="24" rx="6" fill="#06B6D4" fill-opacity="0.15" stroke="#06B6D4" stroke-width="1" />
+    <text x="30" y="30" fill="#06B6D4" font-size="11" font-weight="700" letter-spacing="0.05em">TIER 1: EVIDENCE INGESTION</text>
+
+    <!-- Signal 1: AST Structural Parsing -->
+    <g transform="translate(20, 48)" filter="url(#cardShadow)">
+      <rect width="250" height="86" rx="8" fill="url(#cyanCardGrad)" stroke="#0E7490" stroke-width="1" />
+      <text x="16" y="24" fill="#E2E8F0" font-size="13" font-weight="600">AST Structural Parsing</text>
+      <text x="16" y="42" fill="#94A3B8" font-size="11">Python `ast.parse` + Polyglot TS/JS/Go</text>
+      <rect x="16" y="54" width="115" height="18" rx="4" fill="#0891B2" fill-opacity="0.2"/>
+      <text x="22" y="67" fill="#38BDF8" font-size="10" font-weight="600">WEIGHT: 0.35 (AST)</text>
+    </g>
+
+    <!-- Signal 2: Git Churn & Bug History -->
+    <g transform="translate(285, 48)" filter="url(#cardShadow)">
+      <rect width="250" height="86" rx="8" fill="url(#cyanCardGrad)" stroke="#0E7490" stroke-width="1" />
+      <text x="16" y="24" fill="#E2E8F0" font-size="13" font-weight="600">Git Evidence Adapter</text>
+      <text x="16" y="42" fill="#94A3B8" font-size="11">Commit frequency, bug fixes, authors</text>
+      <rect x="16" y="54" width="125" height="18" rx="4" fill="#0891B2" fill-opacity="0.2"/>
+      <text x="22" y="67" fill="#38BDF8" font-size="10" font-weight="600">WEIGHT: 0.15 (CHURN)</text>
+    </g>
+
+    <!-- Signal 3: Co-Change Coupling -->
+    <g transform="translate(550, 48)" filter="url(#cardShadow)">
+      <rect width="250" height="86" rx="8" fill="url(#cyanCardGrad)" stroke="#0E7490" stroke-width="1" />
+      <text x="16" y="24" fill="#E2E8F0" font-size="13" font-weight="600">Coupling Matrix Engine</text>
+      <text x="16" y="42" fill="#94A3B8" font-size="11">Temporal commit partner co-evolution</text>
+      <rect x="16" y="54" width="135" height="18" rx="4" fill="#0891B2" fill-opacity="0.2"/>
+      <text x="22" y="67" fill="#38BDF8" font-size="10" font-weight="600">WEIGHT: 0.25 (COUPLING)</text>
+    </g>
+
+    <!-- Signal 4: Test Line Coverage -->
+    <g transform="translate(815, 48)" filter="url(#cardShadow)">
+      <rect width="245" height="86" rx="8" fill="url(#cyanCardGrad)" stroke="#0E7490" stroke-width="1" />
+      <text x="16" y="24" fill="#E2E8F0" font-size="13" font-weight="600">Test Coverage Telemetry</text>
+      <text x="16" y="42" fill="#94A3B8" font-size="11">SQLite `.coverage` + Cobertura XML</text>
+      <rect x="16" y="54" width="135" height="18" rx="4" fill="#0891B2" fill-opacity="0.2"/>
+      <text x="22" y="67" fill="#38BDF8" font-size="10" font-weight="600">WEIGHT: 0.25 (COVERAGE)</text>
+    </g>
+  </g>
+
+  <!-- Data Flow Arrows Tier 1 -> Tier 2 -->
+  <path d="M600 260 L600 300" stroke="url(#arrowCyan)" stroke-width="2.5" stroke-dasharray="4 4" marker-end="url(#arrowHeadEmerald)"/>
+
+  <!-- ========================================================================= -->
+  <!-- TIER 2: COGNITIVE INTELLIGENCE & RISK CALIBRATION (EMERALD)               -->
+  <!-- ========================================================================= -->
+  <g transform="translate(60, 310)">
+    <!-- Group Container -->
+    <rect width="1080" height="180" rx="12" fill="#0B1D19" fill-opacity="0.5" stroke="#047857" stroke-width="1.5" />
+    
+    <!-- Section Header Tag -->
+    <rect x="20" y="14" width="220" height="24" rx="6" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" />
+    <text x="30" y="30" fill="#10B981" font-size="11" font-weight="700" letter-spacing="0.05em">TIER 2: COGNITIVE ANALYSIS ENGINE</text>
+
+    <!-- Core Module 1: Topological Graph & Tarjan SCC -->
+    <g transform="translate(20, 50)" filter="url(#cardShadow)">
+      <rect width="250" height="110" rx="8" fill="url(#emeraldCardGrad)" stroke="#059669" stroke-width="1" />
+      <text x="16" y="24" fill="#F0FDF4" font-size="13" font-weight="600">Topological Graph & SCC</text>
+      <text x="16" y="42" fill="#A7F3D0" font-size="11">Tarjan's strongly connected components</text>
+      <text x="16" y="58" fill="#6EE7B7" font-size="11">Cycle detection (2.0x risk multiplier)</text>
+      <text x="16" y="74" fill="#6EE7B7" font-size="11">Blast-radius caller/callee traversal</text>
+      <rect x="16" y="84" width="85" height="16" rx="4" fill="#047857" fill-opacity="0.3"/>
+      <text x="22" y="96" fill="#34D399" font-size="9" font-weight="700">DERIVED TRUTH</text>
+    </g>
+
+    <!-- Core Module 2: McCabe Complexity Engine -->
+    <g transform="translate(285, 50)" filter="url(#cardShadow)">
+      <rect width="250" height="110" rx="8" fill="url(#emeraldCardGrad)" stroke="#059669" stroke-width="1" />
+      <text x="16" y="24" fill="#F0FDF4" font-size="13" font-weight="600">Syntactic Complexity Engine</text>
+      <text x="16" y="42" fill="#A7F3D0" font-size="11">Radon block-level McCabe traversal</text>
+      <text x="16" y="58" fill="#6EE7B7" font-size="11">Decision path branch enumeration</text>
+      <text x="16" y="74" fill="#6EE7B7" font-size="11">Comprehension loop & try/catch rules</text>
+      <rect x="16" y="84" width="85" height="16" rx="4" fill="#047857" fill-opacity="0.3"/>
+      <text x="22" y="96" fill="#34D399" font-size="9" font-weight="700">OBSERVED AST</text>
+    </g>
+
+    <!-- Core Module 3: 4-Signal Calibrated Scoring -->
+    <g transform="translate(550, 50)" filter="url(#cardShadow)">
+      <rect width="250" height="110" rx="8" fill="url(#emeraldCardGrad)" stroke="#059669" stroke-width="1" />
+      <text x="16" y="24" fill="#F0FDF4" font-size="13" font-weight="600">Hybrid Percentile Classifier</text>
+      <text x="16" y="42" fill="#A7F3D0" font-size="11">HIGH: ≥90th pct & score ≥10 (≤15%)</text>
+      <text x="16" y="58" fill="#A7F3D0" font-size="11">MEDIUM: ≥65th pct & score ≥3 (≤45%)</text>
+      <text x="16" y="74" fill="#A7F3D0" font-size="11">LOW: Baseline safe-edit floor</text>
+      <rect x="16" y="84" width="90" height="16" rx="4" fill="#047857" fill-opacity="0.3"/>
+      <text x="22" y="96" fill="#34D399" font-size="9" font-weight="700">CALIBRATED TIER</text>
+    </g>
+
+    <!-- Core Module 4: Architecture Health Scorer -->
+    <g transform="translate(815, 50)" filter="url(#cardShadow)">
+      <rect width="245" height="110" rx="8" fill="url(#emeraldCardGrad)" stroke="#059669" stroke-width="1" />
+      <text x="16" y="24" fill="#F0FDF4" font-size="13" font-weight="600">Composite Health Engine</text>
+      <text x="16" y="42" fill="#A7F3D0" font-size="11">Score: 0.0 – 100.0 Scale</text>
+      <text x="16" y="58" fill="#6EE7B7" font-size="11">40% Cycle Stability Weight</text>
+      <text x="16" y="74" fill="#6EE7B7" font-size="11">40% Policy Rules + 20% Dist</text>
+      <rect x="16" y="84" width="85" height="16" rx="4" fill="#047857" fill-opacity="0.3"/>
+      <text x="22" y="96" fill="#34D399" font-size="9" font-weight="700">VERIFIED GATE</text>
+    </g>
+  </g>
+
+  <!-- Data Flow Arrows Tier 2 -> Tier 3 -->
+  <path d="M600 490 L600 530" stroke="url(#arrowEmerald)" stroke-width="2.5" stroke-dasharray="4 4" marker-end="url(#arrowHeadEmerald)"/>
+
+  <!-- ========================================================================= -->
+  <!-- TIER 3: EXECUTION PLANE & DELIVERY INTERFACES (VIOLET)                     -->
+  <!-- ========================================================================= -->
+  <g transform="translate(60, 540)">
+    <!-- Group Container -->
+    <rect width="1080" height="150" rx="12" fill="#140F22" fill-opacity="0.6" stroke="#4C1D95" stroke-width="1.5" />
+    
+    <!-- Section Header Tag -->
+    <rect x="20" y="14" width="220" height="24" rx="6" fill="#8B5CF6" fill-opacity="0.15" stroke="#8B5CF6" stroke-width="1" />
+    <text x="30" y="30" fill="#A78BFA" font-size="11" font-weight="700" letter-spacing="0.05em">TIER 3: DELIVERY & CONTROL PLANE</text>
+
+    <!-- Channel 1: Web Dashboard C4 UI -->
+    <g transform="translate(20, 48)" filter="url(#cardShadow)">
+      <rect width="250" height="86" rx="8" fill="url(#violetCardGrad)" stroke="#7C3AED" stroke-width="1" />
+      <text x="16" y="24" fill="#EDE9FE" font-size="13" font-weight="600">Interactive C4 Dashboard</text>
+      <text x="16" y="42" fill="#C4B5FD" font-size="11">Port 8000 Web Interface</text>
+      <text x="16" y="58" fill="#A78BFA" font-size="11">Overview • Graph • Studio • Auditor</text>
+      <rect x="16" y="66" width="100" height="14" rx="3" fill="#6D28D9" fill-opacity="0.3"/>
+      <text x="20" y="77" fill="#DDD6FE" font-size="9" font-weight="600">ZERO DEPENDENCIES</text>
+    </g>
+
+    <!-- Channel 2: MCP Stdio Server -->
+    <g transform="translate(285, 48)" filter="url(#cardShadow)">
+      <rect width="250" height="86" rx="8" fill="url(#violetCardGrad)" stroke="#7C3AED" stroke-width="1" />
+      <text x="16" y="24" fill="#EDE9FE" font-size="13" font-weight="600">Model Context Protocol</text>
+      <text x="16" y="42" fill="#C4B5FD" font-size="11">Stdio JSON-RPC 2.0 Server</text>
+      <text x="16" y="58" fill="#A78BFA" font-size="11">Tools: `get_risk_profile`, `brief`, ...</text>
+      <rect x="16" y="66" width="90" height="14" rx="3" fill="#6D28D9" fill-opacity="0.3"/>
+      <text x="20" y="77" fill="#DDD6FE" font-size="9" font-weight="600">AGENT INTEGRATION</text>
+    </g>
+
+    <!-- Channel 3: Headless CI Quality Gate -->
+    <g transform="translate(550, 48)" filter="url(#cardShadow)">
+      <rect width="250" height="86" rx="8" fill="url(#violetCardGrad)" stroke="#7C3AED" stroke-width="1" />
+      <text x="16" y="24" fill="#EDE9FE" font-size="13" font-weight="600">Headless CI Quality Gate</text>
+      <text x="16" y="42" fill="#C4B5FD" font-size="11">`ultron gate` / `scripts/verify.py`</text>
+      <text x="16" y="58" fill="#A78BFA" font-size="11">GitHub Actions ::error Annotations</text>
+      <rect x="16" y="66" width="90" height="14" rx="3" fill="#6D28D9" fill-opacity="0.3"/>
+      <text x="20" y="77" fill="#DDD6FE" font-size="9" font-weight="600">FAIL-FAST GATE</text>
+    </g>
+
+    <!-- Channel 4: AI Agent Mission Envelopes -->
+    <g transform="translate(815, 48)" filter="url(#cardShadow)">
+      <rect width="245" height="86" rx="8" fill="url(#violetCardGrad)" stroke="#7C3AED" stroke-width="1" />
+      <text x="16" y="24" fill="#EDE9FE" font-size="13" font-weight="600">Self-Healing Fix Envelopes</text>
+      <text x="16" y="42" fill="#C4B5FD" font-size="11">7-field prompt bounds & ceilings</text>
+      <text x="16" y="58" fill="#A78BFA" font-size="11">Public signatures + rollback safety</text>
+      <rect x="16" y="66" width="105" height="14" rx="3" fill="#6D28D9" fill-opacity="0.3"/>
+      <text x="20" y="77" fill="#DDD6FE" font-size="9" font-weight="600">ZERO REVISION DEBT</text>
+    </g>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- LEGEND & DISAMBIGUATED RISK SPECTRUM BADGES                               -->
+  <!-- ========================================================================= -->
+  <g transform="translate(60, 715)">
+    <!-- Legend Box -->
+    <rect width="1080" height="52" rx="8" fill="#0E1726" stroke="#1E293B" stroke-width="1" />
+
+    <!-- Disambiguation Label 1: McCabe Complexity -->
+    <text x="20" y="31" fill="#94A3B8" font-size="11" font-weight="600">McCabe Complexity Ceilings:</text>
+    <rect x="195" y="17" width="80" height="20" rx="4" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" />
+    <text x="203" y="31" fill="#34D399" font-size="10" font-weight="700">LOW (1 – 5)</text>
+
+    <rect x="285" y="17" width="85" height="20" rx="4" fill="#F59E0B" fill-opacity="0.15" stroke="#F59E0B" stroke-width="1" />
+    <text x="293" y="31" fill="#FBBF24" font-size="10" font-weight="700">MED (6 – 12)</text>
+
+    <rect x="380" y="17" width="85" height="20" rx="4" fill="#EF4444" fill-opacity="0.15" stroke="#EF4444" stroke-width="1" />
+    <text x="388" y="31" fill="#F87171" font-size="10" font-weight="700">HIGH (12+)</text>
+
+    <!-- Divider -->
+    <line x1="490" y1="14" x2="490" y2="40" stroke="#334155" stroke-width="1" />
+
+    <!-- Disambiguation Label 2: Hybrid Risk Tiers -->
+    <text x="515" y="31" fill="#94A3B8" font-size="11" font-weight="600">Ultron Risk Tiers (Hybrid Percentile Model):</text>
+    
+    <rect x="760" y="17" width="90" height="20" rx="4" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" />
+    <text x="768" y="31" fill="#34D399" font-size="10" font-weight="700">LOW [0.0 – 5.0]</text>
+
+    <rect x="860" y="17" width="105" height="20" rx="4" fill="#F59E0B" fill-opacity="0.15" stroke="#F59E0B" stroke-width="1" />
+    <text x="868" y="31" fill="#FBBF24" font-size="10" font-weight="700">MEDIUM [5.1 – 12]</text>
+
+    <rect x="975" y="17" width="85" height="20" rx="4" fill="#EF4444" fill-opacity="0.15" stroke="#EF4444" stroke-width="1" />
+    <text x="983" y="31" fill="#F87171" font-size="10" font-weight="700">HIGH [12.1+]</text>
+  </g>
+</svg>

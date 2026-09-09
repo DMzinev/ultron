@@ -1,0 +1,407 @@
+{
+  "Health Check": {
+    "path": "/api/v1/health",
+    "method": "GET",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "status",
+      "environment",
+      "rkm_database",
+      "modules",
+      "active_job"
+    ]
+  },
+  "Analyze Repository (Sync)": {
+    "path": "/api/v1/analyze",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "status",
+      "projection_version",
+      "identity",
+      "snapshot_id",
+      "model_hash",
+      "repository_id",
+      "repository_root",
+      "repository_relative_root",
+      "generated_at",
+      "health_score",
+      "completeness",
+      "evidence_level",
+      "evidence_sources",
+      "overall_evidence_level",
+      "stats",
+      "objective",
+      "session",
+      "readiness",
+      "diff",
+      "risks",
+      "dependency_graph",
+      "recommendations",
+      "file_tree",
+      "calibration",
+      "pledges",
+      "version",
+      "repo_fingerprint",
+      "payload_build_ms",
+      "payload_serialize_ms",
+      "payload_bytes",
+      "job_id",
+      "mode"
+    ]
+  },
+  "Progress Polling": {
+    "path": "/api/v1/progress",
+    "method": "GET",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "status",
+      "progress_step",
+      "progress_pct",
+      "job_id",
+      "snapshot_id",
+      "result"
+    ]
+  },
+  "Top Recommendations": {
+    "path": "/api/v1/recommendations?limit=20",
+    "method": "GET",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "status",
+      "source",
+      "count",
+      "recommendations"
+    ]
+  },
+  "Risk Hotspots": {
+    "path": "/api/v1/hotspots?limit=10",
+    "method": "GET",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "hotspots"
+    ]
+  },
+  "Get Objective Plan": {
+    "path": "/api/v1/objective?repo=C:\\Users\\dimmiz\\AppData\\Local\\Temp\\tmp7166tfxm",
+    "method": "GET",
+    "status": "HANDLER_MISSING",
+    "error": "Method handle_v1_objective not found on UltronAPIHandler"
+  },
+  "Add Task to Objective": {
+    "path": "/api/v1/objective/task/add",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "state",
+      "objective",
+      "session"
+    ]
+  },
+  "Complete Task in Objective": {
+    "path": "/api/v1/objective/task/complete",
+    "method": "POST",
+    "status_code": 404,
+    "success": false,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "state"
+    ]
+  },
+  "Agent Context (Markdown)": {
+    "path": "/api/v1/agent/context",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "provider",
+      "prompt",
+      "canonical"
+    ]
+  },
+  "Agent Context (Claude)": {
+    "path": "/api/v1/agent/context",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "provider",
+      "prompt",
+      "canonical"
+    ]
+  },
+  "Agent Context (Cursor)": {
+    "path": "/api/v1/agent/context",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "provider",
+      "prompt",
+      "canonical"
+    ]
+  },
+  "Agent Context (Antigravity)": {
+    "path": "/api/v1/agent/context",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "provider",
+      "prompt",
+      "canonical"
+    ]
+  },
+  "Agent Context (Aider)": {
+    "path": "/api/v1/agent/context",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "provider",
+      "prompt",
+      "canonical"
+    ]
+  },
+  "Safety Evaluate": {
+    "path": "/api/v1/safety/evaluate",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "report"
+    ]
+  },
+  "Run Project Tests": {
+    "path": "/api/v1/run-tests",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "exit_code",
+      "output"
+    ]
+  },
+  "Export Brief (Antigravity)": {
+    "path": "/api/v1/export-brief",
+    "method": "POST",
+    "status": "HANDLER_MISSING",
+    "error": "Method handle_export_brief not found on UltronAPIHandler"
+  },
+  "Export Brief (Claude)": {
+    "path": "/api/v1/export-brief",
+    "method": "POST",
+    "status": "HANDLER_MISSING",
+    "error": "Method handle_export_brief not found on UltronAPIHandler"
+  },
+  "AI Push Persona Translation": {
+    "path": "/api/v1/ai/push",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "status",
+      "entity_id",
+      "persona",
+      "explanation",
+      "ai_response",
+      "message",
+      "source"
+    ]
+  },
+  "Code Anomaly Audit": {
+    "path": "/api/v1/audit",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "anomalies"
+    ]
+  },
+  "Auto-Calibration": {
+    "path": "/api/v1/calibrate",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "optimal_typo_threshold",
+      "optimal_prob_threshold",
+      "max_f1",
+      "sweep_history"
+    ]
+  },
+  "Save Sandbox File": {
+    "path": "/api/v1/save-file",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "message"
+    ]
+  },
+  "Browse Folder Dialog": {
+    "path": "/api/browse-folder",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "path",
+      "cancelled",
+      "fallback"
+    ]
+  },
+  "Generate Architectural Prompt": {
+    "path": "/api/v1/generate",
+    "method": "POST",
+    "status_code": 200,
+    "success": true,
+    "response_type": "dict",
+    "has_data": true,
+    "sample_keys": [
+      "success",
+      "data",
+      "error",
+      "timestamp",
+      "request_id",
+      "prompt"
+    ]
+  }
+}

@@ -1,0 +1,1072 @@
+{
+  "version": "1.1.0",
+  "total_controls_audited": 106,
+  "summary_by_functionality": {
+    "WORKING": 106,
+    "BROKEN_LINK": 0,
+    "DEAD": 0,
+    "UNBOUND": 0
+  },
+  "controls": [
+    {
+      "control_id": "mode-toggle",
+      "stage": "global",
+      "type": "input[checkbox]",
+      "label": "Engineer",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #mode-toggle",
+      "handler_count": 2
+    },
+    {
+      "control_id": "select-active-workspace",
+      "stage": "global",
+      "type": "select",
+      "label": "\ud83d\udcc1 Default Workspace",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #select-active-workspace",
+      "handler_count": 1
+    },
+    {
+      "control_id": "nav-dashboard",
+      "stage": "global",
+      "type": "button",
+      "label": "Overview",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .nav-btn",
+      "handler_count": 4
+    },
+    {
+      "control_id": "nav-graph",
+      "stage": "global",
+      "type": "button",
+      "label": "Structure",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #nav-graph",
+      "handler_count": 3
+    },
+    {
+      "control_id": "nav-work",
+      "stage": "global",
+      "type": "button",
+      "label": "Work & Plan",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #nav-work",
+      "handler_count": 2
+    },
+    {
+      "control_id": "nav-prompt",
+      "stage": "global",
+      "type": "button",
+      "label": "Agent Context",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #nav-prompt",
+      "handler_count": 5
+    },
+    {
+      "control_id": "nav-auditor",
+      "stage": "global",
+      "type": "button",
+      "label": "Verify & Safety",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #nav-auditor",
+      "handler_count": 2
+    },
+    {
+      "control_id": "global-repo",
+      "stage": "global",
+      "type": "input[text]",
+      "label": "",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #global-repo",
+      "handler_count": 6
+    },
+    {
+      "control_id": "btn-browse-folder",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udcc2",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-browse-folder",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-load-repo",
+      "stage": "global",
+      "type": "button",
+      "label": "Connect / Scan",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-load-repo",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-load-playground",
+      "stage": "global",
+      "type": "button",
+      "label": "Demo",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-load-playground",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-watch-mode-toggle",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udc41\ufe0f",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-watch-mode-toggle",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-open-tour",
+      "stage": "global",
+      "type": "button",
+      "label": "Engine Ready",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-open-tour",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-open-omnibar",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udd0d",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-open-omnibar",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-health-score-info",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "\u2139\ufe0f Score Info",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-health-score-info",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-cancel-analysis",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "Cancel",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-cancel-analysis",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-overview-open-plan",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "\ud83d\udccb Open Objective Planner",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-overview-open-plan",
+      "handler_count": 1
+    },
+    {
+      "control_id": "pill-graph-system",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "System View",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #pill-graph-system",
+      "handler_count": 1
+    },
+    {
+      "control_id": "pill-graph-module",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "Module View",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #pill-graph-module",
+      "handler_count": 1
+    },
+    {
+      "control_id": "pill-graph-file",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "File View",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #pill-graph-file",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-refresh-recs",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "Refresh",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-refresh-recs",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-copy-context-brief",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "\ud83d\udccb View & Copy Context Brief",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-copy-context-brief",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-query-agent-api",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "\u26a1 Query Agent API",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-query-agent-api",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-close-inline-brief",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "Close",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-close-inline-brief",
+      "handler_count": 1
+    },
+    {
+      "control_id": "anon_button",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "All",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .polyglot-pill",
+      "handler_count": 1
+    },
+    {
+      "control_id": "anon_button",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "PY",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .polyglot-pill",
+      "handler_count": 1
+    },
+    {
+      "control_id": "anon_button",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "TS",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .polyglot-pill",
+      "handler_count": 1
+    },
+    {
+      "control_id": "anon_button",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "JS",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .polyglot-pill",
+      "handler_count": 1
+    },
+    {
+      "control_id": "anon_button",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "GO",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .polyglot-pill",
+      "handler_count": 1
+    },
+    {
+      "control_id": "risk-threshold-slider",
+      "stage": "dashboard-tab",
+      "type": "input[range]",
+      "label": "\u2265 0.0",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #risk-threshold-slider",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-take-snapshot",
+      "stage": "dashboard-tab",
+      "type": "button",
+      "label": "\ud83d\udcf8 Take Snapshot",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-take-snapshot",
+      "handler_count": 1
+    },
+    {
+      "control_id": "snapshot-timeline-slider",
+      "stage": "dashboard-tab",
+      "type": "input[range]",
+      "label": "\u0394 Health Score",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #snapshot-timeline-slider",
+      "handler_count": 1
+    },
+    {
+      "control_id": "prompt-intent",
+      "stage": "prompt-tab",
+      "type": "textarea",
+      "label": "Target Files to Modify",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #prompt-intent",
+      "handler_count": 2
+    },
+    {
+      "control_id": "prompt-file-select",
+      "stage": "prompt-tab",
+      "type": "select",
+      "label": "-- Select Analyzed File --",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #prompt-file-select",
+      "handler_count": 3
+    },
+    {
+      "control_id": "prompt-files",
+      "stage": "prompt-tab",
+      "type": "input[text]",
+      "label": "Thought Analyzer",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #prompt-files",
+      "handler_count": 3
+    },
+    {
+      "control_id": "btn-generate-prompt",
+      "stage": "prompt-tab",
+      "type": "button",
+      "label": "Compile AI Instruction Prompt",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-generate-prompt",
+      "handler_count": 2
+    },
+    {
+      "control_id": "pill-agent-md",
+      "stage": "prompt-tab",
+      "type": "button",
+      "label": "Markdown",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #pill-agent-md",
+      "handler_count": 1
+    },
+    {
+      "control_id": "pill-agent-claude",
+      "stage": "prompt-tab",
+      "type": "button",
+      "label": "Claude",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #pill-agent-claude",
+      "handler_count": 1
+    },
+    {
+      "control_id": "pill-agent-cursor",
+      "stage": "prompt-tab",
+      "type": "button",
+      "label": "Cursor",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #pill-agent-cursor",
+      "handler_count": 1
+    },
+    {
+      "control_id": "pill-agent-agy",
+      "stage": "prompt-tab",
+      "type": "button",
+      "label": "Antigravity",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #pill-agent-agy",
+      "handler_count": 1
+    },
+    {
+      "control_id": "pill-agent-aider",
+      "stage": "prompt-tab",
+      "type": "button",
+      "label": "Aider",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #pill-agent-aider",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-copy-prompt",
+      "stage": "prompt-tab",
+      "type": "button",
+      "label": "Copy Text",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-copy-prompt",
+      "handler_count": 1
+    },
+    {
+      "control_id": "audit-file",
+      "stage": "auditor-tab",
+      "type": "input[hidden]",
+      "label": "File Explorer",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #audit-file",
+      "handler_count": 2
+    },
+    {
+      "control_id": "file-search-input",
+      "stage": "auditor-tab",
+      "type": "input[text]",
+      "label": "Connect a repository.",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #file-search-input",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-run-tests",
+      "stage": "auditor-tab",
+      "type": "button",
+      "label": "Run Project Tests",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-run-tests",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-calibrate",
+      "stage": "auditor-tab",
+      "type": "button",
+      "label": "Calibrate Thresholds",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-calibrate",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-editor-refactor-patch",
+      "stage": "auditor-tab",
+      "type": "button",
+      "label": "\u26a1 Refactor Patch",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-editor-refactor-patch",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-save-file",
+      "stage": "auditor-tab",
+      "type": "button",
+      "label": "Save Changes",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-save-file",
+      "handler_count": 1
+    },
+    {
+      "control_id": "sandbox-editor",
+      "stage": "auditor-tab",
+      "type": "textarea",
+      "label": "Lines:",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #sandbox-editor",
+      "handler_count": 4
+    },
+    {
+      "control_id": "btn-run-audit",
+      "stage": "auditor-tab",
+      "type": "button",
+      "label": "Run Anomaly Audit",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-run-audit",
+      "handler_count": 1
+    },
+    {
+      "control_id": "graph-search-input",
+      "stage": "graph-tab",
+      "type": "input[text]",
+      "label": "",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #graph-search-input",
+      "handler_count": 1
+    },
+    {
+      "control_id": "graph-filter-risk",
+      "stage": "graph-tab",
+      "type": "select",
+      "label": "All Risk Levels",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #graph-filter-risk",
+      "handler_count": 1
+    },
+    {
+      "control_id": "graph-filter-type",
+      "stage": "graph-tab",
+      "type": "select",
+      "label": "All Node Types",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #graph-filter-type",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-zoom-in",
+      "stage": "graph-tab",
+      "type": "button",
+      "label": "+",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-zoom-in",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-zoom-out",
+      "stage": "graph-tab",
+      "type": "button",
+      "label": "-",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-zoom-out",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-zoom-reset",
+      "stage": "graph-tab",
+      "type": "button",
+      "label": "Reset",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-zoom-reset",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-zoom-fit",
+      "stage": "graph-tab",
+      "type": "button",
+      "label": "Fit",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-zoom-fit",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-highlight-cycles",
+      "stage": "graph-tab",
+      "type": "button",
+      "label": "\ud83d\udd04 Cycles",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-highlight-cycles",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-refresh-graph",
+      "stage": "graph-tab",
+      "type": "button",
+      "label": "Refresh Graph",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-refresh-graph",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-close-drawer",
+      "stage": "graph-tab",
+      "type": "button",
+      "label": "\u00d7",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-close-drawer",
+      "handler_count": 2
+    },
+    {
+      "control_id": "btn-drawer-focus-node",
+      "stage": "graph-tab",
+      "type": "button",
+      "label": "\ud83c\udfaf Focus Node",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-drawer-focus-node",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-drawer-ai-critique",
+      "stage": "graph-tab",
+      "type": "button",
+      "label": "\u26a1 Explain AI",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-drawer-ai-critique",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-drawer-push-agent",
+      "stage": "graph-tab",
+      "type": "button",
+      "label": "\ud83d\udccb Prepare Agent Context",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-drawer-push-agent",
+      "handler_count": 2
+    },
+    {
+      "control_id": "btn-close-tour",
+      "stage": "global",
+      "type": "button",
+      "label": "\u00d7",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-close-tour",
+      "handler_count": 2
+    },
+    {
+      "control_id": "btn-prev-slide",
+      "stage": "global",
+      "type": "button",
+      "label": "Back",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-prev-slide",
+      "handler_count": 2
+    },
+    {
+      "control_id": "btn-next-slide",
+      "stage": "global",
+      "type": "button",
+      "label": "Next",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-next-slide",
+      "handler_count": 2
+    },
+    {
+      "control_id": "btn-close-detail",
+      "stage": "global",
+      "type": "button",
+      "label": "\u00d7",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-close-detail",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-drawer-trace-blast",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udca5 Trace Blast",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-drawer-trace-blast",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-drawer-clear-blast",
+      "stage": "global",
+      "type": "button",
+      "label": "\u2715 Reset",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-drawer-clear-blast",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-persona-dev",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udc68\u200d\ud83d\udcbb Developer",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .persona-tab",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-persona-manager",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udcca Manager",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .persona-tab",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-persona-founder",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\ude80 Founder",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .persona-tab",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-persona-security",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udee1\ufe0f Security",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .persona-tab",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-persona-ai",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83e\udd16 AI Agent",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .persona-tab",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-detail-ai-explain",
+      "stage": "global",
+      "type": "button",
+      "label": "Translate Risk",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-detail-ai-explain",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-auto-push-ai",
+      "stage": "global",
+      "type": "button",
+      "label": "\u26a1 Auto-Push to AI Assistant",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-auto-push-ai",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-copy-claude",
+      "stage": "global",
+      "type": "button",
+      "label": "Copy for Claude",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-copy-claude",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-copy-gpt",
+      "stage": "global",
+      "type": "button",
+      "label": "Copy for ChatGPT",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-copy-gpt",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-copy-gemini",
+      "stage": "global",
+      "type": "button",
+      "label": "Copy for Gemini",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-copy-gemini",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-close-health-modal",
+      "stage": "global",
+      "type": "button",
+      "label": "\u00d7",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-close-health-modal",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-dismiss-health-modal",
+      "stage": "global",
+      "type": "button",
+      "label": "Got it",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-dismiss-health-modal",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-close-agent-modal",
+      "stage": "global",
+      "type": "button",
+      "label": "\u00d7",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-close-agent-modal",
+      "handler_count": 1
+    },
+    {
+      "control_id": "tab-btn-agent-brief",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udccb Targeted Brief",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #tab-btn-agent-brief",
+      "handler_count": 1
+    },
+    {
+      "control_id": "tab-btn-agent-cli",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udcbb CLI Presets",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #tab-btn-agent-cli",
+      "handler_count": 1
+    },
+    {
+      "control_id": "tab-btn-agent-mcp",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udd0c MCP Config",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #tab-btn-agent-mcp",
+      "handler_count": 1
+    },
+    {
+      "control_id": "tab-btn-agent-json",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udce6 API JSON",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #tab-btn-agent-json",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-copy-agent-brief",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udccb Copy Markdown Brief",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-copy-agent-brief",
+      "handler_count": 1
+    },
+    {
+      "control_id": "anon_button",
+      "stage": "global",
+      "type": "button",
+      "label": "Copy",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .btn-copy-cli-snippet",
+      "handler_count": 1
+    },
+    {
+      "control_id": "anon_button",
+      "stage": "global",
+      "type": "button",
+      "label": "Copy",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .btn-copy-cli-snippet",
+      "handler_count": 1
+    },
+    {
+      "control_id": "anon_button",
+      "stage": "global",
+      "type": "button",
+      "label": "Copy",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .btn-copy-cli-snippet",
+      "handler_count": 1
+    },
+    {
+      "control_id": "anon_button",
+      "stage": "global",
+      "type": "button",
+      "label": "Copy",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via Class .btn-copy-cli-snippet",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-copy-agent-mcp",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udd0c Copy MCP Configuration",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-copy-agent-mcp",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-copy-agent-json",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udce6 Copy Raw JSON",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-copy-agent-json",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-close-diff-modal",
+      "stage": "global",
+      "type": "button",
+      "label": "\u00d7",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-close-diff-modal",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-copy-unified-diff",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udccb Copy Unified Diff",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-copy-unified-diff",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-diff-hand-off-agent",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83e\udd16 Hand Off to Agent",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-diff-hand-off-agent",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-dismiss-diff-modal",
+      "stage": "global",
+      "type": "button",
+      "label": "Close",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-dismiss-diff-modal",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-close-export-modal",
+      "stage": "global",
+      "type": "button",
+      "label": "\u2715",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-close-export-modal",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-download-export-html",
+      "stage": "global",
+      "type": "button",
+      "label": "Download .html",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-download-export-html",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-download-export-md",
+      "stage": "global",
+      "type": "button",
+      "label": "Download .md",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-download-export-md",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-download-export-json",
+      "stage": "global",
+      "type": "button",
+      "label": "Download .json",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-download-export-json",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-dismiss-export-modal",
+      "stage": "global",
+      "type": "button",
+      "label": "Cancel",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-dismiss-export-modal",
+      "handler_count": 1
+    },
+    {
+      "control_id": "omnibar-input",
+      "stage": "global",
+      "type": "input[text]",
+      "label": "ESC",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #omnibar-input",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-close-evidence-drawer",
+      "stage": "global",
+      "type": "button",
+      "label": "\u2715",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-close-evidence-drawer",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-drawer-copy-agent-prompt",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udccb Copy Agent Context",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-drawer-copy-agent-prompt",
+      "handler_count": 1
+    },
+    {
+      "control_id": "btn-drawer-copy-scrambled-prompt",
+      "stage": "global",
+      "type": "button",
+      "label": "\ud83d\udd12 Copy Privacy-Scrambled",
+      "functionality": "WORKING",
+      "evidence_source": "AUTOMATED",
+      "notes": "Bound to handler via ID #btn-drawer-copy-scrambled-prompt",
+      "handler_count": 1
+    }
+  ]
+}

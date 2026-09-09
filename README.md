@@ -1,7 +1,7 @@
 # 🚀 Ultron — Developer Control Plane for AI-Assisted Software Engineering
 
 <p align="center">
-  <img src="docs/images/ultron_dashboard_preview.jpg" alt="Ultron Dashboard UI" width="100%" />
+  <img src="docs/images/ultron_control_plane_dashboard.svg" alt="Ultron Dashboard UI" width="100%" />
 </p>
 
 <p align="center">
@@ -21,7 +21,7 @@ Ultron tells you which files in a Python codebase are risky to change — and *w
 ## 📸 System Architecture & Cognitive Flow
 
 <p align="center">
-  <img src="docs/images/ultron_architecture_flow.jpg" alt="Ultron Architecture Flow" width="100%" />
+  <img src="docs/images/ultron_architecture_flow.svg" alt="Ultron Architecture Flow" width="100%" />
 </p>
 
 Ultron sits between the **Creator** and the **Autonomous Coding Agent**:

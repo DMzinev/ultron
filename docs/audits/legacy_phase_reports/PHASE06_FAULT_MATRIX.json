@@ -1,0 +1,151 @@
+[
+  {
+    "case_id": "FAULT-01: AI_PROXY_OFFLINE",
+    "category": "Level C Runtime Dependency & Containment",
+    "injected_fault": "Local OpenAI Proxy on port 10531 offline / connection refused",
+    "degradation_level": "L1 (REDUCED)",
+    "expected": {
+      "ai_critique_status": "REDUCED",
+      "ai_source": "Native AST Engine (Offline Fallback)",
+      "containment": "Zero failure propagation to AST analysis or Dependency Graph"
+    },
+    "observed": {
+      "ai_critique_status": "REDUCED",
+      "ai_source": "Ultron Native AST Engine (Offline Fallback)",
+      "ast_analysis_operational": true,
+      "dependency_graph_operational": true
+    },
+    "surviving_capabilities": [
+      "Overview",
+      "Structure Graph",
+      "Risk Hotspots",
+      "Work & Plan",
+      "Verify"
+    ],
+    "containment_radius": "Isolated strictly to AI Critique drawer",
+    "passed": true,
+    "status": "PASS"
+  },
+  {
+    "case_id": "FAULT-02: PARTIAL_SYNTAX_ERROR",
+    "category": "Level B & Level C Partial Failure Containment",
+    "injected_fault": "1 of 2 workspace files contains unclosed parenthesis syntax error",
+    "degradation_level": "L3 (PARTIAL)",
+    "expected": {
+      "status": "PARTIAL",
+      "valid_file_parsed": true,
+      "broken_file_isolated": true,
+      "directory_analysis_terminated": false
+    },
+    "observed": {
+      "status": "PARTIAL",
+      "valid_file_parsed": true,
+      "broken_file_isolated": true
+    },
+    "surviving_capabilities": [
+      "Valid AST Nodes",
+      "Overall Directory Analysis",
+      "Remaining Module Graph"
+    ],
+    "containment_radius": "Isolated strictly to broken_syntax.py node",
+    "passed": true,
+    "status": "PASS"
+  },
+  {
+    "case_id": "FAULT-03: CORRUPTED_OBJECTIVE_JSON",
+    "category": "Level C Runtime Recovery & Fault Isolation",
+    "injected_fault": "Corrupted non-JSON string in .ultron/objective.json",
+    "degradation_level": "L2 (RECOVERED)",
+    "expected": {
+      "recovery": "Graceful fallback to default objective state",
+      "crash": false,
+      "analysis_survives": true
+    },
+    "observed": {
+      "recovered_cleanly": true,
+      "recovered_title": "Initial Repository Setup & Discovery",
+      "ast_analysis_survived": true
+    },
+    "surviving_capabilities": [
+      "Objective Tracker (Default State)",
+      "AST Analysis",
+      "Structure Graph",
+      "Verify"
+    ],
+    "containment_radius": "Isolated strictly to local objective store; automatic reset without process death",
+    "passed": true,
+    "status": "PASS"
+  },
+  {
+    "case_id": "FAULT-04: MISSING_GIT_METADATA",
+    "category": "Level C Runtime Dependency Degradation",
+    "injected_fault": "Workspace has no .git folder or uninitialized git repo",
+    "degradation_level": "L2 (DEGRADED)",
+    "expected": {
+      "git_evidence": [],
+      "git_crash": false,
+      "ast_risk_analysis_functional": true
+    },
+    "observed": {
+      "git_records_count": 0,
+      "risk_analysis_functional": true
+    },
+    "surviving_capabilities": [
+      "AST Analysis",
+      "Risk Scoring",
+      "Structure Graph",
+      "Objective Tracker",
+      "Agent Context"
+    ],
+    "containment_radius": "Historical churn weighting inactive; all AST structural metrics 100% operational",
+    "passed": true,
+    "status": "PASS"
+  },
+  {
+    "case_id": "FAULT-05: CONTRADICTORY_SNAPSHOT_REJECTION",
+    "category": "Level B Internal Invariant & Pillar 2 Provenance",
+    "injected_fault": "Incoming REST payload contains mismatched repository_id and stale snapshot_id",
+    "degradation_level": "STALE (REJECTED)",
+    "expected": {
+      "action": "Reject payload",
+      "preserve_active_state": true,
+      "prevent_state_corruption": true
+    },
+    "observed": {
+      "payload_rejected": true,
+      "state_corruption_prevented": true
+    },
+    "surviving_capabilities": [
+      "Active Valid StateStore",
+      "DOM Integrity",
+      "Current Repository Session"
+    ],
+    "containment_radius": "Stale payload discarded at client gate; zero visual corruption",
+    "passed": true,
+    "status": "PASS"
+  },
+  {
+    "case_id": "FAULT-06: INPUT_BOUNDARY_FUZZING",
+    "category": "Level A Input Boundary Fuzzing",
+    "injected_fault": "Passed None, [], invalid element types, and orphan edges across core engines",
+    "degradation_level": "L0 (SAFE_EMPTY)",
+    "expected": {
+      "progress_null": 0.0,
+      "cycles_none": [],
+      "safety_empty_decision": "CONTINUE BUILDING / PAUSE & REVIEW",
+      "unhandled_exceptions": 0
+    },
+    "observed": {
+      "progress_null": 0.0,
+      "cycles_none": [],
+      "safety_decision": "CONTINUE BUILDING",
+      "unhandled_exceptions": 0
+    },
+    "surviving_capabilities": [
+      "All Subsystems (100% Operational)"
+    ],
+    "containment_radius": "Zero error propagation; safe deterministic empty states returned",
+    "passed": true,
+    "status": "PASS"
+  }
+]

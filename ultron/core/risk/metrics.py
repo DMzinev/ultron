@@ -51,14 +51,28 @@ def get_code_complexity(code):
             print(f"Warning: failed to compute code complexity: {e}")
         return 1
 
-    # Fallback AST branch counting when radon is missing
+    # Fallback AST branch counting when radon is missing: compute per-block max
     try:
         tree = ast.parse(code)
-        complexity = 1
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.If, ast.For, ast.While, ast.ExceptHandler, ast.With, ast.BoolOp, ast.Try)):
-                complexity += 1
-        return complexity
+        branch_types = (ast.If, ast.For, ast.While, ast.ExceptHandler, ast.With, ast.BoolOp, ast.comprehension, ast.Assert)
+        fn_nodes = [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        if not fn_nodes:
+            comp = 1
+            for n in ast.walk(tree):
+                if isinstance(n, branch_types):
+                    comp += 1
+            return comp
+
+        block_complexities = []
+        for fn in fn_nodes:
+            comp = 1
+            for n in ast.walk(fn):
+                if n is not fn and isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if isinstance(n, branch_types):
+                    comp += 1
+            block_complexities.append(comp)
+        return max(block_complexities) if block_complexities else 1
     except Exception:
         return 1
 

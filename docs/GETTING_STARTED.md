@@ -8,7 +8,7 @@ Whether you are an experienced architect or a "vibe coder" directing autonomous 
 
 ## 📸 System Overview
 
-![Ultron Control Plane Dashboard](images/ultron_dashboard_preview.jpg)
+![Ultron Control Plane Dashboard](images/ultron_control_plane_dashboard.svg)
 
 Ultron provides a local, private control plane sitting directly between you and your AI coding agents:
 1. **Repository Health Radar**: Real-time 0–100 calibrated codebase health score.
@@ -51,7 +51,7 @@ http://127.0.0.1:8000/
 
 Ultron is structured around 4 distinct views, accessible via top navigation or keyboard shortcuts (`1`–`4`):
 
-![Ultron Architecture Workflow](images/ultron_architecture_flow.jpg)
+![Ultron Architecture Workflow](images/ultron_architecture_flow.svg)
 
 ### Pillar 1: 📊 Architecture Health Dashboard (`Key: 1`)
 - **Composite Health Score (0–100)**: Evaluated from Cycle Stability (40%), Rule Compliance (40%), and Distribution Quality (20%).

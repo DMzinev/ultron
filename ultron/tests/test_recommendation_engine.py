@@ -26,6 +26,8 @@ from ultron.core.recommendation import (
 from ultron.core import analyzer
 from ultron.core.risk import scoring
 
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
 
 class TestRecommendationEngine(unittest.TestCase):
     def setUp(self):
@@ -50,7 +52,7 @@ class TestRecommendationEngine(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_role1_ranking_correctness_requests(self):
         """Invariant: Under consequence_v1, operational hub (sessions) outranks utility drawer (utils)."""
-        requests_dir = r"c:\Users\dimmiz\Desktop\cost accounting\scratch\external\repo_c_requests"
+        requests_dir = os.path.join(REPO_ROOT, "scratch", "external", "repo_c_requests")
         if not os.path.exists(requests_dir):
             self.skipTest("repo_c_requests not cloned")
 
@@ -94,7 +96,7 @@ class TestRecommendationEngine(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_role3_category_isolation_bottle(self):
         """Invariant: Bottle produces exactly 1 production recommendation; 0 test suites leak."""
-        bottle_dir = r"c:\Users\dimmiz\Desktop\cost accounting\scratch\external\repo_a_bottle"
+        bottle_dir = os.path.join(REPO_ROOT, "scratch", "external", "repo_a_bottle")
         if not os.path.exists(bottle_dir):
             self.skipTest("repo_a_bottle not cloned")
 
@@ -208,7 +210,7 @@ class TestRecommendationEngine(unittest.TestCase):
     # -------------------------------------------------------------------------
     def test_role9_ponytail_simplicity_line_count(self):
         """Invariant: recommendation.py must remain strictly lean (< 250 lines)."""
-        rec_path = os.path.join(r"c:\Users\dimmiz\Desktop\cost accounting\ultron\core\recommendation.py")
+        rec_path = os.path.join(REPO_ROOT, "ultron", "core", "recommendation.py")
         self.assertTrue(os.path.exists(rec_path), "recommendation.py must exist")
         with open(rec_path, "r", encoding="utf-8") as f:
             lines = f.readlines()

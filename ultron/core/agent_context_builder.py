@@ -247,7 +247,9 @@ class AgentContextBuilder:
                     break
 
         if not co_changes and norm_target in files_data:
-            co_changes = files_data[norm_target].get("co_changes", [])
+            target_file_entry = files_data[norm_target]
+            if isinstance(target_file_entry, dict):
+                co_changes = target_file_entry.get("co_changes", [])
 
         companions = []
         if isinstance(co_changes, dict):
