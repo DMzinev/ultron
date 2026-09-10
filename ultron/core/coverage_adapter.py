@@ -3,6 +3,7 @@ Ultron Coverage Adapter — Reads coverage.xml (Cobertura) and .coverage (SQLite
 from repository root when present. Graceful degradation when absent or corrupt.
 """
 import os
+import json
 import sqlite3
 import logging
 import xml.etree.ElementTree as ET
@@ -18,7 +19,10 @@ def _norm_path(p):
 
 
 def find_coverage_file(repo_path):
-    """Returns (format, path) or (None, None)."""
+    """Returns (format, path) or (None, None). Priority: json > xml > sqlite."""
+    json_path = os.path.join(repo_path, "coverage.json")
+    if os.path.isfile(json_path):
+        return ("json", json_path)
     xml_path = os.path.join(repo_path, "coverage.xml")
     if os.path.isfile(xml_path):
         return ("xml", xml_path)
@@ -26,6 +30,33 @@ def find_coverage_file(repo_path):
     if os.path.isfile(dot_path):
         return ("sqlite", dot_path)
     return (None, None)
+
+
+def parse_coverage_json(json_path):
+    """Parse Coverage.py JSON summary. Returns {status, overall, files, source}."""
+    try:
+        with open(json_path, "r", encoding="utf-8", errors="replace") as f:
+            data = json.load(f)
+        totals = data.get("totals", {})
+        overall = float(totals.get("percent_covered", 0.0))
+        base_dir = os.path.dirname(os.path.abspath(json_path))
+        files = {}
+        for fpath, finfo in data.get("files", {}).items():
+            if os.path.isabs(fpath):
+                try:
+                    rel_p = os.path.relpath(fpath, base_dir)
+                except ValueError:
+                    rel_p = fpath
+            else:
+                rel_p = fpath
+            norm = _norm_path(rel_p)
+            summary = finfo.get("summary", {}) if isinstance(finfo, dict) else {}
+            rate = float(summary.get("percent_covered", 0.0))
+            files[norm] = round(rate, 2)
+        return {"status": "active", "overall": round(overall, 2), "files": files, "source": "coverage.json"}
+    except Exception as e:
+        logger.info("Could not parse coverage.json: %s", e)
+        return {"status": "unavailable", "overall": None, "files": {}, "source": None}
 
 
 def parse_coverage_xml(xml_path):
@@ -71,13 +102,15 @@ def parse_dot_coverage(db_path):
 
 
 def get_coverage_data(repo_path):
-    """Cached coverage lookup. Prefers XML over SQLite."""
+    """Cached coverage lookup. Priority: JSON > XML > SQLite."""
     abs_repo = os.path.abspath(repo_path)
     if abs_repo in _COVERAGE_CACHE:
         return _COVERAGE_CACHE[abs_repo]
 
     fmt, path = find_coverage_file(abs_repo)
-    if fmt == "xml":
+    if fmt == "json":
+        result = parse_coverage_json(path)
+    elif fmt == "xml":
         result = parse_coverage_xml(path)
     elif fmt == "sqlite":
         result = parse_dot_coverage(path)

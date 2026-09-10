@@ -1,0 +1,5 @@
+[run]
+source = .
+relative_files = true
+omit =
+    test_*.py
