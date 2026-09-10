@@ -340,12 +340,18 @@ class AnalysisRoutesMixin:
             repo_block = {"path": repo_path, "name": os.path.basename(repo_path) or repo_path}
 
             codebase = analyzer.analyze_directory(repo_path)
-            if not codebase:
+            from ultron.core.language_adapter import JavaScriptLanguageAdapter
+            from ultron.core.system_model import SystemNodeType
+            js_adapter = JavaScriptLanguageAdapter()
+            js_graph = js_adapter.parse_repository(repo_path)
+            js_modules = [n for n in js_graph.nodes.values() if n.type in (SystemNodeType.MODULE, SystemNodeType.TEST)]
+
+            if not codebase and not js_modules:
                 self.send_json_response(200, {
                     "status": "success",
                     "state": "analysis_empty",
                     "repo": repo_block,
-                    "message": "No Python files found here. Pick a folder that contains Python source.",
+                    "message": "No Python or JavaScript files found here. Pick a folder that contains source code.",
                     "stats": {"total_files": 0, "total_definitions": 0, "high": 0, "medium": 0, "low": 0},
                     "health": {"score": None, "source": "none", "explanation": "Nothing to measure yet."},
                     "intent": {"text": intent, "matched": True, "message": ""},
@@ -354,14 +360,62 @@ class AnalysisRoutesMixin:
                 })
                 return
 
-            risks = risk.evaluate_risks(codebase, target_files, intent, repo_path=repo_path)
+            risks = []
+            if codebase:
+                risks = risk.evaluate_risks(codebase, target_files, intent, repo_path=repo_path)
             intent_matched = True
-            if intent and not target_files and not risks:
+            if intent and not target_files and not risks and codebase:
                 intent_matched = False
                 risks = risk.evaluate_risks(codebase, [], "", repo_path=repo_path)
 
-            ranked = sorted(risks, key=lambda r: getattr(r, "impact_score", 0.0), reverse=True)
-            levels = [getattr(r, "level", "LOW") for r in ranked]
+            js_risks = []
+            for jn in js_modules:
+                cplx = jn.facts.get("complexity", 1)
+                fanout = len(js_graph.get_dependencies(jn.id)) + len(js_graph.get_dependents(jn.id))
+                impact = round(min(10.0, cplx * 0.4 + fanout * 0.5), 2)
+                level = "LOW" if cplx < 5 else ("MEDIUM" if cplx < 10 else "HIGH")
+                js_risk_item = {
+                    "file": jn.file_path,
+                    "file_path": jn.file_path,
+                    "filepath": os.path.basename(jn.file_path),
+                    "impact_score": impact,
+                    "coupling_score": float(fanout),
+                    "coupling": float(fanout),
+                    "mk_r": 1.0,
+                    "mkr": 1.0,
+                    "delta_cest": 0.0,
+                    "confidence": 0.35,
+                    "tier": "PROTOTYPE",
+                    "language": jn.facts.get("language", "javascript"),
+                    "level": level,
+                    "boundary_type": "Internal",
+                    "architectural_role": "EXPERIMENTAL",
+                    "change_strategy": "SAFE_EDIT",
+                    "change_strategy_display": "Safe internal edits",
+                    "complexity": cplx,
+                    "mitigation": "Prototype JS/TS adapter: regex-extracted dependencies and branching keyword complexity proxy. Tier: PROTOTYPE (confidence 0.35).",
+                    "callers": [],
+                    "changes": [],
+                    "churn": {"commits": 0, "authors": 0, "bug_fixes": 0, "multiplier": 1.0, "status": "unavailable"},
+                    "signals": {
+                        "ast": {"status": "active", "weight": 0.35, "tier": "PROTOTYPE", "confidence": 0.35},
+                        "coupling": {"status": "active", "weight": 0.25, "tier": "PROTOTYPE", "confidence": 0.35},
+                        "churn": {"status": "unavailable", "weight": 0.15, "tier": "INFERRED"},
+                        "coverage": {"status": "unavailable", "weight": 0.25, "tier": "VERIFIED"}
+                    }
+                }
+                js_risks.append(js_risk_item)
+
+            all_risks = list(risks) + js_risks
+            ranked = sorted(
+                all_risks,
+                key=lambda r: getattr(r, "impact_score", 0.0) if hasattr(r, "impact_score") else r.get("impact_score", 0.0),
+                reverse=True
+            )
+            levels = [
+                getattr(r, "level", "LOW") if hasattr(r, "level") else r.get("level", "LOW")
+                for r in ranked
+            ]
             high = levels.count("HIGH")
             medium = levels.count("MEDIUM")
             low = len(levels) - high - medium
@@ -383,30 +437,48 @@ class AnalysisRoutesMixin:
             else:
                 health = {"score": None, "source": "none", "explanation": "No files scored."}
 
+            risks_serialized = [(r.to_dict() if hasattr(r, "to_dict") else dict(r)) for r in ranked]
+
+            js_def_count = sum(
+                len([n for n in js_graph.nodes.values() if n.file_path == jn.file_path and n.type in (SystemNodeType.FUNCTION, SystemNodeType.CLASS)])
+                for jn in js_modules
+            )
+            js_count = len([n for n in js_modules if n.facts.get("language") == "javascript"])
+            ts_count = len([n for n in js_modules if n.facts.get("language") == "typescript"])
+
+            languages_stat = {"python": len(codebase)}
+            if js_count > 0:
+                languages_stat["javascript"] = js_count
+            if ts_count > 0:
+                languages_stat["typescript"] = ts_count
+
+            stats_payload = {
+                "total_files": len(codebase) + len(js_modules),
+                "total_definitions": sum(len(c.get("definitions", [])) for c in codebase.values()) + js_def_count,
+                "high": high,
+                "medium": medium,
+                "low": low,
+                "languages": languages_stat,
+                "signals": (risks_serialized[0].get("signals") if risks_serialized else {
+                    "ast":      {"status": "active",      "weight": 0.35},
+                    "coupling": {"status": "active",      "weight": 0.25},
+                    "churn":    {"status": "unavailable", "weight": 0.15},
+                    "coverage": {"status": "unavailable", "weight": 0.25},
+                })
+            }
+
             self.send_json_response(200, {
                 "status": "success",
                 "state": "ok",
                 "repo": repo_block,
-                "stats": {
-                    "total_files": len(codebase),
-                    "total_definitions": sum(len(c.get("definitions", [])) for c in codebase.values()),
-                    "high": high,
-                    "medium": medium,
-                    "low": low,
-                    "signals": (ranked[0].to_dict().get("signals") if ranked else {
-                        "ast":      {"status": "active",      "weight": 0.35},
-                        "coupling": {"status": "active",      "weight": 0.25},
-                        "churn":    {"status": "unavailable", "weight": 0.15},
-                        "coverage": {"status": "unavailable", "weight": 0.25},
-                    })
-                },
+                "stats": stats_payload,
                 "health": health,
                 "intent": {
                     "text": intent,
                     "matched": intent_matched,
                     "message": "" if intent_matched else f"No files matched \"{intent}\". Showing the whole repository instead."
                 },
-                "risks": [r.to_dict() for r in ranked],
+                "risks": risks_serialized,
                 "memory": memory
             })
         except PermissionError as e:

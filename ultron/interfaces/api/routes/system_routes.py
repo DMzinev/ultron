@@ -20,7 +20,7 @@ from ultron.core import analyzer
 from ultron.core import risk
 from ultron.core import translate
 from ultron.interfaces.api.router import APIRouter
-from ultron.core.language_adapter import PythonLanguageAdapter
+from ultron.core.language_adapter import PythonLanguageAdapter, MultiLanguageAdapter
 from ultron.core.system_query import SystemQueryEngine
 from ultron.core.system_model import SystemModelManager
 from ultron.interfaces.api.state import (
@@ -67,7 +67,7 @@ def get_or_build_system_model(handler: Any) -> SystemModelManager:
     if _GLOBAL_MODEL_MANAGER is not None:
         return _GLOBAL_MODEL_MANAGER
 
-    adapter = PythonLanguageAdapter()
+    adapter = MultiLanguageAdapter()
     graph = adapter.parse_repository(repo_path)
     manager = SystemModelManager()
     manager.graph = graph

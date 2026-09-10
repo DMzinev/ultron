@@ -4242,3 +4242,64 @@ PENDING — not yet reviewed by an external party.
 
 **Status change:** Task P3-C2 (Revisit the Original 'Not a Cockpit' Simplicity Goal) COMPLETE on `agent/P3-C2-not-a-cockpit-audit`. Before/after comparison and ergonomics polish verified. 791 tests passing with 0 failures, 0 errors, 9 skipped. Ready for delivery audit.
 
+
+### 2026-09-10 — Task P3-D1: Prototype a Second Language Adapter (JavaScript/TypeScript)
+
+**Branch:** `agent/P3-D1-js-ts-language-adapter`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=791 failures=0 errors=0 skipped=9`
+- `full_suite_after`: `ran=801 failures=0 errors=0 skipped=9`
+
+**Attempted:** Execute Task P3-D1 from `docs/AGENT_EXECUTION_PLAN_PHASE3.md`.
+Prototype a second language adapter (JavaScript/TypeScript) using pure Python standard library to expand Ultron's reach to multi-language and JS/TS repositories without adding external npm/pip dependencies:
+1. Implemented `JavaScriptLanguageAdapter` in `ultron/core/language_adapter.py`:
+   - Discovers `.js`, `.ts`, `.jsx`, `.tsx`, `.mjs`, and `.cjs` files, ignoring standard development exclusions (`node_modules`, `dist`, `build`, `coverage`, `venv`, `__pycache__`, `.git`).
+   - 3-stage lexical scanning: Stage 1 masks single-line and multi-line comments while preserving strings and newlines; Stage 2 extracts ES imports/exports, dynamic `import()`, and CommonJS `require()` specifiers; Stage 3 masks string and template literals before computing cyclomatic complexity proxy.
+   - Directory-relative import resolution: calculates candidate targets relative to the importing module's directory (`os.path.normpath(os.path.join(os.path.dirname(rel_path), target))`), probes extension fallbacks (`.js`, `.ts`, `.jsx`, `.tsx`, `.mjs`, `.cjs`) and directory indices (`/index{ext}`). Non-relative bare package specifiers resolve to canonical external `module:{target}` nodes.
+   - Cyclomatic complexity proxy: counts branching keywords (`if`, `for`, `while`, `catch`, `switch`, `case`) and ternary operators (`(?<!\?)\?(?![\.\?\:])`), hardened to avoid false positives on TypeScript optional property types (`?:`).
+   - Heuristic symbol extraction: extracts top-level named classes and functions into `SystemNodeType.CLASS` and `SystemNodeType.FUNCTION` connected via `CONTAINS` edges.
+   - Test module detection: classifies `*.test.js`, `*.spec.ts`, and test directory files as `SystemNodeType.TEST` and creates `TESTS` edges.
+   - Labeled with explicit prototype tier metadata: `tier: "PROTOTYPE"`, `confidence: 0.35`, and `support: "prototype_regex_ast"` on all nodes and evidence objects.
+2. Implemented `MultiLanguageAdapter` in `ultron/core/language_adapter.py`:
+   - Orchestrates registered language adapters (Python and JS/TS) to produce a unified multi-language `SystemGraph`.
+3. Integrated `MultiLanguageAdapter` in `ultron/interfaces/api/routes/system_routes.py`:
+   - `get_or_build_system_model` uses `MultiLanguageAdapter()`, enabling `/api/v1/system/graph` to return Python and JS/TS nodes and edges.
+4. Enhanced `/api/v1/overview` in `ultron/interfaces/api/routes/analysis_routes.py`:
+   - Evaluates multi-language repositories via `JavaScriptLanguageAdapter`.
+   - Bypasses `analysis_empty` if either Python or JS/TS files are present.
+   - Reports multi-language file counts and language breakdown in `stats["languages"]`.
+   - Serializes JS prototype risks with `tier: "PROTOTYPE"`, `confidence: 0.35`, and `language: "javascript"` while strictly maintaining the 8 snapshotted route contract keys (`health`, `intent`, `memory`, `repo`, `risks`, `state`, `stats`, `status`).
+5. Created multi-module JS/TS fixture repo under `ultron/tests/fixtures/js_sample_repo/`.
+6. Authored hermetic unit test suite `ultron/tests/test_js_language_adapter.py` (10 tests, 10/10 passing in 0.18s).
+7. Preserved all constitutional invariants: zero new dependencies (pure stdlib), `server.py` strictly 297 lines (< 300), all 13 frontend JS files strictly < 400 lines, repo skip baseline frozen at exactly 9 skips. Full verification gate passed with 801 tests, 0 failures, 0 errors, 9 skipped.
+
+**Antigravity self-audit result:**
+- [x] Verified JS/TS file discovery, import/export edge extraction, and relative directory resolution.
+- [x] Verified branching complexity proxy and TS optional property exclusion (`?:`).
+- [x] Verified top-level symbol discovery (class, function, contains edges).
+- [x] Verified prototype tier labeling (`tier="PROTOTYPE"`, `confidence=0.35`).
+- [x] Verified MultiLanguageAdapter produces unified graph for mixed repos.
+- [x] Verified POST /api/v1/overview reports multi-language stats and preserves 8 contract keys.
+- [x] Verified unit suite: `python -m unittest ultron.tests.test_js_language_adapter` (10/10 passed in 0.18s).
+- [x] Verified skip invariants: `python -m unittest ultron.tests.test_skip_invariants` (3/3 passed, 0 unauthorized skips).
+- [x] Verified frontend line ceiling: `python -m unittest ultron.tests.test_frontend_invariants` (5/5 passed).
+- [x] Verified doc reality: `python -m unittest ultron.tests.test_documentation_reality` (5/5 passed).
+- [x] Verified self-scan integrity: `python -m unittest ultron.tests.test_self_scan_integrity` (3/3 passed, partition invariants satisfied).
+- [x] Verified route contract: `python -m unittest ultron.tests.test_route_contract` (1/1 passed, 31 routes intact).
+- [x] Verified master verification gate: `python scripts/verify.py` (`TESTS: 801 ran, 0 failed, 0 errors, 9 skipped`).
+- [x] Preserved `ultron/interfaces/server.py` line count strictly at 297 lines (< 300).
+- [x] Pure standard library: zero new pip or npm dependencies.
+
+**Category B Claims Verification Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A. The 0.35 confidence score is a deliberate calibration constant reflecting the experimental AST baseline signal weight, preventing false equivalence with concrete Python McCabe AST analysis.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** Pure Python standard library filesystem traversal and regex parsing. Tested against authentic fixture files in `ultron/tests/fixtures/js_sample_repo/`.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary cases: TypeScript optional property types (`prop?: type`), relative directory hopping (`../src/`), missing extension probing (`.js`, `.ts`, `.cjs`), and malformed/broken syntax resilience.
+5. **Silent Failure Check:** Syntax errors and unreadable files do not raise unhandled exceptions; error facts are attached to node (`parse_error`).
+6. **Causal / Probabilistic Claims:** N/A. All assertions are deterministic AST node counts, edge existence, and regex complexity counts.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P3-D1 (Prototype a Second Language Adapter: JS/TS) COMPLETE on `agent/P3-D1-js-ts-language-adapter`. Pure stdlib JS/TS language adapter, MultiLanguageAdapter unification, and overview endpoint multi-language reporting verified. 801 tests passing with 0 failures, 0 errors, 9 skipped. Ready for delivery audit.

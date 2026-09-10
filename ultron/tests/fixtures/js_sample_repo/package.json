@@ -1,0 +1,6 @@
+{
+  "name": "js-sample-repo",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Multi-module JavaScript/TypeScript fixture repository for Ultron language adapter testing."
+}
