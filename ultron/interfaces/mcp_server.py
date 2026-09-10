@@ -170,7 +170,9 @@ def _execute_tool(tool_name: str, arguments: dict, default_repo: str = ".") -> d
     elif tool_name == "explain_violation":
         from ultron.core import translate
         violation_id = arguments.get("violation_id", 0)
-        explanation = translate.translate_violation_to_plain_english("RuleViolation", f"Violation ID #{violation_id}")
+        explanation = translate.translate_violation_to_plain_english(
+            "RuleViolation", f"Violation ID #{violation_id}", f"violation_{violation_id}"
+        )
         return {
             "content": [{"type": "text", "text": json.dumps(explanation, indent=2)}],
             "isError": False

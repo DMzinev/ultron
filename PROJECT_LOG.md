@@ -4059,3 +4059,47 @@ End-to-end browser-level smoke and structural verification of the 4-pillar UI:
 PENDING — not yet reviewed by an external party.
 
 **Status change:** Task P3-B1 (Real Browser-Level Smoke Test of 4-Pillar UI) COMPLETE on `agent/P3-B1-browser-smoke-test`. Live HTTP server lifecycle, DOM structure, endpoint bindings, and ES module syntax verified. Ready for delivery audit.
+
+---
+
+### 2026-09-10 — Task P3-B2: MCP Client-Compatibility Round Trip
+
+**Branch:** `agent/P3-B2-mcp-client-roundtrip`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=773 failures=0 errors=0 skipped=9`
+- `full_suite_after`: `ran=780 failures=0 errors=0 skipped=9`
+
+**Attempted:** Execute Task P3-B2 from `docs/AGENT_EXECUTION_PLAN_PHASE3.md`.
+End-to-end integration testing simulating an external agent client (Cursor, Claude Desktop, Antigravity) discovering and executing tools over native OS stdio subprocess:
+1. Spawns `python -u -m ultron.interfaces.mcp_server` child process with `PYTHONPATH` set to repository root.
+2. Validates JSON-RPC 2.0 `initialize` handshake returning protocolVersion `2024-11-05`, tools capability, and `ultron-mcp-middleware 1.4.0`.
+3. Validates `tools/list` discovering all 7 canonical tools (`get_context_brief`, `evaluate_repository`, `explain_violation`, `get_risk_profile`, `get_blast_radius`, `compile_mission`, `audit_file`) with complete JSON schemas (`type: "object"`, properties dict, required properties verified).
+4. Validates sequential `tools/call` execution across a continuous stdio session for all 7 canonical tools against `ultron/tests/fixtures/clean_repo`, asserting matching request IDs, non-error status, and expected domain output structure.
+5. Fixes latent production defect uncovered by Auditor Critic in `ultron/interfaces/mcp_server.py:L173` where `translate.translate_violation_to_plain_english` was called with 2 arguments instead of required 3 positional arguments (`rule_name`, `details`, `entity`).
+6. Validates legacy tool alias execution (`ultron_generate_fix`) returning valid prompt envelope.
+7. Validates protocol notification silence (`notifications/initialized` produces zero stdout output), immediate `ping` response, unknown method resilience (`-32601` Method not found without process crash), and graceful shutdown (clean exit code 0 upon stdin EOF).
+8. Implements Windows pipe buffer deadlock prevention via background thread stderr drainage and bounded `queue.Queue` stdout reader with timeout.
+
+**Antigravity self-audit result:**
+- [x] Verified unit suite pass: `python -m unittest ultron.tests.test_mcp_client_roundtrip -v` (7/7 passed in 2.18s).
+- [x] Verified MCP combined suites pass: `python -m unittest ultron.tests.test_mcp_client_roundtrip ultron.tests.test_mcp_adversarial ultron.tests.test_mcp_golden ultron.tests.test_mcp_middleware` (35/35 passed in 9.41s).
+- [x] Verified skip invariants: `python -m unittest ultron.tests.test_skip_invariants` (3/3 passed, 0 unauthorized skips).
+- [x] Verified doc reality: `python -m unittest ultron.tests.test_documentation_reality` (5/5 passed, exactly 7 canonical tools documented).
+- [x] Verified self-scan integrity: `python -m unittest ultron.tests.test_self_scan_integrity` (3/3 passed, partition invariants satisfied).
+- [x] Verified canonical verification gate: `python scripts/verify.py` (`TESTS: 780 ran, 0 failed, 0 errors, 9 skipped`).
+- [x] Preserved `ultron/interfaces/server.py` line count strictly at 297 lines (< 300).
+- [x] Pure standard library: zero new external pip dependencies.
+
+**Category B Claims Verification Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A. No statistical inference or heuristic classification models evaluated in this task.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** Local subprocess stdio communication over OS anonymous pipes. Target fixture is local `ultron/tests/fixtures/clean_repo`.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary cases: notification silence (asserting no stdout emitted before subsequent ping), unknown method error code `-32601`, stdin EOF clean shutdown exit code 0, 7 tool schemas, and multi-turn stream continuity.
+5. **Silent Failure Check:** Missing parameters, nonexistent files, or invalid requests return explicit JSON-RPC errors or `isError: True` with descriptive diagnostic text.
+6. **Causal / Probabilistic Claims:** N/A. All assertions are deterministic JSON-RPC 2.0 payloads and process exit codes.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P3-B2 (MCP Client-Compatibility Round Trip) COMPLETE on `agent/P3-B2-mcp-client-roundtrip`. Protocol handshake, 7 canonical tool schemas, multi-turn stdio execution, and graceful shutdown verified. Ready for delivery audit.
