@@ -13,9 +13,23 @@
   <a href="#-honest-limitations"><img src="https://img.shields.io/badge/core%20runtime-zero%20dependencies-8B5CF6" alt="Zero Dependencies" /></a>
 </p>
 
-> **"Ultron is a cognitive control plane for AI-assisted software development that lets any vibe coder use any agentic coding tool to build software far beyond what they could comfortably build alone—while preserving context, architectural understanding, verification, and control."**
+> **Ultron is the architectural control plane and safety engine for AI coding agents.** It protects Python codebases from agent-induced architectural degradation, calculates exact blast radius before edits, compiles bounded pre-flight mission context for Cursor, Claude Code, Windsurf, and Copilot, and enforces zero-regression quality gates in CI.
 
-Ultron tells you which files in a Python codebase are risky to change — and *why* — before you or an AI agent edit them. It combines static McCabe complexity, package coupling topology, git churn history, and test coverage into an interactive Web Dashboard, a headless CI quality gate, and a Model Context Protocol (MCP) server for developer and agent workflows.
+---
+
+## 🛑 The Core Problem: Why Do AI Coding Agents Break Codebases?
+
+When you ask an autonomous coding agent to refactor or add a feature, it operates with **local myopia**:
+1. **Blind Edits**: The agent modifies a function signature in `auth.py` without knowing that 14 callers across 3 packages depend on its exact signature.
+2. **Circular Dependency Loops**: The agent imports a utility from another module to solve a quick problem, inadvertently creating an import cycle (`A -> B -> C -> A`) that freezes runtime startup.
+3. **Complexity Sprawl**: The agent writes deeply nested branch logic, turning a 20-line module into an untestable 400-line god file.
+4. **Context Window Waste**: Dumping an entire 50,000-line repository into an LLM prompt burns tokens, costs money, and induces hallucination.
+
+**Ultron solves this by acting as the architectural pre-flight tower between you and your AI agent:**
+- It parses the codebase AST into an in-memory knowledge graph in milliseconds.
+- It calculates the **exact blast radius** and public interface contracts of every file.
+- It compiles a mathematically bounded **7-field Mission Envelope** for the agent before it touches code.
+- It verifies via headless CI gates that the agent's PR never degrades repository health.
 
 ---
 
@@ -25,13 +39,14 @@ Ultron tells you which files in a Python codebase are risky to change — and *w
   <img src="docs/images/ultron_architecture_flow.svg" alt="Ultron Architecture Flow" width="100%" />
 </p>
 
-Ultron sits between the **Creator** and the **Autonomous Coding Agent**:
-1. **Developer / Creator Direction**: Define project goals, intent, and architectural boundaries.
-2. **Ultron Control Plane Hub**: Maps the repository into an actionable knowledge graph, evaluating health, blast radius, and defect risk.
-3. **Bounded Context Envelopes**: Packages the exact 7-field context (signatures, caller blast radius, complexity limits) for Cursor, Claude, Windsurf, or Copilot.
-4. **Automated Truth Gate**: Validates that agent changes preserve contracts and never degrade repository health.
+Ultron sits directly between the **Developer** and the **Autonomous Coding Agent**:
+1. **Developer Direction**: Specify the feature intent or target file.
+2. **Ultron Control Plane Hub**: Maps AST complexity, coupling, circular cycles, git churn, and coverage.
+3. **Bounded Mission Envelope**: Hands the AI agent the exact caller blast radius, complexity ceilings, and forbidden changes.
+4. **Automated Truth Gate**: Validates that changes preserve contracts, resolve violations, and pass CI non-regression gates.
 
-📖 **Looking for a guided first session?** Read the [Getting Started & Visual Walkthrough Guide](docs/GETTING_STARTED.md).
+📖 **First time using Ultron?** Follow the [Visual Onboarding & Getting Started Guide](docs/GETTING_STARTED.md).  
+📚 **Looking for full architecture & specs?** Explore the [Central Resources Hub](docs/RESOURCES.md).
 
 ---
 
@@ -46,15 +61,15 @@ pip install -e .
 
 > [!NOTE]
 > **Empirical Install Latency**:
-> - **Cold Clean-Machine Install** (`--no-cache-dir` in a fresh virtual environment): **~11.0s** (`pip install -e .`), total clone-to-first-screen **~19.5s** (surpassing the `< 60s` program target by a $3\times$ margin).
+> - **Cold Clean-Machine Install** (`--no-cache-dir` in fresh virtual environment): **~11.0s** (`pip install -e .`), reaching interactive dashboard in **~19.5s** total (surpassing the `< 60s` program target by a $3\times$ margin).
 > - **Incremental Reinstall** (cached wheels): **~1.8s**.
-> - **First Screen Latency**: `< 0.05s` (server startup and initial dashboard HTTP response).
+> - **First Screen Response**: `< 0.05s` (server startup and initial dashboard HTTP response).
 
 ### 2. Launch the Web Dashboard
 ```bash
 ultron-server
 ```
-Ultron deterministically finds a free port (defaulting to 8000), starts the local HTTP server, and opens your browser directly to:
+Ultron deterministically finds an open port (default `8000`), starts the local server, and launches your browser to:
 ```
 http://127.0.0.1:8000/
 ```
@@ -96,6 +111,43 @@ AI coding agents need bounded context, not raw repositories. `ultron brief` gene
 6. **Rollback Instruction**: Step-by-step recovery commands.
 7. **Token Budget Hint**: Ranked list of source files to read vs. ignore.
 
+#### Real Terminal Example:
+```bash
+ultron brief ultron/core/analyzer.py --intent "optimize AST loop"
+```
+```text
+================================================================================
+           ULTRON AI MISSION ENVELOPE: ultron/core/analyzer.py
+================================================================================
+
+Target: `ultron/core/analyzer.py`
+User Intent: optimize AST loop
+
+[1. GROUND TRUTH EVIDENCE & RISK METRICS]
+- Risk Level: HIGH (Impact Score: 8.5 / 10.0)
+- McCabe Complexity: 18 (Ceiling: <= 8)
+- Blast Radius: 7 downstream modules
+- Inbound Callers (7): orchestrator.py, scoring.py, routes.py, etc.
+
+[2. PUBLIC INTERFACE CONTRACTS (PRESERVE SIGNATURES)]
+The following public interfaces are called across the codebase and must remain compatible:
+```python
+def analyze_file(file_path: str) -> dict: ...
+def analyze_directory(dir_path: str, max_files: int = 5000) -> dict: ...
+```
+
+[3. FORBIDDEN REGRESSIONS & MUST-NOT-TOUCH]
+- Do NOT alter return dictionary keys: `definitions`, `complexity`, `imports`
+- Do NOT introduce circular dependencies with `orchestrator.py`
+
+[4. ACCEPTANCE CRITERIA & VERIFICATION COMMAND]
+Verify your fix by running the test suite:
+```bash
+python scripts/verify.py --pattern "test_analyzer*.py"
+```
+================================================================================
+```
+
 ### 4. ⚖️ Epistemic Truth Auditor & 4-Signal Model
 Ultron never guesses or hides missing data behind silent degradation. Every risk assessment exposes its explicit confidence vector:
 - **AST Structural Complexity** (Weight: 0.35)
@@ -103,18 +155,40 @@ Ultron never guesses or hides missing data behind silent degradation. Every risk
 - **Git Commit & Bug-Fix Churn** (Weight: 0.15)
 - **Test Line Coverage** (Weight: 0.25)
 
-When test coverage or git history is absent, Ultron flags that signal as `unavailable` with a visible confidence badge (`Confidence: N of 4 signals active`).
+When test coverage or git history is absent, Ultron flags that signal as `unavailable` with a visible confidence badge (`Confidence: N of 4 signals active`). Read the [Confidence Weight Calibration Report](docs/calibration/CONFIDENCE_WEIGHT_CALIBRATION.md) for empirical validation against 373 churn files.
 
 ---
 
-## 🔌 Model Context Protocol (MCP) Parity
+## 🔌 Model Context Protocol (MCP) Integration
 
-AI coding agents (Cursor, Claude Desktop, Antigravity, Windsurf) can query Ultron directly over stdio JSON-RPC without a browser:
+AI coding agents (Cursor, Claude Desktop, Antigravity, Windsurf) can query Ultron directly over stdio JSON-RPC without opening a browser:
 ```bash
 ultron-mcp
 ```
 
-### Active Tools:
+### Cursor Configuration (`.cursor/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "ultron": {
+      "command": "ultron-mcp"
+    }
+  }
+}
+```
+
+### Claude Desktop Configuration (`claude_desktop_config.json`)
+```json
+{
+  "mcpServers": {
+    "ultron": {
+      "command": "ultron-mcp"
+    }
+  }
+}
+```
+
+### Active MCP Tools:
 - `get_risk_profile`: Computes file risk tier, impact score, and 4-signal confidence basis.
 - `get_blast_radius`: Analyzes transitive downstream dependencies and caller chains.
 - `compile_mission`: Assembles the structured 7-field AI agent mission envelope.
@@ -127,12 +201,49 @@ ultron-mcp
 
 ## 🛡️ Headless CI Quality Gate
 
-Fail CI builds on architectural regression or excessive risk:
+Prevent AI agents and developers from merging architectural debt into `master`:
 ```bash
 ultron gate --repo . --max-high 10 --min-health 60.0 --github-annotations
 ```
+
+### Real Terminal Output (Gate Breach with PR Annotations):
+```text
+$ ultron gate --repo . --max-high 2 --min-health 80.0 --github-annotations
+[*] Analyzing repository topology...
+[-] Architectural Quality Gate BREACHED:
+    Found 4 HIGH risk files (threshold: max 2).
+    Codebase health score: 71.4/100 (threshold: min 80.0).
+
+::error file=ultron/core/engine.py,line=42::High risk hotspot (McCabe complexity 24, impact score 9.2). Mitigate coupling before merging.
+::error file=ultron/core/cycle.py,line=1::Circular import cycle detected: engine.py -> cycle.py -> engine.py.
+```
 - **Exit Code 0**: Build passed gate criteria.
 - **Exit Code 1**: Threshold breached. Emits GitHub Actions workflow annotations (`::error file=...,line=...::...`) that render directly on Pull Request diffs.
+
+---
+
+## 🧭 Repository Sources Tour
+
+Ultron is structured cleanly into cohesive subsystems:
+- **`ultron/core/`**: The static analysis core — AST traversal (`analyzer.py`), dependency topology (`graph.py`), cycle detection (`cycle_detector.py`), git churn (`git_adapter.py`), coverage ingestion (`coverage_adapter.py`), and RKM store (`rkm/store.py`).
+- **`ultron/interfaces/`**: Developer interfaces — local dashboard server (`server.py`, strictly < 300 lines), unified CLI (`ultron.py`), MCP server (`mcp_server.py`), and vanilla web assets (`web/`).
+- **`ultron/tests/`**: 769+ automated tests partitioned strictly across unit, integration, and security boundaries.
+- **`scripts/`**: Automation entry points including canonical test runner (`verify.py`).
+- **`docs/`**: Complete architecture specifications, benchmarks, and guides.
+
+---
+
+## 📚 Resources & Documentation Hub
+
+Explore deep architectural documentation in our [Central Resources Hub](docs/RESOURCES.md):
+- **[Visual Onboarding Guide](docs/GETTING_STARTED.md)**: First-time developer walkthrough.
+- **[API Surface Census](docs/API_SURFACE.md)**: 31 active REST API routes with request/response schemas.
+- **[Confidence Weight Calibration](docs/calibration/CONFIDENCE_WEIGHT_CALIBRATION.md)**: Empirical evaluation against git defect history.
+- **[System Architecture Map](docs/architecture/SYSTEM_MAP.md)**: Subsystem boundaries and communication flow.
+- **[Observation Data Pipeline](docs/architecture/OBSERVATION_DATA_PIPELINE.md)**: End-to-end data processing specification.
+- **[Task Progress Tracker](docs/TASK_PROGRESS_TRACKER.md)**: 36-task execution ledger and verified commit hashes.
+- **[Contributing Guide](CONTRIBUTING.md)**: Development environment and code review guidelines.
+- **[Security Policy](SECURITY.md)**: Vulnerability disclosure and privacy architecture.
 
 ---
 
@@ -140,7 +251,7 @@ ultron gate --repo . --max-high 10 --min-health 60.0 --github-annotations
 
 Ultron is built on strict engineering honesty. Know what it does and does not do:
 
-1. **Python Only**: Ultron analyzes Python source code ($\ge 3.10$) via standard AST parsing. It does not parse JavaScript, TypeScript, Go, Rust, or other polyglot codebases.
+1. **Python Only**: Ultron analyzes Python source code ($\\ge 3.10$) via standard AST parsing. It does not parse JavaScript, TypeScript, Go, Rust, or other polyglot codebases.
 2. **Syntactic & Topological, Not Dynamic**: Ultron evaluates syntactic McCabe complexity and static import graphs. It does **not** run code dynamically, infer runtime types, perform abstract interpretation, or execute formal symbolic verification.
 3. **Git History Dependency**: The churn multiplier ($1.0\times - 2.0\times$) requires an initialized Git repository with commit history. Non-git folders gracefully fall back to $1.0\times$ (neutral churn).
 4. **Coverage Ingestion Dependency**: Ultron reads existing Cobertura `coverage.xml` or SQLite `.coverage` files generated by your test runner (`pytest`, `coverage.py`). Ultron does not run test suites itself to generate coverage.

@@ -2,8 +2,8 @@
 
 **Single Source of Truth**: `docs/AGENT_EXECUTION_PLAN.md`, `docs/AGENT_EXECUTION_PLAN_PHASE2.md` & `docs/AGENT_EXECUTION_PLAN_PHASE3.md`  
 **Total Planned Tasks**: 36 (18 Phase 1 + 8 Phase 2 + 10 Phase 3)  
-**Completed**: 28 / 36 (Phase 1: A1–E2; Phase 2: P2-A1–P2-D1; Phase 3: P3-A1–P3-A2)  
-**Current Active Task**: Phase 3 in progress (P3-B1 next)
+**Completed**: 29 / 36 (Phase 1: A1–E2; Phase 2: P2-A1–P2-D1; Phase 3: P3-A1–P3-B1)  
+**Current Active Task**: Phase 3 in progress (P3-B2 next)
 
 ---
 
@@ -53,7 +53,7 @@
 |:---|:---|:---|:---|:---|:---|
 | 27 | **P3-A1** | `agent/P3-A1-eliminate-port-flakiness` | **COMPLETED** | `bb4d82b` | Port-bind flakiness eliminated; `create_server(start_port=0)` bypasses scan loop; HTTPServer EADDRINUSE mocked in `test_deterministic_port_selection`; uncaptured stdout noise silenced in `test_launchers.py`, `test_distribution_packaging.py`, `test_install_first_run.py`; `.github/workflows/ci.yml` upgraded with back-to-back Pass 1 & Pass 2 verification runs; `server.py` strictly 297 lines (< 300); full suite passes with zero failures/errors (`TESTS: 766 ran, 0 failed, 0 errors, 9 skipped`). |
 | 28 | **P3-A2** | `agent/P3-A2-stabilize-skip-count` | **COMPLETED** | `a4eb5b3` | Skip count variability stabilized & documented; AST static analysis test `ultron/tests/test_skip_invariants.py` (3/3 passed in 0.41s) enforces authorized skip inventory; authoritative environment dependency matrix embedded; online dev produces 9 skips, offline CI produces 10 skips, minimal clone produces 18 skips; full suite passes with zero failures/errors (`TESTS: 769 ran, 0 failed, 0 errors, 9 skipped`). |
-| 29 | **P3-B1** | `agent/P3-B1-browser-smoke-test` | **TODO** | — | Headless browser DOM smoke test verifying C4 pillars render without JS errors. |
+| 29 | **P3-B1** | `agent/P3-B1-browser-smoke-test` | **COMPLETED** | `c9eb77a` | Live HTTP server lifecycle (`start_port=0`), asset delivery (HTML, CSS, JS), 4-pillar DOM structural parsing (`dashboard`, `graph`, `studio`, `auditor`), active API route wiring validation, and ES module syntax verification via `ultron/tests/test_ui_smoke_live.py` (4/4 passed in 0.64s); zero added skips (100% compliant with `test_skip_invariants.py`). Full suite: 773 ran, 0 failed, 0 errors, 9 skipped. |
 | 30 | **P3-B2** | `agent/P3-B2-mcp-client-roundtrip` | **TODO** | — | End-to-end MCP client integration test verifying all 7 canonical tools over stdio. |
 | 31 | **P3-B3** | `agent/P3-B3-real-coverage-validation` | **TODO** | — | Real `pytest-cov`/`coverage.py` artifact parsing validation on a real codebase. |
 | 32 | **P3-C1** | `agent/P3-C1-modularize-frontend-js` | **TODO** | — | Decompose `index.js` (1,688 lines) into ES modules < 400 lines each. |
