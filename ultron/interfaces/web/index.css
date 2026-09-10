@@ -135,6 +135,7 @@ body { display: flex; flex-direction: column; }
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
 .btn:hover:not(:disabled) { border-color: var(--accent); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -142,6 +143,21 @@ body { display: flex; flex-direction: column; }
 .btn-primary:hover:not(:disabled) { filter: brightness(1.1); }
 .btn-ghost { background: transparent; }
 .btn-lg { padding: 11px 22px; font-size: 15px; }
+
+/* ---------- keyboard focus accessibility ---------- */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.btn:focus-visible,
+.nav-tab:focus-visible,
+.seg-btn:focus-visible,
+.chip-btn:focus-visible,
+.tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
+}
 
 /* ---------- folder picker ---------- */
 
@@ -522,6 +538,24 @@ body { display: flex; flex-direction: column; }
 
 .brief-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .seg { display: flex; gap: 2px; flex: 1; }
+.seg-btn {
+  padding: 6px 12px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.seg-btn:first-child { border-radius: 6px 0 0 6px; }
+.seg-btn:last-child { border-radius: 0 6px 6px 0; }
+.seg-btn:hover { color: var(--text); border-color: var(--accent); }
+.seg-btn.is-active {
+  background: var(--bg-raised);
+  color: #fff;
+  border-color: var(--accent);
+}
 
 /* ---------- extras ---------- */
 

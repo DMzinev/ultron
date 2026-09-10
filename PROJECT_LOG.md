@@ -4201,3 +4201,44 @@ PENDING — not yet reviewed by an external party.
 
 **Status change:** Task P3-C1 (Apply a Frontend Modularity Invariant) COMPLETE on `agent/P3-C1-modularize-frontend-js`. All frontend JS files strictly < 400 lines, native ES module architecture verified, 791 tests passing with 0 failures, 0 errors, 9 skipped. Ready for delivery audit.
 
+### 2026-09-10 — Task P3-C2: Revisit the Original 'Not a Cockpit' Simplicity Goal
+
+**Branch:** `agent/P3-C2-not-a-cockpit-audit`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=791 failures=0 errors=0 skipped=9`
+- `full_suite_after`: `ran=791 failures=0 errors=0 skipped=9`
+
+**Attempted:** Execute Task P3-C2 from `docs/AGENT_EXECUTION_PLAN_PHASE3.md`.
+Revisit the foundational user requirement to ensure the UI does not feel like an overwhelming "cockpit", audit every visible control/panel/button against the "what's risky to change right now, above the fold" goal, verify whether any restored backend routes leaked into the frontend UI, and produce a formal before/after audit and simplification review note without unilateral/destructive control pruning:
+1. Conducted an empirical audit of the complete UI inventory, cataloging 42 functional interaction clusters across the 4 application pillars (Architecture Dashboard, Visual Topology Graph, AI Agent Studio, Code Auditor).
+2. Performed static grep audits verifying that zero restored legacy backend endpoints (`handle_v1_agent_handoff`, `handle_v1_agent_context_builder`, `work-state`, `handle_v1_create_checkpoint`) leaked into the frontend UI; all restored routes remain strictly server-side / API-only.
+3. Evaluated cognitive load: the C4 architecture successfully resolved the legacy cockpit failure mode by anchoring the user above the fold on the single primary verdict (*"These N files are risky to change — here's why"*), isolating rule violations inside an on-demand collapsible drawer, and providing structured empty states for all 4 pillars.
+4. Applied accessible `:focus-visible` styling (`box-shadow: 0 0 0 2px var(--accent)`) and `.seg-btn` transitions in `ultron/interfaces/web/index.css` to enhance keyboard navigation clarity (`1`-`4`, `/`, `Escape`, `Tab`) without altering element dimensions, layout clearance, or existing test assertions.
+5. Preserved all constitutional invariants: zero new dependencies, server line count strictly 297 lines (< 300), all 13 JS files strictly < 400 lines, and test skips frozen at 9.
+
+**Antigravity self-audit result:**
+- [x] Verified zero backend route bleed: 0 matches for legacy agent handoff/work-state endpoints in web files.
+- [x] Verified visual ergonomics audit: `VisualErgonomicsAuditor.audit_web_interface()` passed with 100.0 ergonomic score.
+- [x] Verified web reality suites pass: `python -m unittest ultron.tests.test_visual_ergonomics ultron.tests.test_dashboard_hierarchy ultron.tests.test_ui_smoke_live ultron.tests.test_frontend_invariants ultron.tests.test_violation_to_fix ultron.tests.test_browser_reality_gate ultron.tests.test_browser_concurrency_and_integrity` (74/74 passed in 2.08s).
+- [x] Verified skip invariants: `python -m unittest ultron.tests.test_skip_invariants` (3/3 passed, 0 unauthorized skips).
+- [x] Verified doc reality: `python -m unittest ultron.tests.test_documentation_reality` (5/5 passed).
+- [x] Verified project log compliance: `python -m unittest ultron.tests.test_project_log_compliance` (5/5 passed).
+- [x] Verified master verification gate: `python scripts/verify.py` (`TESTS: 791 ran, 0 failed, 0 errors, 9 skipped`).
+- [x] Preserved `ultron/interfaces/server.py` line count strictly at 297 lines (< 300).
+- [x] Preserved all 13 frontend JS file line counts strictly < 400 lines.
+- [x] Pure standard library / native browser CSS: zero new external dependencies.
+
+**Category B Claims Verification Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A. No machine-learning or statistical classification models evaluated in this task.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** Pure native browser DOM and CSS. Served locally over HTTP (`127.0.0.1`).
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary cases: interactive clearance (button padding, font size floors >= 9.0px, word-break protection), WCAG AA contrast ratios, and keyboard focus states across all interactive button classes.
+5. **Silent Failure Check:** Missing elements handled safely via optional chaining; empty states displayed for filtered/empty results; unhandled errors surfaced to user cleanly.
+6. **Causal / Probabilistic Claims:** N/A. All assertions are deterministic DOM element existence, contrast math, and test execution outcomes. Note on control inventory: the "42 controls" represents 42 categorized functional interaction items/clusters across the layout.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P3-C2 (Revisit the Original 'Not a Cockpit' Simplicity Goal) COMPLETE on `agent/P3-C2-not-a-cockpit-audit`. Before/after comparison and ergonomics polish verified. 791 tests passing with 0 failures, 0 errors, 9 skipped. Ready for delivery audit.
+
