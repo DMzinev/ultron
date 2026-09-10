@@ -110,3 +110,73 @@ export class APIClient {
         return this.request(endpoint, { method: 'POST', body, ...options });
     }
 }
+
+/* ---------------- Foundational DOM & API Helpers ---------------- */
+
+export const $ = (id) => document.getElementById(id);
+
+export function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => (
+        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+    ));
+}
+
+export function normPath(p) {
+    return String(p || "").trim().replace(/\\/g, "/").replace(/^\.\//, "");
+}
+
+export function parseSeverity(s) {
+    if (typeof s === "number" && Number.isFinite(s)) {
+        return Math.max(1, Math.min(3, Math.round(s)));
+    }
+    if (!s) return 1;
+    const str = String(s).toUpperCase().trim();
+    if (str === "HIGH" || str === "CRITICAL" || str === "SEV 3" || str === "3") return 3;
+    if (str === "MEDIUM" || str === "WARN" || str === "WARNING" || str === "SEV 2" || str === "2") return 2;
+    return 1;
+}
+
+export async function api(path, body) {
+    const opts = body === undefined
+        ? { method: "GET" }
+        : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+    const res = await fetch(path, opts);
+    let data = null;
+    try { data = await res.json(); } catch (_) { /* non-JSON body */ }
+    if (!res.ok) {
+        const msg = (data && (data.message || data.error)) || `Request failed (${res.status})`;
+        throw new Error(msg);
+    }
+    return data || {};
+}
+
+export function show(view) {
+    ["empty-state", "busy-state", "results", "error-state"].forEach((id) => {
+        const el = $(id);
+        if (el) el.hidden = id !== view;
+    });
+}
+
+export function banner(text) {
+    const b = $("banner");
+    const bt = $("banner-text");
+    if (!b || !bt) return;
+    if (!text) { b.hidden = true; return; }
+    bt.textContent = text;
+    b.hidden = false;
+}
+
+export function showToast(msg) {
+    const t = $("toast");
+    if (!t) return;
+    t.textContent = msg;
+    t.hidden = false;
+    setTimeout(() => { t.hidden = true; }, 2600);
+}
+
+export function splitPath(p) {
+    const norm = String(p || "").replace(/\\/g, "/");
+    const i = norm.lastIndexOf("/");
+    return i === -1 ? { dir: "", base: norm } : { dir: norm.slice(0, i + 1), base: norm.slice(i + 1) };
+}
+

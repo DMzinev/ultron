@@ -89,3 +89,48 @@ class StateStore {
 }
 
 export const stateStore = new StateStore();
+
+/**
+ * Unified reactive UI state for 4-Pillar Application:
+ * 1. Architecture & Risk Dashboard
+ * 2. Visual Topology Graph
+ * 3. AI Agent Studio
+ * 4. Code Auditor & Safety Gates
+ */
+export const state = {
+    repo: "",
+    risks: [],
+    filtered: [],
+    selected: null,
+    briefCache: new Map(),
+    fileCache: new Map(),
+    activeTab: "why",
+    briefTarget: "claude",
+    pickerPath: "",
+    activeView: "dashboard",
+    // Graph state
+    graphData: null,
+    graphFilter: "all",
+    graphGranularity: "file",
+    graphExpanded: false,
+    graphZoom: 1,
+    graphPan: { x: 0, y: 0 },
+    selectedNode: null,
+    // Violations & Health
+    violations: [],
+    cycles: [],
+    // Studio state
+    studioFormat: "contract",
+    // Auditor state
+    auditorSource: "file",
+};
+
+export function resetState() {
+    state.selected = null;
+    state.briefCache.clear();
+    state.fileCache.clear();
+    state.graphData = null;
+    state.selectedNode = null;
+    state.violations = [];
+    state.cycles = [];
+}

@@ -4146,3 +4146,58 @@ PENDING — not yet reviewed by an external party.
 
 **Status change:** Task P3-B3 (Real Coverage-Artifact Validation) COMPLETE on `agent/P3-B3-real-coverage-validation`. Real Cobertura XML, JSON, and SQLite artifacts verified end-to-end with downstream risk calculation integration. Ready for delivery audit.
 
+### 2026-09-10 — Task P3-C1: Apply a Frontend Modularity Invariant (<400-Line Ceiling per JS File)
+
+**Branch:** `agent/P3-C1-modularize-frontend-js`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=786 failures=0 errors=0 skipped=9`
+- `full_suite_after`: `ran=791 failures=0 errors=0 skipped=9`
+
+**Attempted:** Execute Task P3-C1 from `docs/AGENT_EXECUTION_PLAN_PHASE3.md`.
+Enforce a structural modularity invariant on the web frontend: decompose monolithic `ultron/interfaces/web/index.js` (originally 1,688 lines) into clean, single-responsibility native ES modules such that every `.js` file in `ultron/interfaces/web/**/*.js` is strictly < 400 lines:
+1. Designed and proved a 4-layer unidirectional module DAG with zero circular dependencies:
+   - Layer 0 (Core State): `modules/state.js` (136 lines) — reactive state store, listeners, and shared state singleton with zero internal imports.
+   - Layer 1 (Foundations): `modules/api.js` (182 lines) — DOM helpers (`$`, `esc`, `splitPath`, `normPath`, `parseSeverity`), API client (`api()`), toasts, and alert banners.
+   - Layer 2 (Feature Pillars):
+     - `modules/dashboard.js` (227 lines) — Pillar 1 summary cards, dynamic primary verdict grammar, memory list, and filtering.
+     - `modules/violations.js` (243 lines) — Pillar 1 architectural violations drawer, priority grouping, delegation, and fix mission drafting.
+     - `modules/detail.js` (207 lines) — Pillar 1 file risk detail view, code viewer, and AI context brief tabs.
+     - `modules/graph.js` (369 lines) — Pillar 2 Topology Graph SVG rendering, package clustering, pan/zoom, and node inspector.
+     - `modules/studio.js` (80 lines) — Pillar 3 AI Agent Studio prompt envelope compilation and export.
+     - `modules/auditor.js` (103 lines) — Pillar 4 Code Auditor pre-execution safety gates and anomaly inspection.
+     - `modules/picker.js` (26 lines) — Server-side repository directory browser modal.
+   - Layer 3 (Orchestrator): `index.js` (392 lines, 16,640 bytes) — Top-level coordinator and backwards-compatible export facade.
+2. Updated `ultron/interfaces/web/index.html` line 412 to load native ES module: `<script type="module" src="index.js"></script>`.
+3. Preserved all static test inspection contracts on `index.js` (`const state = {`, `if (!res.success)`, `"Audit Incomplete"`, active endpoint bindings, and exact traditional function signatures).
+4. Authored automated invariant test suite `ultron/tests/test_frontend_invariants.py` (5 tests, all passing in 0.83s) asserting < 400 lines across all JS files, balanced delimiters, native script tag, Node.js syntax validity, and unidirectional DAG.
+5. Preserved all constitutional invariants: zero new pip/npm dependencies, pure stdlib/native browser APIs, `server.py` strictly 297 lines (< 300), and test skips frozen at 9.
+
+**Antigravity self-audit result:**
+- [x] Verified line counts across all 13 JS files: all strictly < 400 lines (392, 182, 103, 227, 207, 369, 69, 26, 136, 127, 80, 101, 243).
+- [x] Verified byte size of `index.js`: 16,640 bytes (strictly > 10,000 bytes dual-bounding constraint satisfied).
+- [x] Verified Node.js syntax check (`node -c`): 13/13 files valid with zero errors.
+- [x] Verified delimiter balancing: `{}` count equal, `[]` count equal, `()` count equal across all 13 files.
+- [x] Verified frontend invariant unit suite: `python -m unittest ultron.tests.test_frontend_invariants` (5/5 passed in 0.83s).
+- [x] Verified web reality suites: `python -m unittest ultron.tests.test_ui_smoke_live ultron.tests.test_violation_to_fix ultron.tests.test_dashboard_hierarchy ultron.tests.test_browser_reality_gate ultron.tests.test_browser_concurrency_and_integrity ultron.tests.test_visual_ergonomics` (69/69 passed in 1.34s).
+- [x] Verified skip invariants: `python -m unittest ultron.tests.test_skip_invariants` (3/3 passed, 0 unauthorized skips).
+- [x] Verified doc reality: `python -m unittest ultron.tests.test_documentation_reality` (5/5 passed).
+- [x] Verified self-scan integrity: `python -m unittest ultron.tests.test_self_scan_integrity` (3/3 passed, partition invariants satisfied).
+- [x] Verified project log compliance: `python -m unittest ultron.tests.test_project_log_compliance` (5/5 passed).
+- [x] Verified master verification gate: `python scripts/verify.py` (`TESTS: 791 ran, 0 failed, 0 errors, 9 skipped`).
+- [x] Preserved `ultron/interfaces/server.py` line count strictly at 297 lines (< 300).
+- [x] Pure standard library / native browser APIs: zero new pip/npm dependencies, no bundlers.
+
+**Category B Claims Verification Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A. No machine-learning or statistical classification models evaluated in this task.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** Native browser DOM and pure ECMAScript ES2022 module standard. No external CDN or bundle dependencies.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary cases: delimiter balancing across all files, line count ceilings for all 13 JS files, syntax parsing via Node.js, and static contract preservation.
+5. **Silent Failure Check:** Missing elements handled gracefully via optional chaining (`?.`); unhandled errors surfaced to user via `showToast` or banner alert.
+6. **Causal / Probabilistic Claims:** N/A. All assertions are deterministic AST line counts, delimiter equality, and test execution outcomes.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P3-C1 (Apply a Frontend Modularity Invariant) COMPLETE on `agent/P3-C1-modularize-frontend-js`. All frontend JS files strictly < 400 lines, native ES module architecture verified, 791 tests passing with 0 failures, 0 errors, 9 skipped. Ready for delivery audit.
+
