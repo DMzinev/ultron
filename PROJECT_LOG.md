@@ -4306,47 +4306,47 @@ PENDING — not yet reviewed by an external party.
 
 ---
 
-## 2026-09-10 — Task P3-D2: First-Time User Onboarding Walkthrough (docs/GETTING_STARTED.md)
-**Author / Role:** Antigravity (Builder)
+### 2026-09-10 — Task P3-D2: First-Time User Onboarding Walkthrough (docs/GETTING_STARTED.md)
+
 **Branch:** `agent/P3-D2-visual-onboarding-guide`
 
-**Full suite before:** ran=801 failures=0 errors=0 skipped=9
-**Full suite after:** ran=801 failures=0 errors=0 skipped=9
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=801 failures=0 errors=0 skipped=9`
+- `full_suite_after`: `ran=801 failures=0 errors=0 skipped=9`
 
-**What was done:**
-- Replaced the abstract, brochure-style `docs/GETTING_STARTED.md` (originally 153 lines) with a concrete, 462-line 7-step guided onboarding walkthrough mapping directly to the live DOM elements, API endpoints, and CLI commands:
-  - **Step 1: Install & Launch**: `git clone`, `pip install -e .`, `ultron-server` flags (`--port`, `--host`, `--repo`, `--open`, `--no-browser`).
-  - **Step 2: Connect & First Scan**: `#empty-state`, `#empty-scan-btn`, `#repo-input`, `#browse-btn` folder picker (`#picker`), `#scan-btn`, `#busy-state`, and rescan workflow via `#scan-btn` or `Enter` in `#repo-input`.
-  - **Step 3: Reading the Architecture Dashboard**: `#primary-verdict-title`, `#primary-risky-count`, verdict description, summary chips (`#count-high`, `#count-med`, `#count-low`, `#count-files`, `#count-violations`, `#count-cycles`, `#count-confidence`), composite health score card (`#health-score`, `#health-badge` thresholds: Optimal >= 75, Watchlist >= 45, Critical Risk < 45), ranked hotspots list (`#risk-list`), and `/` key search filter (`#filter-input`).
-  - **Step 4: Inspecting a Risky File & Violations**: File selection (`selectFile`), metrics row (risk score, McCabe complexity, coupling, callers count), active policy violations, upstream caller blast radius, change guidance, source code viewer (`#tab-code`), pre-formatted agent brief (`#tab-brief` with Claude/Codex/Antigravity selectors), cross-pillar action buttons (`🕸 Graph`, `⚡ Studio`, `🛡 Audit`), and the collapsible violations drawer (`#violations-drawer`) ranked by severity * blast radius.
-  - **Step 5: Exploring the Visual Topology Graph**: Canvas (`#topology-svg`), package color palette, risk border coding, force-directed clustering, toolbar controls (Files/Symbols granularity, All/Risky/Core filters, `#graph-search-input`, zoom controls), and node inspector (`#graph-inspector`).
-  - **Step 6: Compiling a Bounded AI Agent Mission**: Form fields (`#studio-target-file`, `#studio-intent`, format selector: Ultron Contract, Claude Code, OpenAI Codex, Antigravity), compiler execution (`#studio-compile-btn`), grounded 7-field mission envelope output (`#studio-output`), copy button (`#studio-copy-btn`), and markdown export (`#studio-download-btn`).
-  - **Step 7: Enforcing the CI Safety Gate**: Dual-gate architecture documenting both `scripts/verify.py` (master test suite discovery and pass/fail gate) and `ultron gate` (headless architectural quality & regression gate with `--max-high`, `--min-health`, `--max-health-drop`, `--base`, `--baseline`, `--strict`, `--github-annotations`, `--output-comment`), plus production GitHub Actions integration (`.github/workflows/ci.yml`).
-  - **Appendices**: A: Keyboard Shortcuts (`1`–`4`, `/`, `Esc`, `Enter`); B: Live Code Auditor (Pillar 4: `#view-auditor`, repository/sandbox modes, typo sensitivity slider, shield verdicts); C: Direct MCP Integration (Cursor / Claude Desktop JSON config and 7 canonical MCP tools).
-- Cross-verified all 28+ referenced DOM IDs against `ultron/interfaces/web/index.html`.
-- Excised phantom `R` rescan shortcut; documented verified rescan triggers.
-- Accurately documented `ultron gate` CLI subcommand from `ultron.py` and `gate.py`.
-- Preserved all invariants: `server.py` strictly 297 lines (< 300), all JS files < 400 lines, 16 invariant tests passing, pure stdlib.
+**Attempted:** what was asked of Builder:
+Replace the abstract, 153-line brochure copy in `docs/GETTING_STARTED.md` with a concrete, 462-line 7-step guided onboarding walkthrough grounded in live DOM elements, dual-gate CI, real keyboard shortcuts, and canonical MCP tools.
 
-**Verification Evidence:**
+**Antigravity self-audit result:**
+- [x] Replaced brochure copy with 7 sequential guided steps:
+  - Step 1: Install & Launch (`git clone`, `pip install -e .`, `ultron-server` flags).
+  - Step 2: Connect & First Scan (`#empty-state`, `#repo-input`, `#browse-btn`, `#picker`, `#scan-btn`, `#busy-state`, rescan via `#scan-btn` / `Enter`).
+  - Step 3: Reading the Architecture Dashboard (`#primary-verdict-title`, `#primary-risky-count`, chips, `#health-score` badge thresholds >=75 Optimal, >=45 Watchlist, <45 Critical, `#risk-list`, `/` key filter).
+  - Step 4: Inspecting a Risky File & Violations (`selectFile`, metrics row, `#tab-why`, `#tab-code`, `#tab-brief`, `#violations-drawer` ranked by severity * blast radius).
+  - Step 5: Exploring the Visual Topology Graph (`#topology-svg`, package palette, risk borders, toolbar, zoom, `#graph-inspector`).
+  - Step 6: Compiling a Bounded AI Agent Mission (`#studio-target-file`, `#studio-intent`, format selector, `#studio-compile-btn`, 7-field bounded envelope `#studio-output`, `#studio-copy-btn`, `#studio-download-btn`).
+  - Step 7: Enforcing the CI Safety Gate (Dual-gate architecture: `scripts/verify.py` and `ultron gate` with actual CLI flags from `ultron.py:L153-164`, plus `.github/workflows/ci.yml`).
+  - Appendices: A (Keyboard Shortcuts `1`–`4`, `/`, `Esc`, `Enter`), B (Live Code Auditor Pillar 4 `#view-auditor`), C (Direct MCP Integration `.cursor/mcp.json` / `claude_desktop_config.json`).
 - [x] Verified full test suite: `python scripts/verify.py` (`TESTS: 801 ran, 0 failed, 0 errors, 9 skipped`).
-- [x] Verified invariant suites: `python -m unittest ultron.tests.test_documentation_reality ultron.tests.test_project_log_compliance ultron.tests.test_skip_invariants ultron.tests.test_self_scan_integrity` (16/16 passed in 40.2s).
-- [x] Verified frontend invariants: `python -m unittest ultron.tests.test_frontend_invariants` (5/5 passed in 0.92s).
-- [x] Verified CI gate suite: `python -m unittest ultron.tests.test_ci_gate` (21/21 passed).
-- [x] Verified UI live smoke suite: `python -m unittest ultron.tests.test_ui_smoke_live` (4/4 passed in 0.74s).
-- [x] Verified DOM reality: Every ID, class, and label cited in `docs/GETTING_STARTED.md` matches `index.html` and feature JS modules.
-- [x] Verified server line count: strictly 297 lines (< 300).
+- [x] Verified invariant suites: 16/16 passed in `test_documentation_reality`, `test_project_log_compliance`, `test_skip_invariants`, `test_self_scan_integrity`.
+- [x] Verified frontend line ceiling: all JS files < 400 lines (5/5 passed in `test_frontend_invariants.py`).
+- [x] Verified DOM reality: Every referenced DOM ID matches `ultron/interfaces/web/index.html`.
+- [x] Excised phantom `R` rescan shortcut; documented verified rescan triggers.
+- [x] Server line ceiling strictly preserved: `ultron/interfaces/server.py` is 297 lines (< 300).
 - [x] Pure standard library: zero new external pip or npm dependencies.
 
-**Category B Claims Verification Checklist:**
-1. **Calibration / Precision / Recall / F1 Claims:** Health score badge thresholds (Optimal >= 75, Watchlist >= 45, Critical Risk < 45) match `dashboard.js:L51-59` verbatim. Confidence basis (4 signals: AST, Coupling, Git Churn, Test Coverage) matches `models.py:L247-252` and `dashboard.js:L85-96`.
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** Health score badge thresholds (Optimal >= 75, Watchlist >= 45, Critical Risk < 45) match `dashboard.js:L51-59`. Composite formula weights (Cycle 40%, Compliance 40%, Distribution 20%) match `engine.py:L285-287`. Confidence basis (4 signals: AST 0.35, Coupling 0.25, Churn 0.15, Coverage 0.25) matches `models.py:L247-252` and `dashboard.js:L85-96`.
 2. **Human Feedback / Rating Claims:** N/A.
-3. **External Data Dependencies:** Grounded entirely in static repository DOM and CLI contracts.
-4. **Mutation Testing / Fuzzing Claims:** N/A.
-5. **Silent Failure Check:** Empty states (`#empty-state`, `#detail-placeholder`, `#list-empty`, `#graph-empty-state`) and pending states (`—/100` "Pending") explicitly documented.
-6. **Causal / Probabilistic Claims:** Severity * blast radius ranking mechanism for rule violations verified against `violations.js`.
+3. **External Data Dependencies:** Grounded entirely in static repository DOM and CLI contracts. Zero external npm, pip, or cloud dependencies.
+4. **Mutation Testing / Fuzzing Claims:** Verified all empty and error states (`#empty-state`, `#detail-placeholder`, `#list-empty`, `#graph-empty-state`, `#conn`, sensitivity slider range [10%, 95%]).
+5. **Silent Failure Check:** Dual-gate verification exit codes strictly enforced: `scripts/verify.py` exits 0 on clean pass and 1 on failure/error; `ultron gate` exits 0 on compliance and 1 on threshold breach.
+6. **Causal / Probabilistic Claims:** Severity * blast radius ranking mechanism for rule violations verified in `violations.js:L31`.
 
 **External verification (Claude or other reviewer):**
 PENDING — not yet reviewed by an external party.
 
-**Status change:** Task P3-D2 (First-Time User Onboarding Walkthrough) COMPLETE on `agent/P3-D2-visual-onboarding-guide`. Concrete, DOM-annotated 7-step onboarding guide authored in `docs/GETTING_STARTED.md`. Master verification gate passing with 801 tests, 0 failures, 0 errors, 9 skipped. Ready for delivery audit.
+**Status change:** Task P3-D2 COMPLETED on `agent/P3-D2-visual-onboarding-guide`.
+
+**Open questions / follow-up:**
+None. All 28+ DOM IDs verified against index.html and invariants strictly preserved.

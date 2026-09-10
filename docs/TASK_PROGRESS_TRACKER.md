@@ -2,8 +2,8 @@
 
 **Single Source of Truth**: `docs/AGENT_EXECUTION_PLAN.md`, `docs/AGENT_EXECUTION_PLAN_PHASE2.md` & `docs/AGENT_EXECUTION_PLAN_PHASE3.md`  
 **Total Planned Tasks**: 36 (18 Phase 1 + 8 Phase 2 + 10 Phase 3)  
-**Completed**: 31 / 36 (Phase 1: A1–E2; Phase 2: P2-A1–P2-D1; Phase 3: P3-A1–P3-B3)  
-**Current Active Task**: Phase 3 in progress (P3-C1 next)
+**Completed**: 35 / 36 (Phase 1: A1–E2; Phase 2: P2-A1–P2-D1; Phase 3: P3-A1–P3-D2)
+**Current Active Task**: Phase 3 in progress (P3-E1 next)
 
 ---
 
@@ -59,7 +59,7 @@
 | 32 | **P3-C1** | `agent/P3-C1-modularize-frontend-js` | **COMPLETED** | `933e25d` | Decomposed `index.js` (originally 1,688 lines) into clean native ES modules under `modules/` (< 400 lines each); all 13 JS files strictly < 400 lines (index.js is 392 lines / 16.6 KB); `<script type="module" src="index.js"></script>` in `index.html`; 5 invariant tests in `test_frontend_invariants.py`; zero skip regressions (frozen at 9); `server.py` strictly 297 lines; full suite: 791 ran, 0 failed, 0 errors, 9 skipped. |
 | 33 | **P3-C2** | `agent/P3-C2-not-a-cockpit-audit` | **COMPLETED** | `afca802` | Audited complete UI inventory (42 functional interaction clusters); verified zero backend route leaks (`agent_handoff`, `work-state`); confirmed above-the-fold verdict simplicity (*"These N files are risky to change"*); added accessible `:focus-visible` styling and `.seg-btn` rules in `index.css`; visual ergonomics score 100.0; full suite: 791 ran, 0 failed, 0 errors, 9 skipped. |
 | 34 | **P3-D1** | `agent/P3-D1-js-ts-language-adapter` | **COMPLETED** | `15852f1` | Prototype JS/TS language adapter supporting multi-language repositories; pure Python stdlib (zero new pip/npm deps); 3-stage lexical scanning with comment/string masking; directory-relative import resolution; cyclomatic branching keyword proxy with TS optional property lookahead (`?:`); prototype tier labeling (tier='PROTOTYPE', confidence=0.35); multi-language graph unification; `/api/v1/overview` reports multi-language stats while strictly preserving 8 contract keys; 10/10 tests passing in `test_js_language_adapter.py`; master gate passes (`TESTS: 801 ran, 0 failed, 0 errors, 9 skipped`). |
-| 35 | **P3-D2** | `agent/P3-D2-visual-onboarding-guide` | **COMPLETED** | `39020f` | Rewrote `docs/GETTING_STARTED.md` (462 lines) into a concrete, 7-step guided onboarding walkthrough with verified DOM annotations, real CLI flags, and dual-gate CI documentation (`scripts/verify.py` & `ultron gate`); cross-verified all 28+ referenced DOM IDs against `index.html`; documented real keyboard shortcuts (`1`–`4`, `/`, `Esc`, `Enter`); 16 invariant tests passing; master test gate passing (`TESTS: 801 ran, 0 failed, 0 errors, 9 skipped`). |
+| 35 | **P3-D2** | `agent/P3-D2-visual-onboarding-guide` | **COMPLETED** | `681a1c7` | Rewrote `docs/GETTING_STARTED.md` (462 lines) into a concrete, 7-step guided onboarding walkthrough with verified DOM annotations, real CLI flags, and dual-gate CI documentation (`scripts/verify.py` & `ultron gate`); cross-verified all 28+ referenced DOM IDs against `index.html`; documented real keyboard shortcuts (`1`–`4`, `/`, `Esc`, `Enter`); 16 invariant tests passing; master test gate passing (`TESTS: 801 ran, 0 failed, 0 errors, 9 skipped`). |
 | 36 | **P3-E1** | `agent/P3-E1-security-hygiene-tests` | **TODO** | — | Security regression suite: path traversal, symlink escapes, unauthorized browsing boundaries. |
 
 ---
