@@ -65,8 +65,17 @@ def analyze_directory(dirpath, os=os, cancel_token=None):
     Walks a directory and analyzes all python files.
     Returns a unified codebase representation.
     """
+    abs_dir = os.path.abspath(dirpath)
+    # Refuse to scan host filesystem root or drive roots as a code repository
+    if abs_dir in ("/", "\\") or os.path.dirname(abs_dir) == abs_dir:
+        return {}
+
     codebase = {}
     for root, dirs, files in os.walk(dirpath):
+        # Scoped pseudo-mount pruning strictly at filesystem root
+        if root in ('/', '\\') or os.path.dirname(root) == root:
+            dirs[:] = [d for d in dirs if d not in ('proc', 'sys', 'dev', 'run', 'boot', 'lost+found', '$Recycle.Bin', 'System Volume Information')]
+
         # Prune dirs in-place to avoid scanning virtualenvs, builds, test files, and scratch dirs
         dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('venv', 'env', 'test_env', '__pycache__', 'tests', 'node_modules', 'scratch', 'dist', 'synapse_project', 'docs', 'ultron_risk_scorer.egg-info')]
         
@@ -82,6 +91,8 @@ def analyze_directory(dirpath, os=os, cancel_token=None):
                     raise InterruptedError("Analysis cancelled by cancel_token")
             if file.endswith('.py'):
                 abs_path = os.path.join(root, file)
+                if not os.path.isfile(abs_path):
+                    continue
                 rel_path = os.path.relpath(abs_path, dirpath).replace(os.sep, '/')
                 analysis = analyze_file(abs_path)
                 if 'error' not in analysis:

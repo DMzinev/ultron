@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GitHub Discussions
+    url: https://github.com/DMzinev/ultron/discussions
+    about: Ask questions, share ideas, and connect with the Ultron community.
+  - name: Security Vulnerability Advisory
+    url: https://github.com/DMzinev/ultron/security/advisories/new
+    about: Report security vulnerabilities privately.

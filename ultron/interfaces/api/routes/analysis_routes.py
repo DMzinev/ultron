@@ -90,6 +90,11 @@ class AnalysisRoutesMixin:
             else:
                 repo_path = os.path.abspath(repo)
 
+            if repo_path in ("/", "\\") or os.path.dirname(repo_path) == repo_path:
+                msg = "Analyzing system root filesystem is strictly prohibited."
+                self.send_json_response(400, {"status": "error", "message": msg, "error": msg})
+                return
+
             if not os.path.exists(repo_path):
                 msg = f"Directory '{repo_path}' does not exist."
                 self.send_json_response(400, {"status": "error", "message": msg, "error": msg})

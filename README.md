@@ -5,11 +5,12 @@
 </p>
 
 <p align="center">
-  <a href="#-quick-start-under-60-seconds"><img src="https://img.shields.io/badge/install-clone--to--screen%2019.5s-10B981?style=for-the-badge&logo=rocket" alt="Quick Start" /></a>
-  <a href="#-verification--testing"><img src="https://img.shields.io/badge/tests-769%20passed%20%7C%200%20failed-10B981?style=for-the-badge&logo=checkmarx" alt="Tests Passing" /></a>
-  <a href="#-model-context-protocol-mcp-parity"><img src="https://img.shields.io/badge/MCP-7%20Tools%20Active-06B6D4?style=for-the-badge&logo=anthropic" alt="MCP Active" /></a>
-  <a href="#-honest-limitations"><img src="https://img.shields.io/badge/dependencies-0%20external%20pip-8B5CF6?style=for-the-badge" alt="Zero Dependencies" /></a>
-  <a href="#-license"><img src="https://img.shields.io/badge/license-MIT-3B82F6?style=for-the-badge" alt="MIT License" /></a>
+  <a href="https://github.com/DMzinev/ultron/actions/workflows/ci.yml"><img src="https://github.com/DMzinev/ultron/actions/workflows/ci.yml/badge.svg" alt="CI Build Status" /></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-3776AB?logo=python&logoColor=white" alt="Python Versions" /></a>
+  <a href="scripts/verify.py"><img src="https://img.shields.io/badge/tests-769%20passed%20%7C%200%20failed-10B981?logo=githubactions&logoColor=white" alt="Tests" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
+  <a href="#-the-4-interactive-pillars"><img src="https://img.shields.io/badge/architecture%20health-100%2F100-10B981" alt="Architecture Health" /></a>
+  <a href="#-honest-limitations"><img src="https://img.shields.io/badge/core%20runtime-zero%20dependencies-8B5CF6" alt="Zero Dependencies" /></a>
 </p>
 
 > **"Ultron is a cognitive control plane for AI-assisted software development that lets any vibe coder use any agentic coding tool to build software far beyond what they could comfortably build alone—while preserving context, architectural understanding, verification, and control."**
@@ -200,6 +201,17 @@ TESTS: <ran> ran, <failed> failed, <errors> errors, <skipped> skipped
 
 ---
 
+## 🤝 Community & Contributing
+
+We welcome contributions from developers, researchers, and AI tool builders!
+- **[Contributing Guide](CONTRIBUTING.md)**: Setup, architectural guidelines, and test verification standards.
+- **[Code of Conduct](CODE_OF_CONDUCT.md)**: Contributor Covenant v2.1.
+- **[Security Policy](SECURITY.md)**: Vulnerability reporting and local privacy architecture.
+- **[Report a Bug](https://github.com/DMzinev/ultron/issues/new?template=bug_report.md)** or **[Request a Feature](https://github.com/DMzinev/ultron/issues/new?template=feature_request.md)**.
+
+---
+
 ## 📄 License
 
-Ultron is open-source software licensed under the MIT License.
+Ultron is open-source software licensed under the [MIT License](LICENSE).
+Copyright (c) 2026 Ultron Contributors.

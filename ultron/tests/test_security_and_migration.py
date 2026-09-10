@@ -1,6 +1,7 @@
 import os
 import io
 import json
+import time
 import tempfile
 import unittest
 
@@ -50,14 +51,35 @@ class TestSecurityAndMigration(unittest.TestCase):
         return handler
 
     def test_gate14_directory_traversal_sanitization(self):
-        """Gate 14: Directory traversal sequences (../../..) are safely resolved via os.path.abspath."""
-        traversal_path = os.path.join(self.repo_path, "..", "..")
+        """
+        Gate 14: Directory traversal sequences (../../..) are safely resolved via os.path.abspath:
+        1. Relative intra-sandbox traversal normalizes cleanly and analyzes successfully in < 2.0s.
+        2. Escaping traversal attempting to target host root filesystem is rejected with HTTP 400.
+        """
+        # 1. Intra-sandbox traversal normalization
+        nested_dir = os.path.join(self.repo_path, "sub", "project")
+        os.makedirs(nested_dir, exist_ok=True)
+        nested_file = os.path.join(nested_dir, "nested_module.py")
+        with open(nested_file, "w", encoding="utf-8") as f:
+            f.write("def helper(): return 'nested'\n")
+
+        traversal_path = os.path.join(nested_dir, "..", "..")
+        t0 = time.perf_counter()
         h = self._create_handler("/api/analyze", {"repo": traversal_path})
         h.handle_analyze()
-        
-        # Must resolve safely and not crash the server
+        elapsed = time.perf_counter() - t0
+
         res = json.loads(h.wfile.getvalue().decode("utf-8"))
-        self.assertIn("status", res)
+        self.assertEqual(res.get("status"), "success")
+        self.assertLess(elapsed, 2.0, f"Analysis of normalized traversal took {elapsed:.2f}s (budget: 2.0s)")
+
+        # 2. Escaping traversal past system root is safely rejected
+        root_path = os.path.abspath(os.sep)
+        h_root = self._create_handler("/api/analyze", {"repo": root_path})
+        h_root.handle_analyze()
+        res_root = json.loads(h_root.wfile.getvalue().decode("utf-8"))
+        self.assertEqual(res_root.get("status"), "error")
+        self.assertIn("prohibited", res_root.get("message", "").lower())
 
     def test_gate14_html_injection_resilience(self):
         """Gate 14: Entity profiles containing HTML tags (<script>alert(1)</script>) are sanitized cleanly."""

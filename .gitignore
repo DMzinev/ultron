@@ -80,6 +80,7 @@ prn
 *_TRACE.md
 *_REPORT.md
 !docs/benchmarks/*
+!.github/ISSUE_TEMPLATE/*
 *_AUDIT.md
 *_MATRIX.md
 *_MATRIX.json

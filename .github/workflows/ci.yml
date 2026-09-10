@@ -10,6 +10,7 @@ jobs:
   validate-and-test:
     name: Validation & Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -46,7 +47,9 @@ jobs:
         run: python -c "import glob, subprocess; [subprocess.check_call(['node', '-c', f]) for f in glob.glob('ultron/interfaces/web/**/*.js', recursive=True)]"
 
       - name: Execute Master Verification (Single Source of Truth - Pass 1)
+        timeout-minutes: 5
         run: python scripts/verify.py
 
       - name: Execute Master Verification Back-to-Back (Reproducibility Check - Pass 2)
+        timeout-minutes: 5
         run: python scripts/verify.py

@@ -80,8 +80,9 @@ class TestDocumentationReality(unittest.TestCase):
             "legacy.css",
             "start.py",
             "start.bat",
-            "[MIT License](LICENSE)",
         ]
+        if not os.path.exists(os.path.join(REPO_ROOT, "LICENSE")):
+            dead_references.append("[MIT License](LICENSE)")
         for ref in dead_references:
             self.assertNotIn(
                 ref,
