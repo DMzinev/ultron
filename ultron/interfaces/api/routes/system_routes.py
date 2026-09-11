@@ -297,7 +297,7 @@ class SystemRoutesMixin:
                 return
             if raw:
                 from ultron.interfaces.api.browse_folder import WINDOWS_RESERVED_NAMES
-                stem = os.path.splitext(os.path.basename(raw))[0].upper()
+                stem = os.path.splitext(os.path.basename(raw))[0].rstrip(":").upper()
                 if stem in WINDOWS_RESERVED_NAMES:
                     self.send_json_response(400, {"error": f"Invalid path: reserved device name '{stem}'."})
                     return
@@ -381,6 +381,12 @@ class SystemRoutesMixin:
             if "\0" in repo or "\0" in file_param:
                 self.send_json_response(400, {"error": "Invalid path: null byte detected."})
                 return
+
+            from ultron.interfaces.api.browse_folder import WINDOWS_RESERVED_NAMES
+            stem = os.path.splitext(os.path.basename(file_param))[0].rstrip(":").upper()
+            if stem in WINDOWS_RESERVED_NAMES:
+                self.send_json_response(400, {"error": f"Invalid file path: reserved device name '{stem}'."})
+                return
                 
             repo_path = os.path.realpath(repo)
             full_path = os.path.realpath(os.path.join(repo_path, file_param))
@@ -419,12 +425,18 @@ class SystemRoutesMixin:
             if "\0" in repo or "\0" in file_param:
                 self.send_json_response(400, {"error": "Invalid path: null byte detected."})
                 return
+
+            from ultron.interfaces.api.browse_folder import WINDOWS_RESERVED_NAMES
+            stem = os.path.splitext(os.path.basename(file_param))[0].rstrip(":").upper()
+            if stem in WINDOWS_RESERVED_NAMES:
+                self.send_json_response(400, {"error": f"Invalid file path: reserved device name '{stem}'."})
+                return
                 
             repo_path = os.path.realpath(repo)
             full_path = os.path.realpath(os.path.join(repo_path, file_param))
             real_repo_dir = os.path.join(repo_path, "")
             
-            if not os.path.normcase(full_path).startswith(os.path.normcase(real_repo_dir)):
+            if not os.path.normcase(full_path).startswith(os.path.normcase(real_repo_dir)) or os.path.isdir(full_path):
                 self.send_json_response(400, {"error": "Invalid file path."})
                 return
                 

@@ -186,26 +186,31 @@ class TestPathSecurity(unittest.TestCase):
             handler.handle_get_file()
             res = json.loads(handler.wfile.getvalue().decode("utf-8"))
             self.assertIn("error", res)
+            self.assertEqual(getattr(handler, "last_code", None), 400)
             # Cleanup
             try:
                 os.remove(symlink_path)
             except Exception:
                 pass
         else:
-            # Mock fallback — simulate realpath resolving outside boundary
+            # Mock fallback — simulate realpath resolving outside boundary and execute handler
             fake_resolved = os.path.join(outside_dir, "secret.txt")
-            with mock.patch("os.path.realpath", side_effect=lambda p: fake_resolved if symlink_name in str(p) else os.path.realpath.__wrapped__(p) if hasattr(os.path.realpath, '__wrapped__') else p):
+            orig_realpath = os.path.realpath
+
+            def mock_realpath(p):
+                if symlink_name in str(p):
+                    return fake_resolved
+                return orig_realpath(p)
+
+            with mock.patch("os.path.realpath", side_effect=mock_realpath):
                 handler = self._create_handler("/api/get-file", {
                     "repo": self.repo_path,
                     "file": os.path.join(symlink_name, "secret.txt")
                 })
-                # Since we mocked realpath, we need to verify the boundary logic
-                repo_path = os.path.realpath(self.repo_path)
-                real_repo_dir = os.path.join(repo_path, "")
-                self.assertFalse(
-                    os.path.normcase(fake_resolved).startswith(os.path.normcase(real_repo_dir)),
-                    "Symlink escape should resolve outside the repo boundary"
-                )
+                handler.handle_get_file()
+                res = json.loads(handler.wfile.getvalue().decode("utf-8"))
+                self.assertIn("error", res)
+                self.assertEqual(getattr(handler, "last_code", None), 400)
 
         # Cleanup outside dir
         try:
@@ -213,6 +218,78 @@ class TestPathSecurity(unittest.TestCase):
             os.rmdir(outside_dir)
         except Exception:
             pass
+
+    # ── v1/analyze tests ─────────────────────────────────────────────
+
+    def test_v1_analyze_null_byte_rejection(self):
+        """POST /api/v1/analyze with null bytes in repo returns HTTP 400."""
+        handler = self._create_handler("/api/v1/analyze", {"repo": "/tmp/repo\0evil"})
+        handler.handle_v1_analyze()
+        res = json.loads(handler.wfile.getvalue().decode("utf-8"))
+        self.assertEqual(getattr(handler, "last_code", None), 400)
+        self.assertIn("null byte", res.get("message", "").lower())
+
+    def test_v1_analyze_reserved_device_name_rejection(self):
+        """POST /api/v1/analyze targeting Windows reserved device name returns HTTP 400."""
+        handler = self._create_handler("/api/v1/analyze", {"repo": "CON"})
+        handler.handle_v1_analyze()
+        res = json.loads(handler.wfile.getvalue().decode("utf-8"))
+        self.assertEqual(getattr(handler, "last_code", None), 400)
+        self.assertIn("reserved device name", res.get("message", "").lower())
+
+    def test_v1_analyze_root_filesystem_rejection(self):
+        """POST /api/v1/analyze targeting system root returns HTTP 400."""
+        root = os.path.abspath(os.sep)
+        handler = self._create_handler("/api/v1/analyze", {"repo": root})
+        handler.handle_v1_analyze()
+        res = json.loads(handler.wfile.getvalue().decode("utf-8"))
+        self.assertEqual(getattr(handler, "last_code", None), 400)
+        self.assertIn("prohibited", res.get("message", "").lower())
+
+    def test_v1_analyze_module_delegate_null_byte_rejection(self):
+        """Module-level handle_v1_analyze delegate rejects null bytes with HTTP 400."""
+        from ultron.interfaces.api.routes.analysis_routes import handle_v1_analyze as delegate_v1_analyze
+        handler = self._create_handler("/api/v1/analyze", {"repo": "/tmp/repo\0evil"})
+        delegate_v1_analyze(handler)
+        res = json.loads(handler.wfile.getvalue().decode("utf-8"))
+        self.assertEqual(getattr(handler, "last_code", None), 400)
+        self.assertIn("null byte", res.get("message", "").lower())
+
+    def test_analyze_reserved_device_rejection(self):
+        """POST /api/analyze targeting Windows reserved device name returns HTTP 400."""
+        handler = self._create_handler("/api/analyze", {"repo": "CON"})
+        handler.handle_analyze()
+        res = json.loads(handler.wfile.getvalue().decode("utf-8"))
+        self.assertEqual(res.get("status"), "error")
+        self.assertIn("reserved device name", res.get("error", "").lower())
+
+    # ── save-file additional security tests ──────────────────────────
+
+    def test_save_file_reserved_device_rejection(self):
+        """POST /api/save-file targeting CON returns HTTP 400."""
+        handler = self._create_handler("/api/save-file", {
+            "repo": self.repo_path,
+            "file": "CON",
+            "content": "payload"
+        })
+        handler.handle_save_file()
+        res = json.loads(handler.wfile.getvalue().decode("utf-8"))
+        self.assertIn("reserved device name", res.get("error", "").lower())
+        self.assertEqual(getattr(handler, "last_code", None), 400)
+
+    def test_save_file_directory_target_rejection(self):
+        """POST /api/save-file targeting an existing subdirectory returns HTTP 400."""
+        sub_dir = os.path.join(self.repo_path, "sub_folder")
+        os.makedirs(sub_dir, exist_ok=True)
+        handler = self._create_handler("/api/save-file", {
+            "repo": self.repo_path,
+            "file": "sub_folder",
+            "content": "payload"
+        })
+        handler.handle_save_file()
+        res = json.loads(handler.wfile.getvalue().decode("utf-8"))
+        self.assertIn("error", res)
+        self.assertEqual(getattr(handler, "last_code", None), 400)
 
     # ── Windows reserved device names test ───────────────────────────
 
@@ -223,6 +300,13 @@ class TestPathSecurity(unittest.TestCase):
             self.assertTrue(result["cancelled"], f"{name} should be rejected")
             self.assertIn("reserved device name", result.get("error", "").lower(),
                           f"{name} should mention reserved device name")
+
+    def test_windows_reserved_device_colon_rejection(self):
+        """Attempts to target CON: or NUL: with trailing colon return rejection."""
+        for name in ("CON:", "NUL:"):
+            result = select_folder_dialog(initial_dir=name, headless=True)
+            self.assertTrue(result["cancelled"], f"{name} should be rejected")
+            self.assertIn("reserved device name", result.get("error", "").lower())
 
 
 if __name__ == "__main__":

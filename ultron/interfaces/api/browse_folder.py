@@ -23,7 +23,7 @@ def select_folder_dialog(initial_dir: str = None, headless: bool = False, allowe
         return {"path": "", "cancelled": True, "fallback": True, "error": "Invalid path: null byte detected."}
 
     if initial_dir:
-        stem = os.path.splitext(os.path.basename(initial_dir))[0].upper()
+        stem = os.path.splitext(os.path.basename(initial_dir))[0].rstrip(":").upper()
         if stem in WINDOWS_RESERVED_NAMES:
             return {"path": "", "cancelled": True, "fallback": True, "error": f"Invalid path: reserved device name '{stem}'."}
 

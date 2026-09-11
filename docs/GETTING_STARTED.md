@@ -311,10 +311,10 @@ python scripts/verify.py
 
 **Output:**
 ```text
-Ran 812 tests in 184.321s
+Ran 820 tests in 184.321s
 
 OK (skipped=9)
-TESTS: 812 ran, 0 failed, 0 errors, 9 skipped
+TESTS: 820 ran, 0 failed, 0 errors, 9 skipped
 ```
 - **Exit Code `0`**: All tests pass.
 - **Exit Code `1`**: Any test fails or errors.

@@ -90,6 +90,13 @@ class AnalysisRoutesMixin:
                 msg = "Invalid repository path: null byte detected."
                 self.send_json_response(400, {"status": "error", "message": msg, "error": msg})
                 return
+            if repo:
+                stem = os.path.splitext(os.path.basename(repo))[0].rstrip(":").upper()
+                from ultron.interfaces.api.browse_folder import WINDOWS_RESERVED_NAMES
+                if stem in WINDOWS_RESERVED_NAMES:
+                    msg = f"Invalid repository path: reserved device name '{stem}'."
+                    self.send_json_response(400, {"status": "error", "message": msg, "error": msg})
+                    return
             if not repo:
                 repo_path = self.get_repo_root_path()
             else:
@@ -515,7 +522,7 @@ class AnalysisRoutesMixin:
             if "\0" in raw_repo:
                 self.send_json_response(400, None, "Invalid repository path: null byte detected.")
                 return
-            stem = os.path.splitext(os.path.basename(raw_repo))[0].upper()
+            stem = os.path.splitext(os.path.basename(raw_repo))[0].rstrip(":").upper()
             from ultron.interfaces.api.browse_folder import WINDOWS_RESERVED_NAMES
             if stem in WINDOWS_RESERVED_NAMES:
                 self.send_json_response(400, None, f"Invalid repository path: reserved device name '{stem}'.")
@@ -601,7 +608,7 @@ def handle_v1_analyze(handler: Any) -> None:
         if "\0" in raw_repo:
             handler.send_json_response(400, None, "Invalid repository path: null byte detected.")
             return
-        stem = os.path.splitext(os.path.basename(raw_repo))[0].upper()
+        stem = os.path.splitext(os.path.basename(raw_repo))[0].rstrip(":").upper()
         from ultron.interfaces.api.browse_folder import WINDOWS_RESERVED_NAMES
         if stem in WINDOWS_RESERVED_NAMES:
             handler.send_json_response(400, None, f"Invalid repository path: reserved device name '{stem}'.")
