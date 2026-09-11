@@ -4575,4 +4575,47 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None. All 11 action unit tests passing deterministically with 0 skips. Full verification gate passing with 840 tests, 0 failures, 0 errors, 0 skipped.
 
+---
+
+### 2026-09-11 — Task P4-B2: Automated Multi-Client MCP Installer (`ultron mcp install`)
+
+**Branch:** `agent/P4-B2-mcp-client-installer`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=840 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=863 failures=0 errors=0 skipped=0`
+
+**Attempted:** Implement automated 1-click multi-client Model Context Protocol (MCP) configuration installer (`ultron mcp install`) in `ultron/interfaces/cli/commands/mcp.py` supporting `cursor`, `claude`, `windsurf`, `vscode`, and `all`; implement cross-platform config discovery with resilient environment variable fallbacks (`APPDATA` on Windows, `XDG_CONFIG_HOME` on Linux, `~/Library/Application Support` on macOS); implement atomic and safe non-destructive JSON merging preserving third-party servers; generate microsecond-timestamped backups (`.bak.<timestamp_microseconds>`) on corrupted or unparseable JSON files; support local repository paths (`.cursor/mcp.json`, `.windsurf/mcp.json`, `.vscode/mcp.json`) and global user configurations (`--global`); register `mcp` subcommand in `ultron.py` with `--client`/`--ide`, `--install`, `--global` (dest=`is_global`), and `--json`; document the installer in `docs/GETTING_STARTED.md` Appendix C; author comprehensive hermetic unit tests in `ultron/tests/test_mcp_installer.py` with zero skips and full host filesystem isolation.
+
+**Antigravity self-audit result:**
+- [x] Implemented cross-platform client config discovery in `_get_config_path` with resilient environment variable fallbacks (`APPDATA`, `XDG_CONFIG_HOME`, `~/Library/Application Support`) and `os.path.normpath` normalization.
+- [x] Implemented safe non-destructive merging in `install_mcp_config` preserving all existing third-party servers and settings.
+- [x] Added microsecond-timestamped backup creation (`f"{config_path}.bak.{ts}"`) and automatic file recovery when parsing corrupted or non-dict JSON.
+- [x] Added multi-client installation support for `--client all` configuring Cursor, Claude Desktop, Windsurf, and VS Code simultaneously.
+- [x] Registered `mcp` subcommand in `ultron.py` with positional action (`install`/`serve`), `--client`/`--ide`, `--install`, `--global` (`dest="is_global"`), and `--json`.
+- [x] Updated `docs/GETTING_STARTED.md` Appendix C with comprehensive `ultron mcp install` usage examples across all clients and options.
+- [x] Authored 23 hermetic unit tests in `ultron/tests/test_mcp_installer.py` covering path resolution across OS platforms, safe merging, idempotency, microsecond corrupted backup generation, non-dict JSON recovery, `--client all`, `--json` output, and CLI dispatch with zero skips and complete host filesystem isolation.
+- [x] Full master verification gate passes cleanly: `TESTS: 863 ran, 0 failed, 0 errors, 0 skipped` in `scripts/verify.py` (Exit code: 0).
+- [x] All 39 structural and governance invariant tests pass in 16.824s (`test_skip_invariants`, `test_frontend_invariants`, `test_self_scan_integrity`, `test_documentation_reality`, `test_project_log_compliance`, `test_distribution_packaging`).
+- [x] Server line ceiling strictly preserved: `server.py` is 297 lines (< 300).
+- [x] Frontend line ceiling strictly preserved: all 13 JS modules strictly < 400 lines.
+- [x] Pure standard library: zero new external dependencies introduced.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML model or classifier claims.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are hermetic. Verified all 23 unit tests execute in isolated sandbox by patching `APPDATA`, `USERPROFILE`, `HOME`, and `XDG_CONFIG_HOME` into `tempfile.TemporaryDirectory()`; zero writes to host directories.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive inputs: corrupted JSON syntax (`{ invalid json`), non-dict JSON payloads (`[1, 2, 3]`), non-dict `mcpServers` value (`"not-a-dict"`), non-existent parent directories, idempotency over repeated installations, and unsupported client names (`ValueError`/exit code 1).
+5. **Silent Failure Check:** Tested explicit failure modes: corrupted files backed up with microsecond timestamp (`.bak.<timestamp_microseconds>`) rather than silently dropped; invalid client names return code 1 with error on stderr (or formatted JSON); unparseable JSON triggers warning log and clean repair.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P4-B2 (Automated Multi-Client MCP Installer) COMPLETED on `agent/P4-B2-mcp-client-installer`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 23 installer unit tests passing deterministically with 0 skips. Full verification gate passing with 863 tests, 0 failures, 0 errors, 0 skipped.
+
+
 

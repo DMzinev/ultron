@@ -131,7 +131,7 @@ def main():
         print(pkg["prompt_package"])
         sys.exit(0)
     # Subcommand Handling
-    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate", "scan", "verify"):
+    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate", "scan", "verify", "mcp"):
         cmd = sys.argv[1]
         sub_parser = argparse.ArgumentParser(prog=f"ultron {cmd}")
         sub_parser.add_argument("--repo", default=".", help="Path to codebase repository")
@@ -173,6 +173,12 @@ def main():
             sub_parser.add_argument("--failfast", action="store_true", default=False, help="Stop test execution on first failure or error")
             sub_parser.add_argument("--json", action="store_true", default=False, help="Output machine-readable JSON summary exclusively")
             sub_parser.add_argument("--quiet", action="store_true", default=False, help="Suppress runner progress and emit only the final summary line")
+        elif cmd == "mcp":
+            sub_parser.add_argument("action", nargs="?", default="serve", choices=["install", "serve"], help="Action to perform ('install' or 'serve')")
+            sub_parser.add_argument("--client", "--ide", dest="client", default="cursor", choices=["cursor", "claude", "windsurf", "vscode", "all"], help="Target AI editor or client (default: cursor)")
+            sub_parser.add_argument("--install", action="store_true", default=False, help="Install MCP configuration into client config")
+            sub_parser.add_argument("--global", dest="is_global", action="store_true", default=False, help="Install globally in user config instead of local repository")
+            sub_parser.add_argument("--json", action="store_true", default=False, help="Output machine-readable JSON")
             
         sub_args = sub_parser.parse_known_args(sys.argv[2:])[0]
         repo_path = os.path.abspath(sub_args.repo)
@@ -552,6 +558,11 @@ class InterfaceHandler:
                 json_output=sub_args.json,
                 quiet=sub_args.quiet
             )
+            sys.exit(code)
+
+        elif cmd == "mcp":
+            from ultron.interfaces.cli.commands.mcp import run_mcp_command
+            code = run_mcp_command(sub_args)
             sys.exit(code)
 
     parser = argparse.ArgumentParser(description="Ultron: Code Architecture Risk & AI Mission Control")

@@ -478,12 +478,41 @@ Press `4` to enter Pillar 4, the **Code Auditor** (`#view-auditor`). This tool a
 
 ---
 
-## Appendix C — Direct MCP Integration (Cursor / Claude / Windsurf)
+## Appendix C — Direct MCP Integration (Cursor / Claude / Windsurf / VS Code)
 
 If you use an editor with Model Context Protocol (MCP) support, you can connect your AI coding agent directly to Ultron over stdio:
 
-### C.1 Configure Your MCP Client
-Add the following to your MCP settings file (e.g., `.cursor/mcp.json` or `claude_desktop_config.json`):
+### C.1 Automated 1-Click Installer (Recommended)
+
+Configure your AI editor or client using the `ultron mcp install` command:
+
+```bash
+# Auto-configure Cursor for current repository (.cursor/mcp.json)
+ultron mcp install --client cursor
+
+# Auto-configure Claude Desktop (user-level desktop config)
+ultron mcp install --client claude
+
+# Auto-configure Windsurf for current repository (.windsurf/mcp.json)
+ultron mcp install --client windsurf
+
+# Auto-configure VS Code for current repository (.vscode/mcp.json)
+ultron mcp install --client vscode
+
+# Auto-configure all supported clients simultaneously
+ultron mcp install --client all
+
+# Install globally in user directory instead of repository root
+ultron mcp install --client cursor --global
+
+# Emit machine-readable JSON output for agent automation
+ultron mcp install --client all --json
+```
+
+The installer is completely idempotent, preserves all existing third-party servers in your configuration files, and automatically creates microsecond-timestamped backups (`.bak.<timestamp>`) if existing configuration files are corrupt.
+
+### C.2 Manual MCP Configuration
+Alternatively, add the following to your client settings file (e.g., `.cursor/mcp.json` or `claude_desktop_config.json`):
 
 ```json
 {
@@ -495,7 +524,7 @@ Add the following to your MCP settings file (e.g., `.cursor/mcp.json` or `claude
 }
 ```
 
-### C.2 Available Canonical MCP Tools
+### C.3 Available Canonical MCP Tools
 Once configured, your agent can call Ultron autonomously during editing:
 - `get_risk_profile(file_path)`: Check risk score, complexity, and coupling.
 - `get_blast_radius(file_path)`: Query all upstream dependent modules.
@@ -504,3 +533,4 @@ Once configured, your agent can call Ultron autonomously during editing:
 - `evaluate_repository()`: Query health score, violation counts, and cycle metrics.
 - `audit_file(target_file)`: Scan for syntax drift and call anomalies.
 - `explain_violation(violation_id)`: Get plain-English remediation instructions.
+
