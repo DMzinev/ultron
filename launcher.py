@@ -143,5 +143,21 @@ def main():
     run_dashboard_server(port=args.port, repo_path=repo_path, open_browser=not args.no_browser)
 
 
+def __getattr__(name: str):
+    """PEP 562 dynamic attribute resolution for launcher submodules (e.g. tray_launcher)."""
+    if name == "tray_launcher":
+        import importlib.util
+        tray_path = os.path.join(ROOT, "launcher", "tray_launcher.py")
+        if os.path.isfile(tray_path):
+            spec = importlib.util.spec_from_file_location("launcher.tray_launcher", tray_path)
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules["launcher.tray_launcher"] = mod
+            spec.loader.exec_module(mod)
+            globals()["tray_launcher"] = mod
+            return mod
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+
 if __name__ == "__main__":
     main()
+

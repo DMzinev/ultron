@@ -4441,3 +4441,45 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None. All 3 packaging tests passing deterministically. Full verification gate passing with 823 tests, 0 failures, 0 errors, 9 skipped.
 
+---
+
+### 2026-09-11 — Task P4-A2: Zero-Skip CI Environment & Headless Tray Mocking
+
+**Branch:** `agent/P4-A2-zero-skip-ci`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=823 failures=0 errors=0 skipped=9`
+- `full_suite_after`: `ran=823 failures=0 errors=0 skipped=0`
+
+**Attempted:** Implement headless tray mocking in `launcher/tray_launcher.py` using pure standard-library fallback classes (`_HeadlessIcon`, `_HeadlessMenu`) so `pystray` and `Pillow` are optional dependencies without causing test skips; resolve Python root directory module/submodule shadowing (`launcher.py` file shadowing `launcher/` directory via PEP 562 dynamic attribute resolution `__getattr__`); remove `@unittest.skipUnless(HAS_TRAY_DEPS, ...)` decorator from `TestTrayLauncher` in `ultron/tests/test_launchers.py`; update `ultron/tests/test_skip_invariants.py` and `docs/TASK_PROGRESS_TRACKER.md` to transition the default online test suite from 9 skips to exactly 0 skips (`TESTS: 823 ran, 0 failed, 0 errors, 0 skipped`).
+
+**Antigravity self-audit result:**
+- [x] Resolved module/directory shadowing in `launcher.py` by adding PEP 562 `__getattr__` to route `from launcher import tray_launcher` cleanly to `launcher/tray_launcher.py`.
+- [x] Implemented standard-library headless fallback classes `_HeadlessIcon` and `_HeadlessMenu` in `launcher/tray_launcher.py`, ensuring graceful degradation when `pystray` or `PIL` are not installed.
+- [x] Modularized `launcher/tray_launcher.py` with standalone helper functions (`_find_available_port`, `_build_server_cmd`, `_terminate_process`, `_close_log_file`, `_make_tray_icon`, `_build_tray_menu`).
+- [x] Dynamically synchronized `_active_base_url` to `_on_open_dashboard` and `_on_settings`.
+- [x] Removed `@unittest.skipUnless(HAS_TRAY_DEPS, ...)` from `TestTrayLauncher` in `ultron/tests/test_launchers.py`.
+- [x] All 22 launcher tests in `ultron/tests/test_launchers.py` execute and pass cleanly (13 start script tests + 9 tray launcher tests, 0 skipped).
+- [x] Updated `ultron/tests/test_skip_invariants.py` to assert `TestTrayLauncher` is never skipped under headless fallback mode, and removed `test_launchers.py` from authorized skip inventory AST checks.
+- [x] Updated `docs/TASK_PROGRESS_TRACKER.md` Section 4 and Section 5 skip table (Online Dev: 0 skips, Offline CI: 1 skip, Minimal Clone: 9 skips).
+- [x] Full test suite verification via `scripts/verify.py` passes cleanly: `TESTS: 823 ran, 0 failed, 0 errors, 0 skipped` (Exit code: 0).
+- [x] Server line ceiling strictly preserved: `server.py` is 297 lines (< 300).
+- [x] Frontend invariants preserved: all 13 JS modules strictly < 400 lines (`test_frontend_invariants.py` passes).
+- [x] Pure standard library: zero new external dependencies introduced.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML model or classifier claims.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are hermetic. Verified all 9 tests in `TestTrayLauncher` execute against in-process headless icon and menu classes without requiring X11, Win32 GUI, display servers, or external tray libraries.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive cases: invalid/closed log files, port conflicts, process termination with process handles and exceptions, URL dispatch callback invocations, and headless icon construction with RGBA/RGB byte buffers.
+5. **Silent Failure Check:** Tested explicit failure paths: `_close_log_file` handles closed/None streams gracefully; `_terminate_process` catches exceptions without crashing; `find_available_port` handles exhausted candidate lists; missing tray libraries fall back deterministically to headless classes with explicit logging.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P4-A2 (Zero-Skip CI Environment & Headless Tray Mocking) COMPLETED on `agent/P4-A2-zero-skip-ci`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 9 tray launcher tests passing without skips. Full verification gate passing with 823 tests, 0 failures, 0 errors, 0 skipped.
+

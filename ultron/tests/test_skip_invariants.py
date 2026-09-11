@@ -5,7 +5,7 @@ Automated invariant test suite for Task P3-A2 per docs/AGENT_EXECUTION_PLAN_PHAS
 "Stabilize and Document the Skipped-Test Count"
 
 Asserts:
-1. TestTrayLauncher in test_launchers.py declares exactly 9 test methods and is decorated to skip when HAS_TRAY_DEPS is False.
+1. TestTrayLauncher in test_launchers.py declares exactly 9 test methods and is never skipped (runs via headless mocking).
 2. test_cold_clean_machine_install_under_60s skips cleanly in isolation when network is simulated offline (producing the 10th skip).
 3. AST static analysis across all test_*.py files asserts that only authorized, documented skips exist in the repository.
 """
@@ -23,7 +23,7 @@ class TestSkipInvariants(unittest.TestCase):
     """Hermetic invariant tests enforcing deterministic skip counts and inventory compliance."""
 
     def test_tray_launcher_skip_invariant(self):
-        """Verify TestTrayLauncher declares exactly 9 test methods and skips when optional tray deps are absent."""
+        """Verify TestTrayLauncher declares exactly 9 test methods and is never skipped under headless mode."""
         from ultron.tests import test_launchers
 
         tray_cls = getattr(test_launchers, "TestTrayLauncher", None)
@@ -36,13 +36,11 @@ class TestSkipInvariants(unittest.TestCase):
             f"Expected exactly 9 test methods on TestTrayLauncher, found {len(test_methods)}: {test_methods}",
         )
 
-        has_tray_deps = getattr(test_launchers, "HAS_TRAY_DEPS", False)
-        if not has_tray_deps:
-            is_skipped = getattr(tray_cls, "__unittest_skip__", False)
-            self.assertTrue(
-                is_skipped,
-                "TestTrayLauncher must have __unittest_skip__ == True when HAS_TRAY_DEPS is False",
-            )
+        is_skipped = getattr(tray_cls, "__unittest_skip__", False)
+        self.assertFalse(
+            is_skipped,
+            "TestTrayLauncher must have __unittest_skip__ == False under headless fallback mode",
+        )
 
     def test_offline_network_skip_behavior(self):
         """Verify test_cold_clean_machine_install_under_60s produces a clean skip when network is unreachable."""
@@ -65,7 +63,6 @@ class TestSkipInvariants(unittest.TestCase):
         """Statically inspect all test_*.py ASTs to assert that no undocumented skips exist in the repository."""
         authorized_skips = {
             # file_basename -> set of authorized functions/classes
-            "test_launchers.py": {"TestTrayLauncher"},
             "test_install_first_run.py": {"test_cold_clean_machine_install_under_60s"},
             "test_openai_plan_reviewer.py": {"TestOpenAIPlanReviewer"},
             "test_recommendation_engine.py": {

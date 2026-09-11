@@ -2,7 +2,7 @@
 launcher/tray_launcher.py — Ultron system-tray launcher
 
 Usage (dev mode):
-    pip install -r launcher/requirements-launcher.txt
+    pip install -e .[tray]
     python launcher/tray_launcher.py
 
 Usage (production):
@@ -25,28 +25,40 @@ import subprocess
 import time
 import webbrowser
 import pathlib
+import socket
 
 # ---------------------------------------------------------------------------
-# PIL / pystray guard — must come after stdlib imports so sys is available
+# PIL / pystray guard — optional desktop dependencies
 # ---------------------------------------------------------------------------
 try:
     from PIL import Image, ImageDraw
 except ImportError:
-    sys.exit(
-        "ERROR: Pillow is required.\n"
-        "Run: pip install -r launcher/requirements-launcher.txt"
-    )
+    Image = None
+    ImageDraw = None
 
 try:
     import pystray
 except ImportError:
-    sys.exit(
-        "ERROR: pystray is required.\n"
-        "Run: pip install -r launcher/requirements-launcher.txt"
-    )
+    pystray = None
+
+HAS_TRAY_DEPS = (Image is not None and pystray is not None)
+
+
+class _HeadlessIcon:
+    """Headless mock representation for tray icon when Pillow is absent."""
+    def __init__(self, size=(64, 64), mode="RGBA"):
+        self.size = size
+        self.mode = mode
+
+
+class _HeadlessMenu:
+    """Headless mock representation for tray menu when pystray is absent."""
+    def __init__(self, *items):
+        self.items = items
+
 
 # ---------------------------------------------------------------------------
-# Constants
+# Constants & Runtime State
 # ---------------------------------------------------------------------------
 _LAUNCHER_DIR = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT    = os.path.dirname(_LAUNCHER_DIR)          # one level up from launcher/
@@ -57,10 +69,27 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 SERVER_EXE  = os.path.join(_REPO_ROOT, "dist", "ultron-server.exe")
 SERVER_PORT = 8000
 BASE_URL    = f"http://127.0.0.1:{SERVER_PORT}"
+_active_base_url = BASE_URL
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _find_available_port(ports=None):
+    """Find the first available TCP port among candidate ports."""
+    if ports is None:
+        ports = [8000, 8001, 8002]
+    for port in ports:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind(("127.0.0.1", port))
+                return port
+        except OSError:
+            continue
+    return ports[0] if ports else 8000
+
 
 def _read_repo_root():
     """Return stored repo_root string, or None if absent / unreadable."""
@@ -86,7 +115,9 @@ def _open_url(url):
 
 
 def _make_tray_icon():
-    """Generate a minimal 64x64 tray icon programmatically using Pillow."""
+    """Generate a minimal 64x64 tray icon programmatically using Pillow or headless fallback."""
+    if Image is None or ImageDraw is None:
+        return _HeadlessIcon(size=(64, 64), mode="RGBA")
     size = 64
     img  = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -105,12 +136,43 @@ def _make_tray_icon():
     return img
 
 
-def _build_server_cmd():
+def _build_server_cmd(port=None):
     """Return the command list to launch the server subprocess."""
     if os.path.isfile(SERVER_EXE):
-        return [SERVER_EXE]
-    # Dev-mode fallback: run as module (requires ultron package on PYTHONPATH)
-    return [sys.executable, "-m", "ultron.interfaces.server"]
+        cmd = [SERVER_EXE]
+    else:
+        # Dev-mode fallback: run as module (requires ultron package on PYTHONPATH)
+        cmd = [sys.executable, "-m", "ultron.interfaces.server"]
+    if port is not None:
+        cmd.extend(["--port", str(port)])
+    return cmd
+
+
+def _terminate_process(proc):
+    """Terminate process cleanly; escalate to kill on timeout."""
+    if proc is None:
+        return
+    if proc.poll() is not None:
+        # Already exited
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        # Did not exit within 5 s — escalate
+        proc.kill()
+        proc.wait()
+
+
+def _close_log_file():
+    """Safely close and reset the server log file handle."""
+    global _log_file_handle
+    if _log_file_handle and _log_file_handle != subprocess.DEVNULL:
+        try:
+            _log_file_handle.close()
+        except Exception:
+            pass
+    _log_file_handle = None
 
 
 # ---------------------------------------------------------------------------
@@ -118,15 +180,15 @@ def _build_server_cmd():
 # ---------------------------------------------------------------------------
 
 _server_proc = None  # type: subprocess.Popen | None
-
-
 _log_file_handle = None
 
 
-def _start_server():
+def _start_server(port=None):
     """Start the server subprocess. Stores handle in _server_proc."""
-    global _server_proc, _log_file_handle
-    cmd = _build_server_cmd()
+    global _server_proc, _log_file_handle, _active_base_url
+    if port is not None:
+        _active_base_url = f"http://127.0.0.1:{port}"
+    cmd = _build_server_cmd(port)
     env = os.environ.copy()
     env["ULTRON_NO_OPEN"] = "1"   # suppress server's own browser-open
     
@@ -151,41 +213,38 @@ def _start_server():
 
 def _stop_server():
     """Gracefully terminate the server; escalate to kill on timeout."""
-    global _server_proc, _log_file_handle
+    global _server_proc
     try:
-        if _server_proc is None:
-            return
-        if _server_proc.poll() is not None:
-            # Already exited
+        if _server_proc is not None:
+            _terminate_process(_server_proc)
             _server_proc = None
-            return
-        _server_proc.terminate()
-        try:
-            _server_proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            # Did not exit within 5 s — escalate
-            _server_proc.kill()
-            _server_proc.wait()   # reap the process
-        _server_proc = None
     finally:
-        if _log_file_handle and _log_file_handle != subprocess.DEVNULL:
-            try:
-                _log_file_handle.close()
-            except Exception:
-                pass
-            _log_file_handle = None
+        _close_log_file()
 
 
 # ---------------------------------------------------------------------------
-# Tray menu callbacks
+# Tray menu & callbacks
 # ---------------------------------------------------------------------------
+
+def _build_tray_menu():
+    """Build and return the system tray menu, or headless fallback."""
+    if pystray is None:
+        return _HeadlessMenu("Open Dashboard", "Settings", "View Log", "Quit")
+    return pystray.Menu(
+        pystray.MenuItem("Open Dashboard", _on_open_dashboard, default=True),
+        pystray.MenuItem("Settings",       _on_settings),
+        pystray.MenuItem("View Log",       _on_view_log),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem("Quit",           _on_quit),
+    )
+
 
 def _on_open_dashboard(icon, item):   # noqa: ARG001
-    _open_url(BASE_URL)
+    _open_url(_active_base_url)
 
 
 def _on_settings(icon, item):         # noqa: ARG001
-    _open_url(f"{BASE_URL}/folder_picker.html")
+    _open_url(f"{_active_base_url}/folder_picker.html")
 
 
 def _on_view_log(icon, item):         # noqa: ARG001
@@ -203,7 +262,8 @@ def _on_view_log(icon, item):         # noqa: ARG001
 
 def _on_quit(icon, item):             # noqa: ARG001
     _stop_server()
-    icon.stop()
+    if icon is not None and hasattr(icon, "stop"):
+        icon.stop()
 
 
 # ---------------------------------------------------------------------------
@@ -211,6 +271,16 @@ def _on_quit(icon, item):             # noqa: ARG001
 # ---------------------------------------------------------------------------
 
 def main():
+    global _active_base_url
+    if not HAS_TRAY_DEPS:
+        sys.exit(
+            "ERROR: Pillow and pystray are required for tray launcher.\n"
+            "Run: pip install -e .[tray]"
+        )
+
+    port = _find_available_port([SERVER_PORT, 8001, 8002])
+    _active_base_url = f"http://127.0.0.1:{port}"
+
     # Check if repo root is configured; if not, open folder picker first
     repo_root = _read_repo_root()
     if repo_root is None:
@@ -219,20 +289,14 @@ def main():
             file=sys.stderr,
         )
         # Start server first (picker page is served by it), then open picker
-        _start_server()
+        _start_server(port)
         time.sleep(1.5)   # give the server a moment to bind
-        _open_url(f"{BASE_URL}/folder_picker.html")
+        _open_url(f"{_active_base_url}/folder_picker.html")
     else:
-        _start_server()
+        _start_server(port)
 
     # Build and run tray icon
-    menu = pystray.Menu(
-        pystray.MenuItem("Open Dashboard", _on_open_dashboard, default=True),
-        pystray.MenuItem("Settings",       _on_settings),
-        pystray.MenuItem("View Log",       _on_view_log),
-        pystray.Menu.SEPARATOR,
-        pystray.MenuItem("Quit",           _on_quit),
-    )
+    menu = _build_tray_menu()
     icon = pystray.Icon(
         name="ultron",
         icon=_make_tray_icon(),

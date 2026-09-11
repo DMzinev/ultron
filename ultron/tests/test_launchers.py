@@ -11,11 +11,8 @@ import start
 
 try:
     from launcher import tray_launcher
-    HAS_TRAY_DEPS = True
-except SystemExit:
-    tray_launcher = None
-    HAS_TRAY_DEPS = False
-except ImportError:
+    HAS_TRAY_DEPS = getattr(tray_launcher, "HAS_TRAY_DEPS", False)
+except Exception:
     tray_launcher = None
     HAS_TRAY_DEPS = False
 
@@ -142,7 +139,6 @@ class TestStartScript(unittest.TestCase):
             m_loop.assert_called_once()
 
 
-@unittest.skipUnless(HAS_TRAY_DEPS, "Pillow and pystray required for tray launcher tests")
 class TestTrayLauncher(unittest.TestCase):
     """Test launcher/tray_launcher.py capabilities."""
 
