@@ -4393,3 +4393,51 @@ PENDING — not yet reviewed by an external party.
 
 **Open questions / follow-up:**
 None. All 4 auditor delivery conditions satisfied. 19/19 adversarial tests passing deterministically. Full verification gate passing with 820 tests, 0 failures, 0 errors, 9 skipped.
+
+---
+
+### 2026-09-11 — Task P4-A1: Modern pyproject.toml, True Zero-Dependency Decoupling & Version 1.4.0 Synchronization
+
+**Branch:** `agent/P4-A1-pyproject-packaging`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=820 failures=0 errors=0 skipped=9`
+- `full_suite_after`: `ran=823 failures=0 errors=0 skipped=9`
+
+**Attempted:** Author Phase 4 Execution Blueprint in `docs/AGENT_EXECUTION_PLAN_PHASE4.md`; update `docs/TASK_PROGRESS_TRACKER.md` to track 44 total tasks across 4 sub-phases; eliminate `radon` from required base dependencies in `pyproject.toml` and `setup.py` making base install 100% pure standard library Python; define PEP 621 optional extras (`[project.optional-dependencies]` and `extras_require`) for `tray`, `metrics`, and `dev`; expose `__version__ = "1.4.0"` in `ultron/__init__.py`; synchronize `version = "1.4.0"` across `pyproject.toml`, `setup.py`, `ultron/__init__.py`, and `mcp_server.py`; add automated packaging invariant assertions in `ultron/tests/test_distribution_packaging.py`.
+
+**Antigravity self-audit result:**
+- [x] Authored `docs/AGENT_EXECUTION_PLAN_PHASE4.md` detailing the 8-task roadmap across Sub-Phases P4-A through P4-D.
+- [x] Updated `docs/TASK_PROGRESS_TRACKER.md` to track 44 lifetime tasks (36 completed + 8 Phase 4), added Section 4, and renumbered sections 5, 6, 7.
+- [x] Removed `radon` from required dependencies in `pyproject.toml` (`dependencies = []`) and `setup.py` (`install_requires = []`), achieving true zero-dependency base distribution.
+- [x] Added optional extras (`tray`, `metrics`, `dev`) in `pyproject.toml` (`[project.optional-dependencies]`) and `setup.py` (`extras_require`).
+- [x] Added `__version__ = "1.4.0"` to `ultron/__init__.py`.
+- [x] Synchronized version `1.4.0` across `pyproject.toml`, `setup.py`, `ultron/__init__.py`, and `mcp_server.py`.
+- [x] Added 3 automated packaging invariant tests in `ultron/tests/test_distribution_packaging.py`:
+  - `test_package_version_parity`: asserts 4-way version 1.4.0 synchronization.
+  - `test_zero_base_dependencies_declared`: asserts empty base dependencies list (`[]`) in both `pyproject.toml` and `setup.py` (via static AST inspection).
+  - `test_optional_dependencies_declared`: asserts `tray`, `metrics`, `dev` extras declared in both files.
+- [x] Python < 3.11 compatibility handled via safe `tomllib` try/except import with stdlib regex fallback.
+- [x] Static AST inspection used for `setup.py` metadata assertions without executing `setup()`.
+- [x] Full test suite passes: `TESTS: 823 ran, 0 failed, 0 errors, 9 skipped` (Exit code: 0).
+- [x] Skip invariant preserved: exactly 9 skips (`test_skip_invariants.py` passes).
+- [x] Server line ceiling preserved: `server.py` strictly 297 lines (< 300).
+- [x] Frontend invariants preserved: all 13 JS modules strictly < 400 lines (`test_frontend_invariants.py` passes).
+- [x] Root directory clean of `PHASE*` files (`test_documentation_reality.py` passes).
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML model or classifier claims.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** VERIFIED. Checked local package files (`pyproject.toml`, `setup.py`, `ultron/__init__.py`, `mcp_server.py`). Base dependencies: exactly 0. Extras: exactly 3 (`tray`, `metrics`, `dev`).
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: exact empty list `[]` for base dependencies (neither None nor non-empty), exact version string match `1.4.0` across 4 independent sources, and presence of all 3 optional extras keys.
+5. **Silent Failure Check:** Statically verifies and asserts presence and exact values. If version or dependency list deviates, test fails with explicit assertion error.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P4-A1 (Modern pyproject.toml, True Zero-Dependency Decoupling & Version 1.4.0 Synchronization) COMPLETED on `agent/P4-A1-pyproject-packaging`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 3 packaging tests passing deterministically. Full verification gate passing with 823 tests, 0 failures, 0 errors, 9 skipped.
+

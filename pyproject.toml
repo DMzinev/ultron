@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ultron-risk-scorer"
-version = "1.1.0"
+version = "1.4.0"
 description = "AI-Assisted Software Architecture Platform"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -16,8 +16,20 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Quality Assurance",
 ]
-dependencies = [
-    "radon",
+dependencies = []
+
+[project.optional-dependencies]
+tray = [
+    "pystray>=0.19.0",
+    "Pillow>=9.0.0",
+]
+metrics = [
+    "radon>=5.1.0",
+]
+dev = [
+    "radon>=5.1.0",
+    "pystray>=0.19.0",
+    "Pillow>=9.0.0",
 ]
 
 [project.scripts]

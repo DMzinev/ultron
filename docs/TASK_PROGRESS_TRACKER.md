@@ -1,9 +1,9 @@
 # Ultron — Lifetime Activity & Task Progress Tracker
 
-**Single Source of Truth**: `docs/AGENT_EXECUTION_PLAN.md`, `docs/AGENT_EXECUTION_PLAN_PHASE2.md` & `docs/AGENT_EXECUTION_PLAN_PHASE3.md`  
-**Total Planned Tasks**: 36 (18 Phase 1 + 8 Phase 2 + 10 Phase 3)  
-**Completed**: 36 / 36 (Phase 1: A1–E2; Phase 2: P2-A1–P2-D1; Phase 3: P3-A1–P3-E1)
-**Current Active Task**: All 36 tasks completed.
+**Single Source of Truth**: `docs/AGENT_EXECUTION_PLAN.md`, `docs/AGENT_EXECUTION_PLAN_PHASE2.md`, `docs/AGENT_EXECUTION_PLAN_PHASE3.md` & `docs/AGENT_EXECUTION_PLAN_PHASE4.md`  
+**Total Planned Tasks**: 44 (18 Phase 1 + 8 Phase 2 + 10 Phase 3 + 8 Phase 4)  
+**Completed**: 36 / 44 (Phase 1: A1–E2; Phase 2: P2-A1–P2-D1; Phase 3: P3-A1–P3-E1)
+**Current Active Task**: Task P4-A1 (`agent/P4-A1-pyproject-packaging`)
 
 ---
 
@@ -64,7 +64,22 @@
 
 ---
 
-## 4. Authoritative Environment Skip Dependency Table
+## 4. Phase 4: Product Packaging, Modern Distribution, Active Agent Governance & Final Polish
+
+| # | Task ID | Branch | Status | Commit Hash | Verified Acceptance Evidence |
+|:---|:---|:---|:---|:---|:---|
+| 37 | **P4-A1** | `agent/P4-A1-pyproject-packaging` | **IN_PROGRESS** | `PENDING` | True zero-dependency base install (`dependencies = []`, `install_requires = []`), 4-way version 1.4.0 parity, packaging invariant tests |
+| 38 | **P4-A2** | `agent/P4-A2-zero-skip-ci` | **PLANNED** | `PENDING` | Headless tray mock; transition CI test suite to 0 skips |
+| 39 | **P4-A3** | `agent/P4-A3-sqlite-wal-concurrency` | **PLANNED** | `PENDING` | SQLite WAL mode & busy timeout; multi-threaded concurrency stress test |
+| 40 | **P4-B1** | `agent/P4-B1-github-action-gate` | **PLANNED** | `PENDING` | Standalone composite GitHub Action `DMzinev/ultron-action@v1` |
+| 41 | **P4-B2** | `agent/P4-B2-mcp-client-installer` | **PLANNED** | `PENDING` | Automated multi-client MCP installer (`ultron mcp install`) |
+| 42 | **P4-C1** | `agent/P4-C1-git-quality-hooks` | **PLANNED** | `PENDING` | Native Git pre-commit and pre-push quality gate hook (`ultron hook install`) |
+| 43 | **P4-C2** | `agent/P4-C2-impact-simulator` | **PLANNED** | `PENDING` | Differential impact simulator (`ultron impact <file>`) |
+| 44 | **P4-D1** | `agent/P4-D1-release-validation` | **PLANNED** | `PENDING` | Clean-room build, distribution wheel invariant & documentation reality sign-off |
+
+---
+
+## 5. Authoritative Environment Skip Dependency Table
 
 The following matrix formally defines and bounds every skip condition across environments. An automated invariant test (`ultron/tests/test_skip_invariants.py`) statically inspects all `test_*.py` AST nodes and asserts that no undocumented skips may exist in the repository.
 
@@ -80,7 +95,7 @@ The following matrix formally defines and bounds every skip condition across env
 
 ---
 
-## 5. Directory & Component State History
+## 6. Directory & Component State History
 
 - `ultron/tests/fixtures/`:
   - `clean_repo/` (8 files): Standard low-complexity baseline.
@@ -93,7 +108,7 @@ The following matrix formally defines and bounds every skip condition across env
 
 ---
 
-## 5. Anti-Circular Guardrails
+## 7. Anti-Circular Guardrails
 
 1. **One Task Per Branch**: Never mix changes across tasks.
 2. **Acceptance Precedes Commit**: No commit without passing the task acceptance command.

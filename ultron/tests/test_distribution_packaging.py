@@ -18,6 +18,8 @@ import json
 import subprocess
 import tempfile
 import importlib
+import ast
+import re
 from io import BytesIO, StringIO
 from unittest.mock import patch, MagicMock
 
@@ -263,6 +265,132 @@ class TestDistributionPackaging(unittest.TestCase):
             has_modules_glob,
             "pyproject.toml package-data must include web/modules/*.js to prevent 404 on frontend ES modules"
         )
+
+    def test_package_version_parity(self):
+        """Verify 4-way version 1.4.0 synchronization across package, pyproject, setup, and MCP."""
+        import ultron
+        self.assertEqual(getattr(ultron, "__version__", None), "1.4.0", "ultron.__version__ must be 1.4.0")
+
+        # 1. MCP Server initialize handshake version
+        from ultron.interfaces import mcp_server
+        init_req = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}})
+        init_resp_raw = mcp_server.handle_mcp_request(init_req)
+        init_resp = json.loads(init_resp_raw) if isinstance(init_resp_raw, str) else init_resp_raw
+        mcp_ver = init_resp.get("result", {}).get("serverInfo", {}).get("version")
+        self.assertEqual(mcp_ver, "1.4.0", f"mcp_server serverInfo version must be 1.4.0, got: {mcp_ver}")
+
+        # 2. pyproject.toml version
+        pyproject_path = os.path.join(REPO_ROOT, "pyproject.toml")
+        try:
+            import tomllib
+        except ImportError:
+            tomllib = None
+
+        if tomllib is not None:
+            with open(pyproject_path, "rb") as f:
+                pyproj_data = tomllib.load(f)
+            pyproj_ver = pyproj_data.get("project", {}).get("version")
+        else:
+            with open(pyproject_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            m = re.search(r'version\s*=\s*["\']([^"\']+)["\']', content)
+            pyproj_ver = m.group(1) if m else None
+        self.assertEqual(pyproj_ver, "1.4.0", f"pyproject.toml project version must be 1.4.0, got: {pyproj_ver}")
+
+        # 3. setup.py static AST parse
+        setup_path = os.path.join(REPO_ROOT, "setup.py")
+        with open(setup_path, "r", encoding="utf-8") as f:
+            setup_tree = ast.parse(f.read(), filename="setup.py")
+
+        setup_kwargs = {}
+        for node in ast.walk(setup_tree):
+            if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "setup":
+                setup_kwargs = {kw.arg: kw.value for kw in node.keywords}
+                break
+
+        self.assertIn("version", setup_kwargs, "setup.py must declare version keyword")
+        setup_ver = ast.literal_eval(setup_kwargs["version"])
+        self.assertEqual(setup_ver, "1.4.0", f"setup.py version must be 1.4.0, got: {setup_ver}")
+
+    def test_zero_base_dependencies_declared(self):
+        """Verify that base distribution requires 0 external dependencies (pure Python standard library)."""
+        # 1. Check pyproject.toml dependencies
+        pyproject_path = os.path.join(REPO_ROOT, "pyproject.toml")
+        try:
+            import tomllib
+        except ImportError:
+            tomllib = None
+
+        if tomllib is not None:
+            with open(pyproject_path, "rb") as f:
+                pyproj_data = tomllib.load(f)
+            deps = pyproj_data.get("project", {}).get("dependencies")
+        else:
+            with open(pyproject_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            m = re.search(r'dependencies\s*=\s*\[(.*?)\]', content, re.DOTALL)
+            deps_body = m.group(1).strip() if m else "NON_EMPTY"
+            deps = [] if deps_body == "" else [x.strip() for x in deps_body.split(",") if x.strip()]
+
+        self.assertEqual(deps, [], f"pyproject.toml base dependencies must be empty list [], got: {deps}")
+
+        # 2. Check setup.py install_requires via AST
+        setup_path = os.path.join(REPO_ROOT, "setup.py")
+        with open(setup_path, "r", encoding="utf-8") as f:
+            setup_tree = ast.parse(f.read(), filename="setup.py")
+
+        setup_kwargs = {}
+        for node in ast.walk(setup_tree):
+            if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "setup":
+                setup_kwargs = {kw.arg: kw.value for kw in node.keywords}
+                break
+
+        self.assertIn("install_requires", setup_kwargs, "setup.py must declare install_requires keyword")
+        install_requires = ast.literal_eval(setup_kwargs["install_requires"])
+        self.assertEqual(install_requires, [], f"setup.py install_requires must be empty list [], got: {install_requires}")
+
+    def test_optional_dependencies_declared(self):
+        """Verify optional extras (tray, metrics, dev) are declared in pyproject.toml and setup.py."""
+        # 1. pyproject.toml
+        pyproject_path = os.path.join(REPO_ROOT, "pyproject.toml")
+        try:
+            import tomllib
+        except ImportError:
+            tomllib = None
+
+        if tomllib is not None:
+            with open(pyproject_path, "rb") as f:
+                pyproj_data = tomllib.load(f)
+            opt_deps = pyproj_data.get("project", {}).get("optional-dependencies", {})
+        else:
+            with open(pyproject_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            opt_deps = {}
+            if "[project.optional-dependencies]" in content:
+                for k in ["tray", "metrics", "dev"]:
+                    if f"{k} =" in content:
+                        opt_deps[k] = True
+
+        self.assertIn("tray", opt_deps, "pyproject.toml must declare optional 'tray' extra")
+        self.assertIn("metrics", opt_deps, "pyproject.toml must declare optional 'metrics' extra")
+        self.assertIn("dev", opt_deps, "pyproject.toml must declare optional 'dev' extra")
+
+        # 2. setup.py
+        setup_path = os.path.join(REPO_ROOT, "setup.py")
+        with open(setup_path, "r", encoding="utf-8") as f:
+            setup_tree = ast.parse(f.read(), filename="setup.py")
+
+        setup_kwargs = {}
+        for node in ast.walk(setup_tree):
+            if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "setup":
+                setup_kwargs = {kw.arg: kw.value for kw in node.keywords}
+                break
+
+        self.assertIn("extras_require", setup_kwargs, "setup.py must declare extras_require keyword")
+        extras = ast.literal_eval(setup_kwargs["extras_require"])
+        self.assertIn("tray", extras, "setup.py must declare 'tray' extra")
+        self.assertIn("metrics", extras, "setup.py must declare 'metrics' extra")
+        self.assertIn("dev", extras, "setup.py must declare 'dev' extra")
 
     # --------------------------------------------------------------------------
     # 4. Packaging Data Completeness & JSON Resource Loading

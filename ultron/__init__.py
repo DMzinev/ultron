@@ -1,4 +1,6 @@
 # Ultron package initialization
+__version__ = "1.4.0"
+
 import os
 import logging
 

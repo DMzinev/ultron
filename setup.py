@@ -14,7 +14,7 @@ if os.path.exists(readme_path):
 
 setup(
     name="ultron-risk-scorer",
-    version="1.1.0",
+    version="1.4.0",
     description="AI-Assisted Software Architecture Platform",
     long_description=readme,
     long_description_content_type="text/markdown",
@@ -47,9 +47,12 @@ setup(
             "rulepacks/**/*.json",
         ],
     },
-    install_requires=[
-        "radon",
-    ],
+    install_requires=[],
+    extras_require={
+        "tray": ["pystray>=0.19.0", "Pillow>=9.0.0"],
+        "metrics": ["radon>=5.1.0"],
+        "dev": ["radon>=5.1.0", "pystray>=0.19.0", "Pillow>=9.0.0"],
+    },
     entry_points={
         "console_scripts": [
             "ultron = ultron.interfaces.ultron:main",
