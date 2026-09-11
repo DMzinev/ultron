@@ -1,0 +1,18 @@
+# Ultron Repository Code Owners
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repository
+* @DMzinev
+
+# Core static analysis & repository knowledge model
+/ultron/core/ @DMzinev
+
+# Developer & agent interaction surfaces (CLI, Web, MCP, Server)
+/ultron/interfaces/ @DMzinev
+
+# Automated test suite and fixtures
+/ultron/tests/ @DMzinev
+
+# CI/CD Workflows, templates, and governance
+/.github/ @DMzinev
+/.agents/ @DMzinev
