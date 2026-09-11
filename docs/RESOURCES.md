@@ -50,7 +50,7 @@ ultron/
 │       ├── index.css            # Dark-theme responsive ergonomics and typography
 │       └── index.js             # Client-side state, D3-compatible SVG rendering, and API bridge
 │
-├── tests/                       # 769+ automated tests partitioned across boundaries
+├── tests/                       # 801+ automated tests partitioned across boundaries
 │   ├── fixtures/                # Standard test repositories (clean_repo, tangled_repo, mixed_repo)
 │   ├── test_self_scan_integrity.py  # Partition invariant: zero test/fixture leakage in production
 │   ├── test_documentation_reality.py # Enforces 100% sync between docs and real code
@@ -139,5 +139,5 @@ Add Ultron to your `claude_desktop_config.json`:
 
 1. **Zero External Dependencies**: Core runtime is 100% pure standard library Python ($\ge 3.10$).
 2. **Backend Server Discipline**: `ultron/interfaces/server.py` is constrained to strictly `< 300` lines to prevent god-file regrowth.
-3. **Single Source-of-Truth Test Gate**: All verification executes through `python scripts/verify.py`, running 769+ tests with greppable output and clean JSON serialization.
+3. **Single Source-of-Truth Test Gate**: All verification executes through `python scripts/verify.py`, running 801+ tests with greppable output and clean JSON serialization.
 4. **Hermetic Local Loopback**: All network communication is bound strictly to `127.0.0.1`. Zero external telemetry, tracking, or telemetry reporting.

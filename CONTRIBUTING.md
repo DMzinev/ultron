@@ -59,7 +59,7 @@ python scripts/verify.py --pattern "test_my_feature*.py"
 
 The runner outputs a standardized, deterministic summary:
 ```text
-TESTS: 769 ran, 0 failed, 0 errors, 9 skipped
+TESTS: 801 ran, 0 failed, 0 errors, 9 skipped
 ```
 
 ### Self-Scan Integrity Check
