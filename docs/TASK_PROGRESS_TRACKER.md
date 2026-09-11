@@ -2,8 +2,8 @@
 
 **Single Source of Truth**: `docs/AGENT_EXECUTION_PLAN.md`, `docs/AGENT_EXECUTION_PLAN_PHASE2.md`, `docs/AGENT_EXECUTION_PLAN_PHASE3.md` & `docs/AGENT_EXECUTION_PLAN_PHASE4.md`  
 **Total Planned Tasks**: 44 (18 Phase 1 + 8 Phase 2 + 10 Phase 3 + 8 Phase 4)  
-**Completed**: 36 / 44 (Phase 1: A1–E2; Phase 2: P2-A1–P2-D1; Phase 3: P3-A1–P3-E1)
-**Current Active Task**: Task P4-A1 (`agent/P4-A1-pyproject-packaging`)
+**Completed**: 37 / 44 (Phase 1: A1–E2; Phase 2: P2-A1–P2-D1; Phase 3: P3-A1–P3-E1; Phase 4: P4-A1)
+**Current Active Task**: Task P4-A1 completed; ready for Task P4-A2.
 
 ---
 
@@ -68,7 +68,7 @@
 
 | # | Task ID | Branch | Status | Commit Hash | Verified Acceptance Evidence |
 |:---|:---|:---|:---|:---|:---|
-| 37 | **P4-A1** | `agent/P4-A1-pyproject-packaging` | **IN_PROGRESS** | `PENDING` | True zero-dependency base install (`dependencies = []`, `install_requires = []`), 4-way version 1.4.0 parity, packaging invariant tests |
+| 37 | **P4-A1** | `agent/P4-A1-pyproject-packaging` | **COMPLETED** | `c1422f9` | True zero-dependency base install (`dependencies = []`, `install_requires = []`), 4-way version 1.4.0 parity, packaging invariant tests |
 | 38 | **P4-A2** | `agent/P4-A2-zero-skip-ci` | **PLANNED** | `PENDING` | Headless tray mock; transition CI test suite to 0 skips |
 | 39 | **P4-A3** | `agent/P4-A3-sqlite-wal-concurrency` | **PLANNED** | `PENDING` | SQLite WAL mode & busy timeout; multi-threaded concurrency stress test |
 | 40 | **P4-B1** | `agent/P4-B1-github-action-gate` | **PLANNED** | `PENDING` | Standalone composite GitHub Action `DMzinev/ultron-action@v1` |
