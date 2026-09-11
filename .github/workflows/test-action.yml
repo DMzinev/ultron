@@ -1,0 +1,89 @@
+name: Test Ultron GitHub Action
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test-composite-action:
+    name: Test Action (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Ultron (Zero-Dependency Base)
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Test Quality Gate Pass (Clean Repo Fixture)
+        id: gate-pass
+        uses: ./.github/actions/ultron-gate
+        with:
+          repo-path: 'ultron/tests/fixtures/clean_repo'
+          max-high: '0'
+          min-health: '80.0'
+          output-markdown: 'report-pass.md'
+          output-json: 'report-pass.json'
+
+      - name: Verify Pass Outputs
+        shell: bash
+        run: |
+          if [ "${{ steps.gate-pass.outputs.passed }}" != "true" ]; then
+            echo "Expected passed=true, got ${{ steps.gate-pass.outputs.passed }}"
+            exit 1
+          fi
+          if [ "${{ steps.gate-pass.outputs.exit-code }}" != "0" ]; then
+            echo "Expected exit-code=0, got ${{ steps.gate-pass.outputs.exit-code }}"
+            exit 1
+          fi
+          if [ ! -f "report-pass.md" ]; then
+            echo "Expected report-pass.md to exist"
+            exit 1
+          fi
+          if [ ! -f "report-pass.json" ]; then
+            echo "Expected report-pass.json to exist"
+            exit 1
+          fi
+
+      - name: Test Quality Gate Failure Handling (Tangled Repo Fixture)
+        id: gate-fail
+        uses: ./.github/actions/ultron-gate
+        with:
+          repo-path: 'ultron/tests/fixtures/tangled_repo'
+          min-health: '80.0'
+          fail-on-regression: 'false'
+          output-markdown: 'report-fail.md'
+
+      - name: Verify Fail Outputs Under Non-Regression Mode
+        shell: bash
+        run: |
+          if [ "${{ steps.gate-fail.outputs.passed }}" != "false" ]; then
+            echo "Expected passed=false for tangled_repo, got ${{ steps.gate-fail.outputs.passed }}"
+            exit 1
+          fi
+          if [ "${{ steps.gate-fail.outputs.exit-code }}" != "0" ]; then
+            echo "Expected exit-code=0 when fail-on-regression is false, got ${{ steps.gate-fail.outputs.exit-code }}"
+            exit 1
+          fi
+          if [ ! -f "report-fail.md" ]; then
+            echo "Expected report-fail.md to exist"
+            exit 1
+          fi

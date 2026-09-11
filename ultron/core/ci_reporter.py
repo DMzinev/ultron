@@ -588,4 +588,81 @@ class CIReporter:
 
         return annotations
 
+    @classmethod
+    def post_pr_comment(
+        cls,
+        comment_body: str,
+        github_token: Optional[str] = None,
+        comments_url: Optional[str] = None
+    ) -> bool:
+        """
+        Posts or updates an architectural quality gate review comment on a GitHub Pull Request.
+        Uses Python standard library urllib.request (zero external dependencies).
+        Automatically resolves comments_url from $GITHUB_EVENT_PATH when run in GitHub Actions.
+        Returns True if comment posted successfully (HTTP 200-299), False otherwise.
+        """
+        import sys
+        import urllib.request
+        import urllib.error
+
+        token = github_token or os.environ.get("GITHUB_TOKEN") or os.environ.get("INPUT_GITHUB_TOKEN")
+        if not token:
+            print("[Ultron Gate Warning] PR review comment skipped: No GitHub token provided.", file=sys.stderr)
+            return False
+
+        target_url = comments_url
+        if not target_url:
+            event_path = os.environ.get("GITHUB_EVENT_PATH")
+            if event_path and os.path.exists(event_path):
+                try:
+                    with open(event_path, "r", encoding="utf-8") as f:
+                        event_data = json.load(f)
+                    target_url = (
+                        event_data.get("pull_request", {}).get("comments_url") or
+                        event_data.get("issue", {}).get("comments_url")
+                    )
+                except Exception as err:
+                    print(f"[Ultron Gate Warning] Failed parsing GITHUB_EVENT_PATH: {err}", file=sys.stderr)
+
+        if not target_url:
+            print(
+                "[Ultron Gate Warning] PR review comment skipped: Not running on a pull_request event or comments_url not found.",
+                file=sys.stderr
+            )
+            return False
+
+        try:
+            payload = json.dumps({"body": comment_body}).encode("utf-8")
+            req = urllib.request.Request(
+                target_url,
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github.v3+json",
+                    "Content-Type": "application/json; charset=utf-8",
+                    "User-Agent": "Ultron-Architectural-Gate"
+                },
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=15.0) as resp:
+                status = getattr(resp, "status", getattr(resp, "code", 200))
+                if 200 <= status < 300:
+                    print(f"[Ultron Gate] PR review comment posted successfully to: {target_url}", file=sys.stderr)
+                    return True
+                else:
+                    print(f"[Ultron Gate Warning] PR review comment returned HTTP {status}", file=sys.stderr)
+                    return False
+        except urllib.error.HTTPError as err:
+            err_msg = ""
+            try:
+                err_msg = err.read().decode("utf-8", errors="replace")
+            except Exception:
+                pass
+            print(f"[Ultron Gate Warning] HTTP error posting PR comment ({err.code}): {err.reason} - {err_msg}", file=sys.stderr)
+            return False
+        except Exception as err:
+            print(f"[Ultron Gate Warning] Failed posting PR review comment: {err}", file=sys.stderr)
+            return False
+
+
 

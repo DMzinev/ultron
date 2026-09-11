@@ -4533,3 +4533,46 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None. All 6 concurrency stress tests passing deterministically. Full verification gate passing with 829 tests, 0 failures, 0 errors, 0 skipped.
 
+---
+
+### 2026-09-11 — Task P4-B1: Official Standalone GitHub Action (`DMzinev/ultron-action@v1`)
+
+**Branch:** `agent/P4-B1-github-action-gate`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=829 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=840 failures=0 errors=0 skipped=0`
+
+**Attempted:** Author official standalone composite GitHub Action `.github/actions/ultron-gate/action.yml` supporting 1-line architectural quality gate CI integration (`uses: DMzinev/ultron-action@v1` and local `./.github/actions/ultron-gate`); implement cross-platform bash runner invoking `python -m ultron gate` with all 13 configurable inputs (`repo-path`, `baseline`, `min-health`, `max-high`, `max-health-drop`, `fail-on-regression`, `fail-on-high`, `strict`, `output-json`, `output-markdown`, `github-annotations`, `comment-pr`, `github-token`) and 4 machine-readable step outputs (`passed`, `health-score`, `health-delta`, `exit-code`) appended to `$GITHUB_OUTPUT`; integrate PR review commenting via standard-library `urllib.request` in `CIReporter.post_pr_comment` with auto-resolution of PR comments URL from `$GITHUB_EVENT_PATH`; add `--no-fail-on-regression`, `--output-json`, `--output-markdown`, `--comment-pr`, and `--github-token` CLI options to `ultron.py` and `gate.py`; create multi-OS test workflow `.github/workflows/test-action.yml` exercising the action on `ubuntu-latest` and `windows-latest`; update Step 7 in `docs/GETTING_STARTED.md` with action reference and input/output tables; author dedicated unit test suite `ultron/tests/test_ci_action.py` with 11 automated unit tests and zero skips.
+
+**Antigravity self-audit result:**
+- [x] Authored official composite action `.github/actions/ultron-gate/action.yml` specifying `using: 'composite'`, `shell: bash` array expansion, all 13 inputs with safe defaults, and 4 mapped step outputs.
+- [x] Created multi-OS test workflow `.github/workflows/test-action.yml` running on `ubuntu-latest` and `windows-latest` exercising both passing (`clean_repo`) and failing (`tangled_repo`) scenarios.
+- [x] Added `CIReporter.post_pr_comment` in `ultron/core/ci_reporter.py` using pure Python standard library (`urllib.request`, `json`) with non-fatal failure isolation.
+- [x] Extended `run_gate_command` in `ultron/interfaces/cli/commands/gate.py` with `$GITHUB_OUTPUT` output writing, `--output-json` file generation, and PR review commenting.
+- [x] Updated `ultron.py` CLI parser to register `--no-fail-on-regression`, `--output-json`, `--output-markdown`, `--comment-pr`, and `--github-token`.
+- [x] Authored 11 automated unit tests in `ultron/tests/test_ci_action.py` covering action YAML schema, test workflow matrix, `$GITHUB_OUTPUT` emission, JSON file generation, non-regression override, PR commenting wire protocol, and CLI flag parsing with zero skips.
+- [x] Updated `docs/GETTING_STARTED.md` Step 7 documenting `DMzinev/ultron-action@v1` 1-line integration, inputs, outputs, and PR commenting permissions.
+- [x] Full master verification gate passes cleanly: `TESTS: 840 ran, 0 failed, 0 errors, 0 skipped` in `scripts/verify.py` (Exit code: 0).
+- [x] All 29 structural and governance invariant tests pass in 9.184s (`test_skip_invariants`, `test_frontend_invariants`, `test_self_scan_integrity`, `test_distribution_packaging`).
+- [x] Server line ceiling strictly preserved: `server.py` is 297 lines (< 300).
+- [x] Frontend line ceiling strictly preserved: all 13 JS modules strictly < 400 lines.
+- [x] Pure standard library: zero new external dependencies introduced.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML model or classifier claims.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are hermetic. Verified all 11 unit tests execute offline without real network calls; PR commenting is mocked via `unittest.mock.patch("urllib.request.urlopen")`.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive inputs: missing tokens, malformed event JSON, network errors (`HTTPError`, `URLError`), non-regression exit codes, and empty input arguments.
+5. **Silent Failure Check:** Tested explicit failure paths: missing tokens return False; network errors caught and logged to stderr without crashing the gate; missing baseline handled gracefully.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P4-B1 (Official Standalone GitHub Action) COMPLETED on `agent/P4-B1-github-action-gate`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 11 action unit tests passing deterministically with 0 skips. Full verification gate passing with 840 tests, 0 failures, 0 errors, 0 skipped.
+
+

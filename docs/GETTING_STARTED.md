@@ -382,7 +382,51 @@ jobs:
           ultron gate --min-health 70.0 --max-health-drop 5.0 --github-annotations
 ```
 
-When an agent's pull request violates an architectural threshold, `ultron gate` blocks the merge and posts inline file annotations pointing to the exact offending lines.
+### 7.1 Official 1-Line GitHub Action (`DMzinev/ultron-action@v1`)
+
+For modern GitHub Actions workflows, Ultron provides an official composite action supporting 1-line integration with zero boilerplate:
+
+```yaml
+- name: Ultron Architectural Quality Gate
+  uses: DMzinev/ultron-action@v1
+  with:
+    repo-path: '.'
+    max-high: '0'
+    min-health: '80.0'
+    fail-on-regression: 'true'
+    comment-pr: 'true'
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+#### Action Inputs Reference
+
+| Input | Description | Required | Default |
+|:---|:---|:---:|:---:|
+| `repo-path` | Path to repository root to analyze | No | `.` |
+| `baseline` | Path to baseline analysis JSON file or git ref (`main`, `HEAD~1`) | No | `""` |
+| `min-health` | Minimum allowed architectural health score (`0.0`–`100.0`) | No | `""` |
+| `max-high` | Maximum allowed HIGH risk hotspot files | No | `""` |
+| `max-health-drop` | Maximum allowed health score drop compared to baseline | No | `5.0` |
+| `fail-on-regression` | Exit 1 if thresholds breached (`true`/`false`) | No | `true` |
+| `fail-on-high` | Exit 1 if any HIGH risk files exist (`true`/`false`) | No | `false` |
+| `strict` | Strict mode: 0 health drop, fail on any high risk | No | `false` |
+| `output-json` | Path to write machine-readable JSON analysis report | No | `""` |
+| `output-markdown` | Path to write PR review comment markdown report | No | `""` |
+| `github-annotations` | Emit inline GitHub annotations (`::error`, `::warning`) | No | `true` |
+| `comment-pr` | Post architectural report to PR via GitHub REST API | No | `false` |
+| `github-token` | GitHub token for PR commenting (`${{ secrets.GITHUB_TOKEN }}`) | No | `""` |
+
+#### Action Outputs Reference
+
+| Output | Description | Example |
+|:---|:---|:---|
+| `passed` | Whether all quality gate thresholds were satisfied | `true` / `false` |
+| `health-score` | Current codebase architectural health score | `94.2` |
+| `health-delta` | Health score change compared to baseline | `+2.1` |
+| `exit-code` | Gate command exit code (`0` = PASS, `1` = FAIL) | `0` / `1` |
+
+When an agent's pull request violates an architectural threshold, the action fails the step, renders a complete Markdown breakdown in `$GITHUB_STEP_SUMMARY`, posts an automated review comment to the pull request, and emits inline file annotations pointing to the exact offending lines.
+
 
 ---
 

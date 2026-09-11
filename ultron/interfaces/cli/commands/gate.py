@@ -168,7 +168,10 @@ def run_gate_command(
     output_comment: Optional[str] = None,
     max_high: Optional[int] = None,
     min_health: Optional[float] = None,
-    github_annotations: bool = False
+    github_annotations: bool = False,
+    output_json: Optional[str] = None,
+    comment_pr: bool = False,
+    github_token: Optional[str] = None
 ) -> int:
     """
     Executes the Ultron Architectural Quality Gate.
@@ -229,7 +232,7 @@ def run_gate_command(
         min_health=min_health
     )
 
-    # 5. Output to file if specified
+    # 5. Output to Markdown file if specified
     if output_comment:
         out_file = os.path.abspath(os.path.normpath(output_comment))
         os.makedirs(os.path.dirname(out_file), exist_ok=True) if os.path.dirname(out_file) else None
@@ -238,7 +241,39 @@ def run_gate_command(
         if not json_output:
             safe_print(f"[Ultron Gate] PR comment written to: {out_file}", file=sys.stderr)
 
-    # 6. Append to GitHub Step Summary if running in GitHub Actions
+    # 6. Build Result Payload
+    result_payload = {
+        "status": "PASSED" if gate_decision["passed"] else "FAILED",
+        "passed": gate_decision["passed"],
+        "exit_code": 0 if (gate_decision["passed"] or not fail_on_regression) else 1,
+        "gate_decision": gate_decision,
+        "current_analysis": {
+            "health_score": current_analysis.get("health_score", 100.0),
+            "total_files": current_analysis.get("total_files", 0),
+            "high_violations_count": gate_decision.get("high_violations_count", 0),
+            "total_violations_count": gate_decision.get("total_violations_count", 0),
+            "high_risk_count": gate_decision.get("high_risk_count", 0)
+        },
+        "thresholds": {
+            "max_health_drop": max_health_drop,
+            "fail_on_high": fail_on_high,
+            "strict": strict,
+            "fail_on_regression": fail_on_regression,
+            "max_high": max_high,
+            "min_health": min_health
+        }
+    }
+
+    # 7. Output to JSON file if specified
+    if output_json:
+        out_json_file = os.path.abspath(os.path.normpath(output_json))
+        os.makedirs(os.path.dirname(out_json_file), exist_ok=True) if os.path.dirname(out_json_file) else None
+        with open(out_json_file, "w", encoding="utf-8") as f:
+            json.dump(result_payload, f, indent=2)
+        if not json_output:
+            safe_print(f"[Ultron Gate] JSON analysis written to: {out_json_file}", file=sys.stderr)
+
+    # 8. Append to GitHub Step Summary if running in GitHub Actions
     github_step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if github_step_summary:
         try:
@@ -249,36 +284,31 @@ def run_gate_command(
         except Exception as e:
             safe_print(f"[Ultron Gate Warning] Failed writing to GITHUB_STEP_SUMMARY: {e}", file=sys.stderr)
 
-    # 7. Emit GitHub Actions Workflow Annotations
+    # 9. Append to GitHub Output if running in GitHub Actions
+    github_output = os.environ.get("GITHUB_OUTPUT")
+    if github_output:
+        try:
+            with open(github_output, "a", encoding="utf-8") as f:
+                f.write(f"passed={'true' if gate_decision['passed'] else 'false'}\n")
+                f.write(f"health-score={gate_decision.get('current_health', 100.0):.1f}\n")
+                f.write(f"health-delta={gate_decision.get('health_delta', 0.0):+.1f}\n")
+                f.write(f"exit-code={1 if (fail_on_regression and not gate_decision['passed']) else 0}\n")
+        except Exception as e:
+            safe_print(f"[Ultron Gate Warning] Failed writing to GITHUB_OUTPUT: {e}", file=sys.stderr)
+
+    # 10. Post PR Review Comment via GitHub REST API if requested
+    if comment_pr:
+        CIReporter.post_pr_comment(pr_comment, github_token=github_token)
+
+    # 11. Emit GitHub Actions Workflow Annotations
     should_emit_annotations = github_annotations or (os.environ.get("GITHUB_ACTIONS") == "true")
     if should_emit_annotations:
         annotations = CIReporter.format_github_annotations(gate_decision, current_analysis)
         for ann in annotations:
             safe_print(ann, file=sys.stdout if not json_output else sys.stderr)
 
-    # 8. Output Result Payload
+    # 12. Output Result Payload to stdout
     if json_output:
-        result_payload = {
-            "status": "PASSED" if gate_decision["passed"] else "FAILED",
-            "passed": gate_decision["passed"],
-            "exit_code": 0 if (gate_decision["passed"] or not fail_on_regression) else 1,
-            "gate_decision": gate_decision,
-            "current_analysis": {
-                "health_score": current_analysis.get("health_score", 100.0),
-                "total_files": current_analysis.get("total_files", 0),
-                "high_violations_count": gate_decision.get("high_violations_count", 0),
-                "total_violations_count": gate_decision.get("total_violations_count", 0),
-                "high_risk_count": gate_decision.get("high_risk_count", 0)
-            },
-            "thresholds": {
-                "max_health_drop": max_health_drop,
-                "fail_on_high": fail_on_high,
-                "strict": strict,
-                "fail_on_regression": fail_on_regression,
-                "max_high": max_high,
-                "min_health": min_health
-            }
-        }
         safe_print(json.dumps(result_payload, indent=2))
     else:
         if not output_comment and not github_step_summary:
@@ -290,7 +320,8 @@ def run_gate_command(
         else:
             safe_print(f"\n[Ultron Gate: PASSED] Codebase health: {gate_decision.get('current_health', 100.0):.1f}/100 (delta: {gate_decision.get('health_delta', 0.0):+.1f} pts).", file=sys.stderr)
 
-    # 9. Return Exit Code
+    # 13. Return Exit Code
     if fail_on_regression and not gate_decision["passed"]:
         return 1
     return 0
+

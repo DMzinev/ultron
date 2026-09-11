@@ -156,12 +156,17 @@ def main():
             sub_parser.add_argument("--max-health-drop", type=float, default=5.0, help="Maximum allowed health score drop")
             sub_parser.add_argument("--base", default=None, help="Git baseline ref (e.g. main, HEAD~1)")
             sub_parser.add_argument("--baseline", default=None, help="Path to baseline analysis JSON file")
-            sub_parser.add_argument("--fail-on-regression", action="store_true", default=True, help="Exit 1 if regression occurs")
+            sub_parser.add_argument("--fail-on-regression", dest="fail_on_regression", action="store_true", default=True, help="Exit 1 if regression occurs (default: true)")
+            sub_parser.add_argument("--no-fail-on-regression", dest="fail_on_regression", action="store_false", help="Do not exit 1 if regression occurs")
             sub_parser.add_argument("--fail-on-high", action="store_true", default=False, help="Exit 1 if any HIGH risk files or violations exist")
             sub_parser.add_argument("--strict", action="store_true", default=False, help="Strict mode (0 health drop, fail on any high)")
             sub_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON to stdout")
-            sub_parser.add_argument("--output-comment", default=None, help="Path to write PR comment markdown")
+            sub_parser.add_argument("--output-comment", dest="output_comment", default=None, help="Path to write PR comment markdown")
+            sub_parser.add_argument("--output-markdown", dest="output_comment", default=None, help="Alias for --output-comment")
+            sub_parser.add_argument("--output-json", default=None, help="Path to write machine-readable JSON output to file")
             sub_parser.add_argument("--github-annotations", action="store_true", default=False, help="Explicitly emit GitHub Actions workflow annotations")
+            sub_parser.add_argument("--comment-pr", action="store_true", default=False, help="Post PR review comment via GitHub REST API")
+            sub_parser.add_argument("--github-token", default=None, help="GitHub token for PR review commenting")
         elif cmd == "verify":
             sub_parser.add_argument("--pattern", default="test_*.py", help="Test file naming pattern (default: test_*.py)")
             sub_parser.add_argument("--test-dir", default="ultron/tests", help="Directory containing tests relative to repo (default: ultron/tests)")
@@ -505,9 +510,13 @@ class InterfaceHandler:
                 output_comment=sub_args.output_comment,
                 max_high=sub_args.max_high,
                 min_health=sub_args.min_health,
-                github_annotations=sub_args.github_annotations
+                github_annotations=sub_args.github_annotations,
+                output_json=sub_args.output_json,
+                comment_pr=sub_args.comment_pr,
+                github_token=sub_args.github_token
             )
             sys.exit(code)
+
 
         elif cmd == "scan":
             from ultron.interfaces.cli.commands.gate import extract_current_analysis

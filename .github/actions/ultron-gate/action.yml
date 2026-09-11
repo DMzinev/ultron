@@ -1,0 +1,133 @@
+name: 'Ultron Architectural Quality Gate'
+description: 'Continuous architectural intelligence, regression gating, and risk scoring for pull requests and CI.'
+author: 'DMzinev'
+
+inputs:
+  repo-path:
+    description: 'Path to repository root to analyze'
+    required: false
+    default: '.'
+  baseline:
+    description: 'Path to baseline analysis JSON file or git ref (e.g. main, HEAD~1)'
+    required: false
+    default: ''
+  min-health:
+    description: 'Minimum allowed architectural health score (0.0 - 100.0)'
+    required: false
+    default: ''
+  max-high:
+    description: 'Maximum allowed HIGH risk files'
+    required: false
+    default: ''
+  max-health-drop:
+    description: 'Maximum allowed health score drop compared to baseline'
+    required: false
+    default: '5.0'
+  fail-on-regression:
+    description: 'Whether to exit with code 1 if quality gate thresholds are breached (true/false)'
+    required: false
+    default: 'true'
+  fail-on-high:
+    description: 'Exit 1 if any HIGH risk files or violations exist (true/false)'
+    required: false
+    default: 'false'
+  strict:
+    description: 'Strict mode: 0 health drop, fail on any high risk (true/false)'
+    required: false
+    default: 'false'
+  output-json:
+    description: 'Path to write machine-readable JSON analysis report'
+    required: false
+    default: ''
+  output-markdown:
+    description: 'Path to write PR review comment markdown report'
+    required: false
+    default: ''
+  github-annotations:
+    description: 'Emit native GitHub Actions workflow annotations (::error, ::warning, ::notice)'
+    required: false
+    default: 'true'
+  comment-pr:
+    description: 'Post PR review comment with architectural report (requires pull-request event and github-token)'
+    required: false
+    default: 'false'
+  github-token:
+    description: 'GitHub token for PR review commenting (e.g. ${{ secrets.GITHUB_TOKEN }})'
+    required: false
+    default: ''
+
+outputs:
+  passed:
+    description: 'Whether the quality gate passed (true/false)'
+    value: ${{ steps.gate.outputs.passed }}
+  health-score:
+    description: 'Current codebase architectural health score'
+    value: ${{ steps.gate.outputs.health-score }}
+  health-delta:
+    description: 'Health score delta compared to baseline'
+    value: ${{ steps.gate.outputs.health-delta }}
+  exit-code:
+    description: 'Exit code of the gate command (0 = PASS, 1 = FAIL)'
+    value: ${{ steps.gate.outputs.exit-code }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run Ultron Architectural Quality Gate
+      id: gate
+      shell: bash
+      run: |
+        ARGS=()
+
+        if [ -n "${{ inputs.repo-path }}" ]; then
+          ARGS+=(--repo "${{ inputs.repo-path }}")
+        fi
+
+        if [ -n "${{ inputs.baseline }}" ]; then
+          ARGS+=(--baseline "${{ inputs.baseline }}")
+        fi
+
+        if [ -n "${{ inputs.min-health }}" ]; then
+          ARGS+=(--min-health "${{ inputs.min-health }}")
+        fi
+
+        if [ -n "${{ inputs.max-high }}" ]; then
+          ARGS+=(--max-high "${{ inputs.max-high }}")
+        fi
+
+        if [ -n "${{ inputs.max-health-drop }}" ]; then
+          ARGS+=(--max-health-drop "${{ inputs.max-health-drop }}")
+        fi
+
+        if [ "${{ inputs.fail-on-high }}" = "true" ]; then
+          ARGS+=(--fail-on-high)
+        fi
+
+        if [ "${{ inputs.strict }}" = "true" ]; then
+          ARGS+=(--strict)
+        fi
+
+        if [ "${{ inputs.fail-on-regression }}" = "false" ]; then
+          ARGS+=(--no-fail-on-regression)
+        fi
+
+        if [ -n "${{ inputs.output-json }}" ]; then
+          ARGS+=(--output-json "${{ inputs.output-json }}")
+        fi
+
+        if [ -n "${{ inputs.output-markdown }}" ]; then
+          ARGS+=(--output-markdown "${{ inputs.output-markdown }}")
+        fi
+
+        if [ "${{ inputs.github-annotations }}" = "true" ]; then
+          ARGS+=(--github-annotations)
+        fi
+
+        if [ "${{ inputs.comment-pr }}" = "true" ]; then
+          ARGS+=(--comment-pr)
+          if [ -n "${{ inputs.github-token }}" ]; then
+            ARGS+=(--github-token "${{ inputs.github-token }}")
+          fi
+        fi
+
+        python -m ultron gate "${ARGS[@]}"
