@@ -291,6 +291,17 @@ class SystemRoutesMixin:
                 raw = raw[0] if raw else ""
             raw = str(raw or "").strip()
 
+            # --- Path security guards (Fail-Closed Policy) ---
+            if "\0" in raw:
+                self.send_json_response(400, {"error": "Invalid path: null byte detected."})
+                return
+            if raw:
+                from ultron.interfaces.api.browse_folder import WINDOWS_RESERVED_NAMES
+                stem = os.path.splitext(os.path.basename(raw))[0].upper()
+                if stem in WINDOWS_RESERVED_NAMES:
+                    self.send_json_response(400, {"error": f"Invalid path: reserved device name '{stem}'."})
+                    return
+
             drives = []
             if os.name == "nt":
                 import string
@@ -365,6 +376,11 @@ class SystemRoutesMixin:
             if not isinstance(repo, str) or not repo.strip() or not isinstance(file_param, str) or not file_param.strip():
                 self.send_json_response(400, {"error": "Missing or invalid parameters."})
                 return
+
+            # --- Path security guard (Fail-Closed Policy) ---
+            if "\0" in repo or "\0" in file_param:
+                self.send_json_response(400, {"error": "Invalid path: null byte detected."})
+                return
                 
             repo_path = os.path.realpath(repo)
             full_path = os.path.realpath(os.path.join(repo_path, file_param))
@@ -397,6 +413,11 @@ class SystemRoutesMixin:
             content = data.get("content")
             if not isinstance(repo, str) or not repo.strip() or not isinstance(file_param, str) or not file_param.strip() or not isinstance(content, str):
                 self.send_json_response(400, {"error": "Missing or invalid parameters."})
+                return
+
+            # --- Path security guard (Fail-Closed Policy) ---
+            if "\0" in repo or "\0" in file_param:
+                self.send_json_response(400, {"error": "Invalid path: null byte detected."})
                 return
                 
             repo_path = os.path.realpath(repo)

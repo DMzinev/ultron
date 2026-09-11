@@ -5,12 +5,34 @@ import traceback
 
 logger = logging.getLogger(__name__)
 
-def select_folder_dialog(initial_dir: str = None, headless: bool = False) -> dict:
+# Windows reserved device names — reject these as path targets (case-insensitive).
+WINDOWS_RESERVED_NAMES = frozenset({
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+})
+
+def select_folder_dialog(initial_dir: str = None, headless: bool = False, allowed_root: str = None) -> dict:
     """
     Opens native OS folder browser dialog.
     Headless/display errors are caught specifically and return fallback=True.
     Unexpected programming errors are logged with stack trace.
     """
+    # --- Path security guards (Fail-Closed Policy) ---
+    if initial_dir and "\0" in initial_dir:
+        return {"path": "", "cancelled": True, "fallback": True, "error": "Invalid path: null byte detected."}
+
+    if initial_dir:
+        stem = os.path.splitext(os.path.basename(initial_dir))[0].upper()
+        if stem in WINDOWS_RESERVED_NAMES:
+            return {"path": "", "cancelled": True, "fallback": True, "error": f"Invalid path: reserved device name '{stem}'."}
+
+    if allowed_root and initial_dir:
+        real_root = os.path.normcase(os.path.realpath(allowed_root)) + os.sep
+        real_dir = os.path.normcase(os.path.realpath(initial_dir))
+        if not real_dir.startswith(real_root) and real_dir != real_root.rstrip(os.sep):
+            return {"path": "", "cancelled": True, "fallback": True, "error": "Access denied: path traverses outside allowed root."}
+
     if headless:
         if not initial_dir or not os.path.isdir(initial_dir):
             initial_dir = os.getcwd()

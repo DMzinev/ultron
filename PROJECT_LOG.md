@@ -4350,3 +4350,52 @@ PENDING — not yet reviewed by an external party.
 
 **Open questions / follow-up:**
 None. All 28+ DOM IDs verified against index.html and invariants strictly preserved.
+
+---
+
+### Task P3-E1 — Directory-Traversal and Symlink-Escape Test Coverage
+
+**Attempted:** Implement Fail-Closed Strict Rejection path-safety policy across all filesystem-touching endpoints; create comprehensive adversarial test suite (`test_path_security.py`) with 11 deterministic test cases.
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=801 failures=0 errors=0 skipped=9`
+- `full_suite_after`: `ran=812 failures=0 errors=0 skipped=9`
+
+**Changed Files:**
+- `ultron/interfaces/api/browse_folder.py` (MODIFIED — added WINDOWS_RESERVED_NAMES constant, null-byte guard, device name guard, allowed_root boundary enforcement)
+- `ultron/interfaces/api/routes/analysis_routes.py` (MODIFIED — hardened both class method and module-level handle_v1_analyze with null-byte, device name, and root filesystem guards; added null-byte guard to handle_analyze)
+- `ultron/interfaces/api/routes/system_routes.py` (MODIFIED — added null-byte and device name guards to handle_list_dirs, handle_get_file, handle_save_file)
+- `ultron/tests/test_path_security.py` (NEW — 11 adversarial test cases)
+- `docs/API_SURFACE.md` (MODIFIED — added Section 4: Path-Safety & Boundary Defense Policy)
+- `docs/TASK_PROGRESS_TRACKER.md` (MODIFIED — row 36 COMPLETED, header 36/36)
+- `README.md` (MODIFIED — test badge 801→812, test count 801+→812+)
+- `CONTRIBUTING.md` (MODIFIED — test count 801→812)
+- `docs/GETTING_STARTED.md` (MODIFIED — test count 801→812)
+- `docs/RESOURCES.md` (MODIFIED — test count 801+→812+)
+
+**Evidence:**
+- [x] All 11 adversarial tests pass in `test_path_security.py` (0.008s).
+- [x] Full suite: 812 ran, 0 failed, 0 errors, 9 skipped.
+- [x] Skip invariant preserved: exactly 9 skips (no new skips introduced).
+- [x] Server line ceiling preserved: `server.py` untouched (297 lines < 300).
+- [x] Frontend invariants preserved: all JS modules untouched (< 400 lines).
+- [x] Pure standard library: zero new external pip/npm dependencies.
+- [x] Null-byte checks execute BEFORE os.path calls to prevent ValueError.
+- [x] Boundary containment uses trailing separator (`os.path.join(repo_path, "")`) + `startswith` to prevent prefix-collision bypass.
+- [x] Symlink test uses mock.patch fallback when os.symlink unavailable (no skips).
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML model claims.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are hermetic (tempfile-based). Zero external data sources.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive cases: null-byte injection (`\0`), traversal normalization (`../../../`), prefix-collision prevention (trailing separator), symlink resolution, reserved device names (CON, PRN, AUX, NUL). Not trivial literal substitutions.
+5. **Silent Failure Check:** All adversarial inputs produce explicit HTTP 400 error responses. No silent clamping or fallback. Empty/missing paths return structured error JSON.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P3-E1 (Directory-Traversal and Symlink-Escape Test Coverage) COMPLETED on `agent/P3-E1-security-hygiene-tests`. This completes all 36/36 planned tasks across Phase 1, Phase 2, and Phase 3.
+
+**Open questions / follow-up:**
+None. All filesystem-touching endpoints hardened with Fail-Closed Strict Rejection policy. 11/11 adversarial tests passing deterministically.

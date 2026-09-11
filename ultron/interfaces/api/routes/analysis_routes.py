@@ -85,6 +85,11 @@ class AnalysisRoutesMixin:
                 self.send_json_response(400, {"status": "error", "message": "Invalid JSON body payload.", "error": "Invalid JSON body payload."})
                 return
             repo = str(data.get("repo", "")).strip()
+            # --- Path security guard (Fail-Closed Policy) ---
+            if "\0" in repo:
+                msg = "Invalid repository path: null byte detected."
+                self.send_json_response(400, {"status": "error", "message": msg, "error": msg})
+                return
             if not repo:
                 repo_path = self.get_repo_root_path()
             else:
@@ -504,10 +509,21 @@ class AnalysisRoutesMixin:
         if isinstance(data, dict) and "repo" in data and not data.get("repo"):
             self.send_json_response(400, None, "Repository path string must not be empty.")
             return
+        # --- Path security guards (Fail-Closed Policy) ---
         if isinstance(data, dict) and data.get("repo"):
-            norm_p = os.path.normpath(os.path.abspath(data["repo"]))
-            if not os.path.exists(norm_p):
-                self.send_json_response(400, None, f"Repository path does not exist: '{data['repo']}'")
+            raw_repo = str(data["repo"])
+            if "\0" in raw_repo:
+                self.send_json_response(400, None, "Invalid repository path: null byte detected.")
+                return
+            stem = os.path.splitext(os.path.basename(raw_repo))[0].upper()
+            from ultron.interfaces.api.browse_folder import WINDOWS_RESERVED_NAMES
+            if stem in WINDOWS_RESERVED_NAMES:
+                self.send_json_response(400, None, f"Invalid repository path: reserved device name '{stem}'.")
+                return
+            norm_p = os.path.normpath(os.path.abspath(raw_repo))
+            # Root filesystem prohibition (mirrors handle_analyze)
+            if norm_p in ("/", "\\") or os.path.dirname(norm_p) == norm_p:
+                self.send_json_response(400, None, "Analyzing system root filesystem is strictly prohibited.")
                 return
 
         global ACTIVE_JOB
@@ -579,10 +595,20 @@ def handle_v1_analyze(handler: Any) -> None:
     if isinstance(data, dict) and "repo" in data and not data.get("repo"):
         handler.send_json_response(400, None, "Repository path string must not be empty.")
         return
+    # --- Path security guards (Fail-Closed Policy) ---
     if isinstance(data, dict) and data.get("repo"):
-        norm_p = os.path.normpath(os.path.abspath(data["repo"]))
-        if not os.path.exists(norm_p):
-            handler.send_json_response(400, None, f"Repository path does not exist: '{data['repo']}'")
+        raw_repo = str(data["repo"])
+        if "\0" in raw_repo:
+            handler.send_json_response(400, None, "Invalid repository path: null byte detected.")
+            return
+        stem = os.path.splitext(os.path.basename(raw_repo))[0].upper()
+        from ultron.interfaces.api.browse_folder import WINDOWS_RESERVED_NAMES
+        if stem in WINDOWS_RESERVED_NAMES:
+            handler.send_json_response(400, None, f"Invalid repository path: reserved device name '{stem}'.")
+            return
+        norm_p = os.path.normpath(os.path.abspath(raw_repo))
+        if norm_p in ("/", "\\") or os.path.dirname(norm_p) == norm_p:
+            handler.send_json_response(400, None, "Analyzing system root filesystem is strictly prohibited.")
             return
     handler.handle_v1_analyze()
 

@@ -1,4 +1,4 @@
-﻿# Ultron API Surface — Route Decision Table & Active Contract
+# Ultron API Surface — Route Decision Table & Active Contract
 
 **Single Source of Truth**: `docs/AGENT_EXECUTION_PLAN.md` (Task A4)  
 **Invariant**: *Every retained route has an explicit named consumer — UI, CLI, MCP, or Test.*
@@ -100,3 +100,28 @@
 - `POST /api/save-file`
 - `POST /api/v1/cancel-analysis`
 - `POST /api/v1/export-brief`
+
+---
+
+## 4. Path-Safety & Boundary Defense Policy (Task P3-E1)
+
+All filesystem-touching endpoints enforce a **Fail-Closed Strict Rejection** policy. Invalid or adversarial paths are explicitly rejected with HTTP 400 — they are never silently clamped or normalized to a fallback.
+
+### Defense Layers
+
+| Layer | Threat | Response |
+|:---|:---|:---|
+| **Null-byte injection** | `\0` in any path parameter | HTTP 400 `"Invalid path: null byte detected."` |
+| **Directory traversal** | `../../../` escaping repo boundary | HTTP 400 via `realpath` + `startswith` containment |
+| **Root filesystem scan** | Targeting `/` or `C:\` | HTTP 400 `"Analyzing system root filesystem is strictly prohibited."` |
+| **Symlink escape** | Symlink resolving outside repo | HTTP 400 via `os.path.realpath()` boundary check |
+| **Windows reserved devices** | `CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9` | HTTP 400 `"Invalid path: reserved device name."` |
+
+### Covered Endpoints
+
+- `GET /api/list-dirs` — null-byte guard, device name guard
+- `POST /api/browse-folder` — null-byte guard, device name guard, `allowed_root` boundary
+- `POST /api/get-file` — null-byte guard, `realpath` + `startswith` containment
+- `POST /api/save-file` — null-byte guard, `realpath` + `startswith` containment
+- `POST /api/analyze` — null-byte guard, root filesystem prohibition
+- `POST /api/v1/analyze` — null-byte guard, device name guard, root filesystem prohibition

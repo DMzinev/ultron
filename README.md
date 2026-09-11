@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/DMzinev/ultron/actions/workflows/ci.yml"><img src="https://github.com/DMzinev/ultron/actions/workflows/ci.yml/badge.svg" alt="CI Build Status" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-3776AB?logo=python&logoColor=white" alt="Python Versions" /></a>
-  <a href="scripts/verify.py"><img src="https://img.shields.io/badge/tests-801%20passed%20%7C%200%20failed-10B981?logo=githubactions&logoColor=white" alt="Tests" /></a>
+  <a href="scripts/verify.py"><img src="https://img.shields.io/badge/tests-812%20passed%20%7C%200%20failed-10B981?logo=githubactions&logoColor=white" alt="Tests" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
   <a href="#-the-4-interactive-pillars"><img src="https://img.shields.io/badge/architecture%20health-100%2F100-10B981" alt="Architecture Health" /></a>
   <a href="#-honest-limitations"><img src="https://img.shields.io/badge/core%20runtime-zero%20dependencies-8B5CF6" alt="Zero Dependencies" /></a>
@@ -227,7 +227,7 @@ $ ultron gate --repo . --max-high 2 --min-health 80.0 --github-annotations
 Ultron is structured cleanly into cohesive subsystems:
 - **`ultron/core/`**: The static analysis core — AST traversal (`analyzer.py`), dependency topology (`graph.py`), cycle detection (`cycle_detector.py`), git churn (`git_adapter.py`), coverage ingestion (`coverage_adapter.py`), and RKM store (`rkm/store.py`).
 - **`ultron/interfaces/`**: Developer interfaces — local dashboard server (`server.py`, strictly < 300 lines), unified CLI (`ultron.py`), MCP server (`mcp_server.py`), and vanilla web assets (`web/`).
-- **`ultron/tests/`**: 801+ automated tests partitioned strictly across unit, integration, and security boundaries.
+- **`ultron/tests/`**: 812+ automated tests partitioned strictly across unit, integration, and security boundaries.
 - **`scripts/`**: Automation entry points including canonical test runner (`verify.py`).
 - **`docs/`**: Complete architecture specifications, benchmarks, and guides.
 
