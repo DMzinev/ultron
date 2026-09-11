@@ -4483,3 +4483,53 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None. All 9 tray launcher tests passing without skips. Full verification gate passing with 823 tests, 0 failures, 0 errors, 0 skipped.
 
+---
+
+### 2026-09-11 — Task P4-A3: SQLite WAL Mode, Synchronous Normal & High-Concurrency Locking
+
+**Branch:** `agent/P4-A3-sqlite-wal-concurrency`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=823 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=829 failures=0 errors=0 skipped=0`
+
+**Attempted:** Implement SQLite WAL mode (`PRAGMA journal_mode = WAL;`), synchronous normal (`PRAGMA synchronous = NORMAL;`), and high-concurrency busy timeout (`PRAGMA busy_timeout = 5000;`) in `ultron/core/rkm/store.py`; configure connection-level `isolation_level="IMMEDIATE"` to automatically issue `BEGIN IMMEDIATE` on write transactions and prevent write-lock upgrade deadlocks; preserve parameterless `def transaction(self):` signature for backward-compatibility with contract tests; add `__enter__` and `__exit__` context manager lifecycle methods and idempotent `.close()` to `RepositoryStore`; safeguard database integrity check with process-wide `_integrity_lock` in `store.py` and single-pass backup copying with busy timeout in `ultron/core/rkm/integrity.py`; optimize `_ensure_migrations_table_has_checksum` to avoid schema lock contention when table already exists; author dedicated stress test suite `ultron/tests/test_rkm_concurrency.py` with 6 automated tests.
+
+**Antigravity self-audit result:**
+- [x] Configured SQLite pragmas on non-memory connections in `ultron/core/rkm/store.py`: `PRAGMA busy_timeout = 5000;`, `PRAGMA journal_mode = WAL;`, `PRAGMA synchronous = NORMAL;`.
+- [x] Configured `isolation_level="IMMEDIATE"` on `sqlite3.connect` to eliminate read-to-write lock upgrade deadlocks.
+- [x] Retained parameterless `def transaction(self):` API contract, ensuring `store.transaction(None)` immediately raises `TypeError` as asserted in `test_rkm_contract.py:191`.
+- [x] Implemented `__enter__` (returns `self`), `__exit__` (calls idempotent `.close()`), and idempotent `.close()` (`self.conn = None` safety).
+- [x] Hardened `RKMDatabaseIntegrity.verify_and_repair_database` in `ultron/core/rkm/integrity.py` with `if not os.path.exists(backup_path):` single-pass backup copying, `PRAGMA busy_timeout = 5000;`, and stale `.bak` cleanup on corruption recovery.
+- [x] Protected integrity checks with `_integrity_lock` in `store.py`, eliminating multi-threaded file access collisions on Windows.
+- [x] Optimized `_ensure_migrations_table_has_checksum` in `store.py` to inspect `sqlite_master` and `PRAGMA table_info` before issuing DDL statements.
+- [x] Authored 6 automated tests in `ultron/tests/test_rkm_concurrency.py`:
+  - `test_wal_pragmas_configured`: asserts `journal_mode=wal`, `synchronous=1`, `busy_timeout>=5000`, `isolation_level="IMMEDIATE"`.
+  - `test_context_manager_lifecycle`: asserts context manager automatically closes connection and `.close()` is idempotent.
+  - `test_transaction_immediate_locking`: asserts transaction atomicity, rollback on exception, and immediate `TypeError` on invalid arguments.
+  - `test_busy_timeout_resilience`: asserts concurrent connections wait gracefully without throwing lock errors.
+  - `test_multithreaded_concurrent_writes`: asserts 10 concurrent threads perform 10 simultaneous transactions each (100 total writes) with zero lock errors.
+  - `test_concurrent_readers_and_writers`: asserts 5 writers and 10 readers operate concurrently without blocking each other.
+- [x] All 22 RKM tests pass cleanly: `Ran 22 tests in 1.508s: OK`.
+- [x] Invariant suites pass (39 tests in 16.56s): `test_skip_invariants`, `test_frontend_invariants`, `test_self_scan_integrity`, `test_documentation_reality`, `test_project_log_compliance`, `test_distribution_packaging`.
+- [x] Master verification gate passes cleanly: `TESTS: 829 ran, 0 failed, 0 errors, 0 skipped` in 274.963s (Exit code: 0).
+- [x] Server line ceiling strictly preserved: `server.py` is 297 lines (< 300).
+- [x] Frontend invariants preserved: all 13 JS modules strictly < 400 lines.
+- [x] Pure standard library: zero new external dependencies introduced.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML model or classifier claims.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are hermetic. Verified all 6 concurrency tests run against temporary SQLite database instances created with `tempfile.mkdtemp()`.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive cases: invalid transaction arguments (`store.transaction(None)` raising `TypeError`), transaction rollback on runtime exception, 10 concurrent threads writing simultaneously, and concurrent readers interleaved with active writers.
+5. **Silent Failure Check:** Tested explicit failure paths: transaction rollback leaves database state unchanged; invalid arguments fail immediately; corrupted database triggers safe cold-scan fallback and moves corrupted file to `.corrupted.<ts>`.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P4-A3 (SQLite WAL Mode & High-Concurrency Locking) COMPLETED on `agent/P4-A3-sqlite-wal-concurrency`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 6 concurrency stress tests passing deterministically. Full verification gate passing with 829 tests, 0 failures, 0 errors, 0 skipped.
+

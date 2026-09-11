@@ -31,16 +31,18 @@ class RKMDatabaseIntegrity:
 
         # Create pre-migration backup
         backup_path = f"{norm_path}.bak"
-        try:
-            shutil.copy2(norm_path, backup_path)
-        except Exception as copy_err:
-            sys.stderr.write(f"[RKM Integrity Warning] Could not create backup: {copy_err}\n")
+        if not os.path.exists(backup_path):
+            try:
+                shutil.copy2(norm_path, backup_path)
+            except Exception as copy_err:
+                sys.stderr.write(f"[RKM Integrity Warning] Could not create backup: {copy_err}\n")
 
         # Execute PRAGMA quick_check
         is_ok = False
         conn = None
         try:
             conn = sqlite3.connect(norm_path, timeout=5.0)
+            conn.execute("PRAGMA busy_timeout = 5000;")
             cursor = conn.cursor()
             cursor.execute("PRAGMA quick_check;")
             row = cursor.fetchone()
@@ -63,6 +65,11 @@ class RKMDatabaseIntegrity:
         corrupted_path = f"{norm_path}.corrupted.{ts}"
         try:
             shutil.move(norm_path, corrupted_path)
+            if os.path.exists(backup_path):
+                try:
+                    os.remove(backup_path)
+                except OSError:
+                    pass
             sys.stderr.write(f"[RKM Integrity Action] Preserved corrupted database to: {corrupted_path}\n")
             return False, f"Corrupted DB preserved at {os.path.basename(corrupted_path)}. Re-initialized clean DB."
         except Exception as move_err:

@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import json
+import threading
 from datetime import datetime
 from contextlib import contextmanager
 from ultron.core.rkm.schema import (
@@ -10,6 +11,8 @@ from ultron.core.rkm.schema import (
     RkmRule, RkmRuleInstance, RkmEvaluation, RkmViolation, RkmViolationEvidence,
     EvaluationStatus, RKM_SCHEMA_VERSION, RKM_COMPATIBILITY, RkmEntityHistory
 )
+
+_integrity_lock = threading.Lock()
 
 class AppliedMigration:
     def __init__(self, id: int, version: str, applied_at: str):
@@ -21,19 +24,22 @@ class RepositoryStore:
     def __init__(self, db_path: str):
         self.db_path = db_path if db_path == ":memory:" else os.path.normpath(os.path.abspath(db_path))
         # Campaign 20: Integrity Check, Pre-Migration Backup & Corrupted DB Preservation
-        from ultron.core.rkm.integrity import RKMDatabaseIntegrity
-        RKMDatabaseIntegrity.verify_and_repair_database(self.db_path)
+        if self.db_path != ":memory:":
+            with _integrity_lock:
+                from ultron.core.rkm.integrity import RKMDatabaseIntegrity
+                RKMDatabaseIntegrity.verify_and_repair_database(self.db_path)
         
         if self.db_path != ":memory:":
             db_dir = os.path.dirname(self.db_path)
             os.makedirs(db_dir, exist_ok=True)
         
-        self.conn = sqlite3.connect(self.db_path, timeout=30.0)
+        self.conn = sqlite3.connect(self.db_path, timeout=30.0, isolation_level="IMMEDIATE")
         self.conn.row_factory = sqlite3.Row
-        self.conn.execute("PRAGMA foreign_keys = ON;")
         if self.db_path != ":memory:":
-            self.conn.execute("PRAGMA journal_mode = WAL;")
             self.conn.execute("PRAGMA busy_timeout = 5000;")
+            self.conn.execute("PRAGMA journal_mode = WAL;")
+            self.conn.execute("PRAGMA synchronous = NORMAL;")
+        self.conn.execute("PRAGMA foreign_keys = ON;")
         self._run_migrations()
         self._check_compatibility()
 
@@ -68,6 +74,13 @@ class RepositoryStore:
 
 
     def _ensure_migrations_table_has_checksum(self):
+        cursor = self.conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rkm_migrations'")
+        if cursor.fetchone():
+            col_cursor = self.conn.execute("PRAGMA table_info(rkm_migrations)")
+            columns = [row["name"] for row in col_cursor.fetchall()]
+            if "checksum" in columns:
+                return
+
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS rkm_migrations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -820,6 +833,17 @@ class RepositoryStore:
             for row in cursor
         ]
 
+    def __enter__(self) -> "RepositoryStore":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
     def close(self):
-        self.conn.close()
+        if self.conn is not None:
+            try:
+                self.conn.close()
+            except Exception:
+                pass
+            self.conn = None
 

@@ -70,7 +70,7 @@
 |:---|:---|:---|:---|:---|:---|
 | 37 | **P4-A1** | `agent/P4-A1-pyproject-packaging` | **COMPLETED** | `c1422f9` | True zero-dependency base install (`dependencies = []`, `install_requires = []`), 4-way version 1.4.0 parity, packaging invariant tests |
 | 38 | **P4-A2** | `agent/P4-A2-zero-skip-ci` | **COMPLETED** | `f9a98e4` | Standard-library headless tray mocking (`_HeadlessIcon`, `_HeadlessMenu`); unskipped all 9 `TestTrayLauncher` tests; transition full test suite to zero skips (`TESTS: 823 ran, 0 failed, 0 errors, 0 skipped`). |
-| 39 | **P4-A3** | `agent/P4-A3-sqlite-wal-concurrency` | **PLANNED** | `PENDING` | SQLite WAL mode & busy timeout; multi-threaded concurrency stress test |
+| 39 | **P4-A3** | `agent/P4-A3-sqlite-wal-concurrency` | **COMPLETED** | `2c12eb8` | SQLite WAL mode, synchronous NORMAL, busy timeout (5000ms), and immediate transaction locking in `ultron/core/rkm/store.py`; process-wide `_integrity_lock` and single-pass backup copying in `ultron/core/rkm/integrity.py`; context manager lifecycle support; 6 dedicated stress tests in `ultron/tests/test_rkm_concurrency.py` verifying 10 concurrent threads and readers/writers under load; master verification gate passes (`TESTS: 829 ran, 0 failed, 0 errors, 0 skipped`). |
 | 40 | **P4-B1** | `agent/P4-B1-github-action-gate` | **PLANNED** | `PENDING` | Standalone composite GitHub Action `DMzinev/ultron-action@v1` |
 | 41 | **P4-B2** | `agent/P4-B2-mcp-client-installer` | **PLANNED** | `PENDING` | Automated multi-client MCP installer (`ultron mcp install`) |
 | 42 | **P4-C1** | `agent/P4-C1-git-quality-hooks` | **PLANNED** | `PENDING` | Native Git pre-commit and pre-push quality gate hook (`ultron hook install`) |
