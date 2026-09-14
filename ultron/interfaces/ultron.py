@@ -131,7 +131,7 @@ def main():
         print(pkg["prompt_package"])
         sys.exit(0)
     # Subcommand Handling
-    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate", "scan", "verify", "mcp"):
+    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate", "scan", "verify", "mcp", "hook"):
         cmd = sys.argv[1]
         sub_parser = argparse.ArgumentParser(prog=f"ultron {cmd}")
         sub_parser.add_argument("--repo", default=".", help="Path to codebase repository")
@@ -178,6 +178,18 @@ def main():
             sub_parser.add_argument("--client", "--ide", dest="client", default="cursor", choices=["cursor", "claude", "windsurf", "vscode", "all"], help="Target AI editor or client (default: cursor)")
             sub_parser.add_argument("--install", action="store_true", default=False, help="Install MCP configuration into client config")
             sub_parser.add_argument("--global", dest="is_global", action="store_true", default=False, help="Install globally in user config instead of local repository")
+            sub_parser.add_argument("--json", action="store_true", default=False, help="Output machine-readable JSON")
+        elif cmd == "hook":
+            sub_parser.add_argument("action", nargs="?", default="status", choices=["install", "uninstall", "status"], help="Hook action ('install', 'uninstall', 'status')")
+            sub_parser.add_argument("--hook-type", default="all", choices=["pre-commit", "pre-push", "all"], help="Target Git hook type (default: all)")
+            sub_parser.add_argument("--base", default="HEAD", help="Git baseline ref for regression gating (default: HEAD)")
+            sub_parser.add_argument("--strict", action="store_true", default=True, help="Enforce strict gating (default: True)")
+            sub_parser.add_argument("--no-strict", dest="strict", action="store_false", help="Disable strict gating")
+            sub_parser.add_argument("--fail-on-high", action="store_true", default=True, help="Fail on HIGH risk files (default: True)")
+            sub_parser.add_argument("--no-fail-on-high", dest="fail_on_high", action="store_false", help="Do not fail on HIGH risk files")
+            sub_parser.add_argument("--fail-on-regression", action="store_true", default=True, help="Fail on health regression (default: True)")
+            sub_parser.add_argument("--no-fail-on-regression", dest="fail_on_regression", action="store_false", help="Do not fail on health regression")
+            sub_parser.add_argument("--force", action="store_true", default=False, help="Force overwrite existing hooks")
             sub_parser.add_argument("--json", action="store_true", default=False, help="Output machine-readable JSON")
             
         sub_args = sub_parser.parse_known_args(sys.argv[2:])[0]
@@ -563,6 +575,11 @@ class InterfaceHandler:
         elif cmd == "mcp":
             from ultron.interfaces.cli.commands.mcp import run_mcp_command
             code = run_mcp_command(sub_args)
+            sys.exit(code)
+
+        elif cmd == "hook":
+            from ultron.interfaces.cli.commands.hook import run_hook_command
+            code = run_hook_command(sub_args)
             sys.exit(code)
 
     parser = argparse.ArgumentParser(description="Ultron: Code Architecture Risk & AI Mission Control")
