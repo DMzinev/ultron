@@ -131,7 +131,7 @@ def main():
         print(pkg["prompt_package"])
         sys.exit(0)
     # Subcommand Handling
-    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate", "scan", "verify", "mcp", "hook"):
+    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate", "scan", "verify", "mcp", "hook", "impact"):
         cmd = sys.argv[1]
         sub_parser = argparse.ArgumentParser(prog=f"ultron {cmd}")
         sub_parser.add_argument("--repo", default=".", help="Path to codebase repository")
@@ -190,6 +190,11 @@ def main():
             sub_parser.add_argument("--fail-on-regression", action="store_true", default=True, help="Fail on health regression (default: True)")
             sub_parser.add_argument("--no-fail-on-regression", dest="fail_on_regression", action="store_false", help="Do not fail on health regression")
             sub_parser.add_argument("--force", action="store_true", default=False, help="Force overwrite existing hooks")
+            sub_parser.add_argument("--json", action="store_true", default=False, help="Output machine-readable JSON")
+        elif cmd == "impact":
+            sub_parser.add_argument("file", nargs="?", default="", help="Target file path to compute differential impact for")
+            sub_parser.add_argument("--max-depth", type=int, default=5, help="Maximum transitive traversal depth (default: 5)")
+            sub_parser.add_argument("--runner", default="auto", choices=["auto", "unittest", "pytest"], help="Recommended test runner syntax ('auto', 'unittest', 'pytest')")
             sub_parser.add_argument("--json", action="store_true", default=False, help="Output machine-readable JSON")
             
         sub_args = sub_parser.parse_known_args(sys.argv[2:])[0]
@@ -580,6 +585,17 @@ class InterfaceHandler:
         elif cmd == "hook":
             from ultron.interfaces.cli.commands.hook import run_hook_command
             code = run_hook_command(sub_args)
+            sys.exit(code)
+
+        elif cmd == "impact":
+            from ultron.interfaces.cli.commands.impact import run_impact_command
+            code = run_impact_command(
+                target_file=sub_args.file,
+                repo_path=sub_args.repo,
+                max_depth=getattr(sub_args, "max_depth", 5),
+                runner=getattr(sub_args, "runner", "auto"),
+                json_output=getattr(sub_args, "json", False)
+            )
             sys.exit(code)
 
     parser = argparse.ArgumentParser(description="Ultron: Code Architecture Risk & AI Mission Control")

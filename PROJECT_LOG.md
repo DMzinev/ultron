@@ -4661,3 +4661,49 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None. All 14 hook unit tests passing deterministically with 0 skips. Full master verification gate passing with 877 tests, 0 failures, 0 errors, 0 skipped.
 
+---
+
+### 2026-09-14 — Task P4-C2: Differential Impact Simulator (`ultron impact <file>`)
+
+**Branch:** `agent/P4-C2-impact-simulator`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=877 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=892 failures=0 errors=0 skipped=0`
+
+**Attempted:** Implement the Differential Impact Simulator and test minimizer CLI command (`ultron impact <file>`) in `ultron/interfaces/cli/commands/impact.py` to eliminate multi-minute test latency for developers and autonomous AI coding agents; construct exact file-level import dependency DAG edges (`_build_exact_dependency_edges`) preventing false-positive substring matches; traverse the topological graph via `BlastRadiusTracer` to compute upstream direct and transitive callers and `blast_score`; map affected production files to corresponding test suites using AST import reachability and naming heuristics (`_map_affected_files_to_tests`); prune non-test fixture repositories (`fixtures/`, `__pycache__`, `venv`) from test discovery (`_discover_test_files`); handle target files inside `tests/` safely without `KeyError` by self-mapping; shield against AST syntax errors in test files defensively (`_extract_ast_imports`); enforce cross-platform path security against null bytes and directory traversal outside the repository (`os.path.commonpath`); categorize impact into deterministic severity levels (`LOW`, `MEDIUM`, `HIGH`); auto-detect test runner preference (`pytest` vs stdlib `unittest`) and synthesize minimal shell-escaped test execution commands; register `impact` in `ultron.py` with positional `file` (`nargs="?", default=""`), `--max-depth`, `--runner`, and `--json`; author 15 hermetic unit tests in `ultron/tests/test_impact_simulator.py` with zero skips and complete host filesystem isolation.
+
+**Antigravity self-audit result:**
+- [x] Implemented `run_impact_command` in `ultron/interfaces/cli/commands/impact.py` computing topological blast radius, affected production modules, and mapped test suites.
+- [x] Implemented exact dependency edge builder `_build_exact_dependency_edges` preventing false-positive substring matching (e.g. stdlib `ast` matching `blast_radius.py`).
+- [x] Implemented resilient 2-tier test discovery and mapping in `_discover_test_files` and `_map_affected_files_to_tests` with fixture directory pruning and AST parsing defensive exception handling.
+- [x] Implemented defensive target handling for files located inside `tests/`: defaults to 0 callers, blast score 0.0, and self-mapped test suite.
+- [x] Implemented path safety boundaries rejecting null-bytes and directory traversal outside `repo_path` via `os.path.commonpath`.
+- [x] Implemented deterministic severity classification: `LOW` (< 5.0), `MEDIUM` (5.0–15.0), and `HIGH` (>= 15.0).
+- [x] Implemented test runner auto-detection (`pytest.ini`, `conftest.py`, `pyproject.toml`) and shell-escaped test command synthesis.
+- [x] Registered `impact` subcommand in `ultron.py` with positional `file`, `--max-depth`, `--runner`, and `--json`.
+- [x] Authored 15 hermetic unit tests in `ultron/tests/test_impact_simulator.py` covering leaf modules, transitive root utilities, test file targets, max depth bounding, untested module fallbacks, nonexistent file errors, null-byte injection, traversal escapes, JSON schema validation, pytest auto-detection, and syntax error resilience.
+- [x] Dedicated unit test suite passes cleanly: `15 ran, 0 failed, 0 errors, 0 skipped` in 0.237s.
+- [x] Invariant test suites pass cleanly: `39 ran, 0 failed, 0 errors, 0 skipped` in 16.094s (`test_skip_invariants`, `test_frontend_invariants`, `test_self_scan_integrity`, `test_documentation_reality`, `test_project_log_compliance`, `test_distribution_packaging`).
+- [x] Master verification gate passes cleanly: `TESTS: 892 ran, 0 failed, 0 errors, 0 skipped` in `scripts/verify.py` in 237.598s (Exit code: 0).
+- [x] Server line ceiling strictly preserved: `server.py` is 297 lines (< 300).
+- [x] Frontend line ceiling strictly preserved: all 13 JS modules strictly < 400 lines.
+- [x] Pure standard library: zero new external dependencies introduced.
+- [x] Zero writes to host repository: all tests executed in `tempfile.TemporaryDirectory()`.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML model or classifier claims.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are hermetic. Verified all 15 unit tests execute in isolated sandbox directories created via `tempfile.TemporaryDirectory()`; zero writes or modifications to the host repository.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive inputs: empty target file arguments, nonexistent files, null-byte injection (`\0`), path traversal sequences (`../../outside.py`), files with Python syntax errors, files inside `fixtures/`, test files as targets, and `max_depth=1` depth bounding.
+5. **Silent Failure Check:** Tested explicit failure modes: missing/invalid target returns exit code 1 with error on stderr (or structured JSON `{"status": "error", "error": ...}`); path traversal outside repo returns exit code 1; modules with no mapped tests emit explicit warning notice and suggest `python -m unittest discover` rather than failing silently.
+6. **Causal / Probabilistic Claims:** Mapped test suites are causally linked via AST import reachability and naming heuristics, guaranteeing that tests covering the modified file and its upstream dependents are executed before commit.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P4-C2 (Differential Impact Simulator) COMPLETED on `agent/P4-C2-impact-simulator`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 15 impact simulator unit tests passing deterministically with 0 skips. Full master verification gate passing with 892 tests, 0 failures, 0 errors, 0 skipped.
+
