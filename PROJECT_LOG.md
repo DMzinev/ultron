@@ -4617,5 +4617,47 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None. All 23 installer unit tests passing deterministically with 0 skips. Full verification gate passing with 863 tests, 0 failures, 0 errors, 0 skipped.
 
+---
 
+### 2026-09-14 — Task P4-C1: Native Git Pre-Commit and Pre-Push Quality Gate Hook (`ultron hook install`)
+
+**Branch:** `agent/P4-C1-git-quality-hooks`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=863 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=877 failures=0 errors=0 skipped=0`
+
+**Attempted:** Implement native Git pre-commit and pre-push quality gate hook installer (`ultron hook install`, `uninstall`, `status`) in `ultron/interfaces/cli/commands/hook.py`; generate universal POSIX/Git Bash shell scripts with explicit LF line endings (`newline="\n"`) and forward-slash path normalization (`.replace("\\", "/")`); implement 3-tier hooks directory discovery (`_find_hooks_dir`) supporting standard `.git/hooks`, Git worktrees (`<commondir>/hooks`), and submodules; implement 4-tier Python resolver in hook script (`$VIRTUAL_ENV`, local `.venv`/`venv`, install-time `$CONFIGURED_PYTHON`, system `python3`/`python`); enforce baseline regression gating by passing `--base HEAD` to `ultron gate` (`"$PYTHON" -m ultron gate --repo "$GIT_ROOT" --base HEAD --strict --fail-on-regression --fail-on-high`); implement non-destructive lifecycle management with canonical `# --- ULTRON MANAGED HOOK ---` signature, idempotent script updates, microsecond-timestamped foreign hook backups (`<hook>.bak.<timestamp>`), foreign hook uninstall safety rejection (refuses to delete foreign hooks), and automatic foreign hook restoration upon uninstall; register `hook` CLI subcommand in `ultron.py` with positional actions (`install`, `uninstall`, `status`), `--hook-type` (`pre-commit`, `pre-push`, `all`), `--base`, `--strict`/`--no-strict`, `--fail-on-high`/`--no-fail-on-high`, `--fail-on-regression`/`--no-fail-on-regression`, `--force`, and `--json`; author 14 hermetic unit tests in `ultron/tests/test_git_hooks.py` with zero skips and complete host repository isolation.
+
+**Antigravity self-audit result:**
+- [x] Implemented 3-tier hooks directory discovery in `_find_hooks_dir` supporting standard `.git/hooks`, Git worktrees via `<commondir>` resolution, and submodules.
+- [x] Implemented universal POSIX/Git Bash shell script generator in `_generate_hook_script` using forward-slash path normalization and explicit LF line endings.
+- [x] Implemented 4-tier runtime Python resolution in generated shell scripts: active `$VIRTUAL_ENV`, local repo `.venv`/`venv`, install-time `$CONFIGURED_PYTHON`, system `python3`/`python`.
+- [x] Enforced causal architectural regression gating by passing `--base HEAD` to `ultron gate`.
+- [x] Implemented safe non-destructive lifecycle: canonical `# --- ULTRON MANAGED HOOK ---` signature, idempotent updates, microsecond-timestamped foreign hook backups (`<hook>.bak.<ts>`), and foreign hook restoration upon uninstallation.
+- [x] Registered `hook` subcommand in `ultron.py` supporting `install`, `uninstall`, and `status` actions with full flag parity and JSON output.
+- [x] Authored 14 hermetic unit tests in `ultron/tests/test_git_hooks.py` covering discovery, worktrees, submodules, non-git dirs, script generation, 4-tier resolver, `--base HEAD` gating, clean install, idempotent reinstall, foreign hook backup, foreign hook deletion refusal, foreign hook restoration, status reporting, and CLI dispatch.
+- [x] Unit test suite passes cleanly: `14 ran, 0 failed, 0 errors, 0 skipped` in 0.202s.
+- [x] Invariant test suites pass: `39 ran, 0 failed, 0 errors, 0 skipped` in 13.639s (`test_skip_invariants`, `test_frontend_invariants`, `test_self_scan_integrity`, `test_documentation_reality`, `test_project_log_compliance`, `test_distribution_packaging`).
+- [x] Master verification gate passes cleanly: `TESTS: 877 ran, 0 failed, 0 errors, 0 skipped` in `scripts/verify.py` in 272.049s (Exit code: 0).
+- [x] Server line ceiling strictly preserved: `server.py` is 297 lines (< 300).
+- [x] Frontend line ceiling strictly preserved: all 13 JS modules strictly < 400 lines.
+- [x] Pure standard library: zero new external dependencies introduced.
+- [x] Zero writes to host `.git` directories: all tests executed in `tempfile.TemporaryDirectory()`.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML model or classifier claims.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are hermetic. Verified all 14 unit tests execute in isolated sandbox directories created via `tempfile.TemporaryDirectory()`; zero writes or modifications to the host repository's `.git` directory.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive inputs: non-git repository paths (`ValueError`/exit code 1), missing hooks directories, foreign pre-existing hooks without Ultron signature, corrupted/divergent worktree pointer files, unknown hook types, and idempotency over multiple installs.
+5. **Silent Failure Check:** Tested explicit failure modes: non-git directory returns exit code 1 with error on stderr (or structured JSON `{"error": ...}`); uninstalling foreign unmanaged hooks is strictly refused unless managed by Ultron; `--base` defaults to `HEAD` so regression comparison never fails silently with inert zero-delta.
+6. **Causal / Probabilistic Claims:** Passing `--base HEAD` ensures causal comparison against git baseline commit rather than defaulting to `baseline_analysis = None` which would render `--fail-on-regression` inert.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P4-C1 (Native Git Pre-Commit & Pre-Push Quality Gate Hook) COMPLETED on `agent/P4-C1-git-quality-hooks`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 14 hook unit tests passing deterministically with 0 skips. Full master verification gate passing with 877 tests, 0 failures, 0 errors, 0 skipped.
 
