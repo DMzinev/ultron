@@ -125,6 +125,26 @@ class TestFrontendInvariants(unittest.TestCase):
                     f"Layer 1 (api.js) may only import state.js, but found: {line}",
                 )
 
+    def test_footer_version_synchronization(self):
+        """Asserts index.html footer displays synchronized engine version v1.4.0."""
+        index_html_path = os.path.join(WEB_DIR, "index.html")
+        with open(index_html_path, "r", encoding="utf-8") as f:
+            html = f.read()
+        self.assertIn(
+            "RKM Engine v1.4.0",
+            html,
+            "index.html footer must display RKM Engine v1.4.0",
+        )
+
+    def test_shortcuts_modal_and_export_elements_present(self):
+        """Asserts shortcuts modal markup and export report button are present in index.html."""
+        index_html_path = os.path.join(WEB_DIR, "index.html")
+        with open(index_html_path, "r", encoding="utf-8") as f:
+            html = f.read()
+        self.assertIn('id="shortcuts-modal"', html, "index.html must contain #shortcuts-modal")
+        self.assertIn('id="btn-shortcuts-help"', html, "index.html must contain #btn-shortcuts-help")
+        self.assertIn('id="export-btn"', html, "index.html must contain #export-btn")
+
 
 if __name__ == "__main__":
     unittest.main()

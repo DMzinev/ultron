@@ -45,12 +45,28 @@ export class ModalManager {
                 }
             };
         }
+        // Close Shortcuts Modal Button & Backdrop Click
+        const btnShortcuts = document.getElementById("btn-shortcuts-help");
+        if (btnShortcuts) {
+            btnShortcuts.onclick = () => toggleShortcutsModal();
+        }
+        const btnCloseShortcuts = document.getElementById("close-shortcuts-btn");
+        if (btnCloseShortcuts) {
+            btnCloseShortcuts.onclick = () => closeShortcutsModal();
+        }
+        const shortcutsModal = document.getElementById("shortcuts-modal");
+        if (shortcutsModal) {
+            shortcutsModal.addEventListener("click", (e) => {
+                if (e.target === shortcutsModal) closeShortcutsModal();
+            });
+        }
     }
 
     static openModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.classList.remove("hidden");
+            modal.hidden = false;
         }
     }
 
@@ -58,12 +74,34 @@ export class ModalManager {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.classList.add("hidden");
+            modal.hidden = true;
         }
     }
 
     static closeAll() {
         document.querySelectorAll(".modal-backdrop, .drawer-sidebar, .modal-overlay, .evidence-drawer, .drawer-backdrop").forEach(el => {
             el.classList.add("hidden");
+            el.hidden = true;
         });
+    }
+}
+
+export function toggleShortcutsModal() {
+    const modal = document.getElementById("shortcuts-modal");
+    if (!modal) return;
+    if (modal.hidden) {
+        modal.hidden = false;
+        modal.classList.remove("hidden");
+    } else {
+        modal.hidden = true;
+        modal.classList.add("hidden");
+    }
+}
+
+export function closeShortcutsModal() {
+    const modal = document.getElementById("shortcuts-modal");
+    if (modal) {
+        modal.hidden = true;
+        modal.classList.add("hidden");
     }
 }

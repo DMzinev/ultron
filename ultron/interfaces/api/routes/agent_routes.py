@@ -104,10 +104,10 @@ class AgentRoutesMixin:
                 self.send_json_response(400, {"status": "error", "message": "Invalid JSON body payload."})
                 return
             fmt = str(data.get("format", "")).strip().lower()
-            if fmt not in ["claude", "codex", "antigravity", "json"]:
+            if fmt not in ["claude", "codex", "antigravity", "json", "markdown", "html", "text"]:
                 self.send_json_response(400, {
                     "status": "error",
-                    "message": f"Unsupported format '{fmt}'. Supported formats: 'claude', 'codex', 'antigravity', 'json'."
+                    "message": f"Unsupported format '{fmt}'. Supported formats: 'claude', 'codex', 'antigravity', 'json', 'markdown', 'html', 'text'."
                 })
                 return
 
@@ -170,13 +170,31 @@ class AgentRoutesMixin:
                 })
                 return
 
-            h_score = canonical_brief.get("health_score", 80.0)
-            target_str = f" Target file: {target_file}." if target_file else ""
-            if fmt == "claude":
+            if fmt in ["markdown", "text"]:
+                from ultron.core import context_brief
+                content = context_brief.compile_brief(repo_path)
+            elif fmt == "html":
+                from ultron.core import context_brief
+                brief_md = context_brief.compile_brief(repo_path)
+                content = (
+                    f"<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n"
+                    f"<title>Ultron Architecture Report — {repo_name}</title>\n"
+                    f"<style>body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; "
+                    f"background: #0d1117; color: #c9d1d9; padding: 2rem; line-height: 1.6; max-width: 900px; margin: 0 auto; }} "
+                    f"pre {{ background: #161b22; padding: 1.25rem; border-radius: 8px; overflow-x: auto; border: 1px solid #30363d; }} "
+                    f"h1 {{ color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 0.5rem; }}</style>\n"
+                    f"</head>\n<body>\n<h1>Ultron Architecture Report — {repo_name}</h1>\n"
+                    f"<pre>{brief_md}</pre>\n</body>\n</html>"
+                )
+            elif fmt == "claude":
+                h_score = canonical_brief.get("health_score", 80.0)
+                target_str = f" Target file: {target_file}." if target_file else ""
                 content = f'claude -p "Analyze repository \'{repo_name}\' (Health Score: {h_score}/100).{target_str} Address top risk boundary rules and maintain architectural integrity."'
             elif fmt == "codex":
+                h_score = canonical_brief.get("health_score", 80.0)
                 content = f"# OpenAI Codex System Context Brief\nRepository: {repo_name}\nHealth Score: {h_score}/100\n{f'Target Entity: {target_file}' if target_file else ''}\n\n## Architectural Directives\n1. Preserve public API contracts in interfaces/api.\n2. Route logic through RKM.\n"
             else:
+                h_score = canonical_brief.get("health_score", 80.0)
                 abs_target = os.path.abspath(os.path.join(repo_path, target_file)) if target_file else repo_path
                 norm_target = abs_target.replace("\\", "/")
                 content = f"# Google Antigravity / Gemini Architectural Brief\nTarget Workspace: [{repo_name}](file:///{norm_target})\nHealth Score: {h_score}/100\n"

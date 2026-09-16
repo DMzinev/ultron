@@ -9,13 +9,14 @@
 
 import { state as sharedState } from "./modules/state.js";
 import { $, esc, normPath as helperNormPath, parseSeverity as helperParseSeverity, splitPath, api as helperApi, show, banner, showToast as helperShowToast } from "./modules/api.js";
-import { updatePrimaryVerdict, renderSummary as renderSummaryModule, renderMemory, applyFilter, renderList, resetDetail, renderDashboard } from "./modules/dashboard.js";
+import { updatePrimaryVerdict, renderSummary as renderSummaryModule, renderMemory, applyFilter, renderList, resetDetail, renderDashboard, exportScanReport } from "./modules/dashboard.js";
 import { renderViolations as renderViolationsModule, setupViolationsDelegation as setupViolationsDelegationModule, viewInGraph as viewInGraphModule, draftFixMission as draftFixMissionModule } from "./modules/violations.js";
 import { selectFile as selectFileModule, renderWhy, loadCode, loadBrief, paintBrief, switchTab, copyBrief } from "./modules/detail.js";
 import { renderTopologyGraph as renderTopologyGraphModule, openNodeInspector, graphSimulationNodes } from "./modules/graph.js";
 import { compileAgentMission, copyStudioOutput, downloadStudioOutput } from "./modules/studio.js";
 import { runCodeAudit as runCodeAuditModule } from "./modules/auditor.js";
 import { openPicker as openPickerModule } from "./modules/picker.js";
+import { toggleShortcutsModal, closeShortcutsModal } from "./modules/modals.js";
 
 /* ---------------- Shared State Facade ---------------- */
 
@@ -131,13 +132,8 @@ export function render(data, healthData) {
   renderViolations();
 }
 
-export function renderSummary(data, healthData) {
-  return renderSummaryModule(data, healthData);
-}
-
-export function renderViolations() {
-  return renderViolationsModule();
-}
+export function renderSummary(data, healthData) { return renderSummaryModule(data, healthData); }
+export function renderViolations() { return renderViolationsModule(); }
 
 export function setupViolationsDelegation() {
   return setupViolationsDelegationModule({
@@ -201,7 +197,7 @@ export function setupKeyboardShortcuts() {
     const isEditing = active && (["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName) || active.isContentEditable);
     if (e.key === "Escape") {
       if (isEditing) { active.blur(); return; }
-      for (const id of ["violations-drawer", "graph-inspector", "picker"]) {
+      for (const id of ["shortcuts-modal", "violations-drawer", "graph-inspector", "picker"]) {
         const el = $(id);
         if (el && !el.hidden) { el.hidden = true; return; }
       }
@@ -209,6 +205,7 @@ export function setupKeyboardShortcuts() {
       return;
     }
     if (isEditing) return;
+    if (e.key === "?") { e.preventDefault(); toggleShortcutsModal(); return; }
     const viewMap = { "1": "dashboard", "2": "graph", "3": "studio", "4": "auditor" };
     if (viewMap[e.key]) { e.preventDefault(); switchView(viewMap[e.key]); }
     else if (e.key === "/" && state.activeView === "dashboard") {
@@ -233,6 +230,9 @@ export function wire() {
     ["empty-scan-btn", "click", scan],
     ["retry-btn", "click", scan],
     ["save-btn", "click", saveScan],
+    ["export-btn", "click", exportScanReport],
+    ["btn-shortcuts-help", "click", toggleShortcutsModal],
+    ["close-shortcuts-btn", "click", closeShortcutsModal],
     ["banner-dismiss", "click", () => banner("")],
     ["filter-input", "input", applyFilter],
     ["clear-filter-btn", "click", () => { const el = $("filter-input"); if (el) { el.value = ""; applyFilter(); el.focus(); } }],
