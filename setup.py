@@ -26,6 +26,7 @@ setup(
         exclude=[
             "ultron.tests*",
             "ultron.validation*",
+            "ultron.scratch*",
             "umags*",
             "synapse_project*",
         ],

@@ -58,7 +58,7 @@ class TestDocumentationReality(unittest.TestCase):
 
     def test_readme_cli_commands_valid(self):
         """Assert documented CLI commands and subcommands correspond to real implementations."""
-        subcommands = ["scan", "brief", "gate", "init"]
+        subcommands = ["scan", "brief", "gate", "init", "verify", "mcp", "hook", "impact"]
         for sub in subcommands:
             self.assertIn(f"ultron {sub}", self.readme_content, f"Documented subcommand ultron {sub} missing in README.md")
 
