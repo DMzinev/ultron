@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/DMzinev/ultron/actions/workflows/ci.yml"><img src="https://github.com/DMzinev/ultron/actions/workflows/ci.yml/badge.svg" alt="CI Build Status" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-3776AB?logo=python&logoColor=white" alt="Python Versions" /></a>
-  <a href="scripts/verify.py"><img src="https://img.shields.io/badge/tests-892%20passed%20%7C%200%20failed-10B981?logo=githubactions&logoColor=white" alt="Tests" /></a>
+  <a href="scripts/verify.py"><img src="https://img.shields.io/badge/tests-894%20passed%20%7C%200%20failed-10B981?logo=githubactions&logoColor=white" alt="Tests" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
   <a href="#-the-4-interactive-pillars"><img src="https://img.shields.io/badge/architecture%20health-100%2F100-10B981" alt="Architecture Health" /></a>
   <a href="#-honest-limitations"><img src="https://img.shields.io/badge/core%20runtime-zero%20dependencies-8B5CF6" alt="Zero Dependencies" /></a>
