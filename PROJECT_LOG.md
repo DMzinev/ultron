@@ -4753,4 +4753,50 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None. All 894 tests passing deterministically with 0 skips. Phase 4 and the entire 44-task roadmap are 100% complete and verified. Ready for v1.4.0 release tagging.
 
+---
 
+### 2026-09-16 — Task P5-A1: Comprehensive UI Polish, Accessible Keyboard Shortcuts Modal, Architecture Report Export & CLI Export Command
+
+**Branch:** `agent/P5-A1-ui-polish-export`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=894 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=905 failures=0 errors=0 skipped=0`
+
+**Attempted:** Author the official 8-task Phase 5 Master Blueprint (`docs/AGENT_EXECUTION_PLAN_PHASE5.md`) expanding the lifetime execution ledger to 52 tasks; expand `docs/TASK_PROGRESS_TRACKER.md` with Phase 5 tasks P5-A1 through P5-D2; synchronize Web UI footer version to `RKM Engine v1.4.0`; design and implement accessible Keyboard Shortcuts Modal (`#shortcuts-modal`) in `index.html`, styled with accessible backdrop and cards in `index.css`, interactive lifecycle methods (`toggleShortcutsModal`, `closeShortcutsModal`, backdrop click, Escape key close) in `modals.js`, and hotkey listener (`?`) with keyboard focus shielding (`input`, `textarea`, `select`, `contentEditable`) in `index.js`; implement Web UI Dashboard **"Export Report"** button calling `/api/v1/export-brief` and initiating native client-side Blob URL download in `dashboard.js`; extend backend route handlers in `agent_routes.py` and `export_routes.py` to support `markdown`, `html`, and `text` formats via `context_brief.compile_brief`; author dedicated CLI `ultron export --repo <path> [--format markdown|json|html|text] [--output <path>]` command in `ultron/interfaces/cli/commands/export.py` and register it in `ultron.py`; author 9 hermetic unit tests in `ultron/tests/test_export_command.py` with complete filesystem isolation; update frontend invariant assertions in `test_frontend_invariants.py` (footer version, modal DOM elements, shortcuts hotkey wiring); preserve `server.py` line ceiling strictly < 300 lines (297 lines) and all web JS modules strictly < 400 lines (e.g. `index.js` is 392 lines).
+
+**Antigravity self-audit result:**
+- [x] Authored Phase 5 Master Blueprint (`docs/AGENT_EXECUTION_PLAN_PHASE5.md`) with 8 production-grade tasks.
+- [x] Expanded `docs/TASK_PROGRESS_TRACKER.md` to 52 tasks across all 5 phases.
+- [x] Synchronized Web UI footer version label to `RKM Engine v1.4.0`.
+- [x] Designed and implemented accessible Keyboard Shortcuts Modal (`#shortcuts-modal`) in `index.html` with clean modal markup.
+- [x] Styled modal dialog, backdrop, shortcut grid, key badges, and topbar help button in `index.css`.
+- [x] Implemented modal opening, closing, Escape key dismiss, backdrop click handling in `modals.js` (107 lines, < 400).
+- [x] Implemented `?` hotkey with input focus shielding and button event binding in `index.js` (392 lines, < 400).
+- [x] Implemented Web UI Dashboard **"Export Report"** button and client-side Blob download in `dashboard.js` (256 lines, < 400).
+- [x] Extended `/api/v1/export-brief` backend route handler in `agent_routes.py` and `export_routes.py` to support `markdown`, `html`, and `text`.
+- [x] Authored CLI `ultron export` command in `ultron/interfaces/cli/commands/export.py` and registered in `ultron.py`.
+- [x] Authored 9 hermetic unit tests in `ultron/tests/test_export_command.py` covering all formats, invalid formats, custom output files, auto-created directories, and nonexistent repo paths.
+- [x] Dedicated export unit suite passes cleanly: `9 ran, 0 failed, 0 errors, 0 skipped` in 0.28s.
+- [x] Frontend invariant suite passes cleanly: `7 ran, 0 failed, 0 errors, 0 skipped` in `test_frontend_invariants.py`.
+- [x] Route contract test passes cleanly: `10 ran, 0 failed, 0 errors, 0 skipped` in `test_route_contract.py`.
+- [x] Master verification gate passes cleanly: `TESTS: 905 ran, 0 failed, 0 errors, 0 skipped` in `scripts/verify.py` in 424.138s (Exit code: 0).
+- [x] Server line ceiling strictly preserved: `server.py` is 297 lines (< 300).
+- [x] Frontend line ceiling strictly preserved: all 13 JS modules strictly < 400 lines (`index.js` = 392, `modals.js` = 107, `dashboard.js` = 256).
+- [x] Pure standard library: zero new external dependencies introduced.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML model or classifier claims.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are hermetic. Verified all 9 unit tests execute with temp directories and mock repositories; zero external network queries; web UI interactions handled client-side via Blob URLs.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive inputs: invalid export formats (`ValueError`/HTTP 400), nonexistent repo paths, nonexistent output directory paths (auto-created via `os.makedirs`), empty outputs, keyboard focus shielding in `input`/`textarea`, escape key close handling.
+5. **Silent Failure Check:** Tested explicit failure modes: unknown export format returns HTTP 400 with `{"error": ...}` or CLI exit code 1; nonexistent repository path returns HTTP 400 or CLI error; export failure in UI displays error notification toast.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P5-A1 (Comprehensive UI Polish, Accessible Keyboard Shortcuts Modal, Architecture Report Export & CLI Export Command) COMPLETED on `agent/P5-A1-ui-polish-export`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 905 tests passing deterministically with 0 skips. Ready for delivery audit and merge into master.

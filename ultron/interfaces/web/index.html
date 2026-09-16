@@ -37,6 +37,7 @@
 
   <button id="scan-btn" class="btn btn-primary">Scan repository</button>
 
+  <button id="btn-shortcuts-help" class="btn btn-ghost btn-sm btn-icon" title="Keyboard Shortcuts [?]" aria-label="Keyboard shortcuts">?</button>
   <div id="conn" class="conn" title="Server connection">
     <span class="dot"></span><span id="conn-text">connecting…</span>
   </div>
@@ -119,6 +120,7 @@
           <div class="summary-memory">
             <div id="memory-line" class="memory-line">Not saved yet</div>
             <button id="save-btn" class="btn btn-ghost btn-sm">Save this scan</button>
+            <button id="export-btn" class="btn btn-ghost btn-sm" title="Download executive architecture briefing">Export report</button>
           </div>
         </div>
       </div>
@@ -400,11 +402,55 @@
     <button id="retry-btn" class="btn btn-primary">Try again</button>
   </section>
 
+  <!-- Keyboard Shortcuts Modal -->
+  <div id="shortcuts-modal" class="modal-backdrop" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+      <div class="modal-header">
+        <h3 id="shortcuts-title">Keyboard Shortcuts</h3>
+        <button id="close-shortcuts-btn" class="modal-close-btn" aria-label="Close shortcuts">×</button>
+      </div>
+      <div class="shortcut-grid">
+        <div class="shortcut-row">
+          <kbd class="key-badge">1</kbd>
+          <span>Architecture Dashboard</span>
+        </div>
+        <div class="shortcut-row">
+          <kbd class="key-badge">2</kbd>
+          <span>Topology Graph</span>
+        </div>
+        <div class="shortcut-row">
+          <kbd class="key-badge">3</kbd>
+          <span>AI Agent Studio</span>
+        </div>
+        <div class="shortcut-row">
+          <kbd class="key-badge">4</kbd>
+          <span>Code Auditor</span>
+        </div>
+        <div class="shortcut-row">
+          <kbd class="key-badge">/</kbd>
+          <span>Focus Filter Files Search</span>
+        </div>
+        <div class="shortcut-row">
+          <kbd class="key-badge">Enter</kbd>
+          <span>Scan Repository (in Path Input)</span>
+        </div>
+        <div class="shortcut-row">
+          <kbd class="key-badge">Esc</kbd>
+          <span>Dismiss Modals, Drawers &amp; Selection</span>
+        </div>
+        <div class="shortcut-row">
+          <kbd class="key-badge">?</kbd>
+          <span>Toggle this Shortcuts Cheat-Sheet</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <footer class="foot">
   <span>Ultron runs entirely on this machine.</span>
-  <span class="foot-meta">RKM Engine v1.3.0 &bull; Local AST Zero-Revision Verification</span>
+  <span class="foot-meta">RKM Engine v1.4.0 &bull; Local AST Zero-Revision Verification</span>
 </footer>
 
 <div id="toast" class="toast" hidden></div>

@@ -25,7 +25,7 @@ def handle_v1_export_brief(handler: Any) -> None:
 
     try:
         norm_path = os.path.normpath(os.path.abspath(repo_path))
-        brief_md = context_brief.generate_vibe_context_package(norm_path)
+        brief_md = context_brief.compile_brief(norm_path)
 
         if fmt == "json":
             if isinstance(brief_md, dict):

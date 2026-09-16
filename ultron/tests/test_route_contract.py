@@ -80,7 +80,7 @@ class TestRouteContract(unittest.TestCase):
             "POST /api/v1/overview": {"repo": self.repo_path},
             "POST /api/v1/cancel-analysis": {},
             "POST /api/v1/context-brief": {"repo": self.repo_path},
-            "POST /api/v1/export-brief": {"repo": self.repo_path, "format": "markdown"},
+            "POST /api/v1/export-brief": {"repo": self.repo_path, "format": "invalid"},
             "POST /api/v1/ai/critique": {"repo": self.repo_path, "file_path": "main.py"},
             "POST /api/config": {},
             "POST /api/analyze": {"repo": self.repo_path},

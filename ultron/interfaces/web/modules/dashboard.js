@@ -4,7 +4,7 @@
  */
 
 import { state } from "./state.js";
-import { $, esc, splitPath, banner, show } from "./api.js";
+import { $, esc, splitPath, banner, show, api, showToast } from "./api.js";
 
 export function updatePrimaryVerdict() {
   const highCount = (state.risks || []).filter(r => (r.level || "").toUpperCase() === "HIGH").length;
@@ -223,5 +223,34 @@ export function renderDashboard(data, healthData) {
     const auditorFile = $("auditor-file-input");
     if (studioTarget && !studioTarget.value) studioTarget.value = topFile;
     if (auditorFile && !auditorFile.value) auditorFile.value = topFile;
+  }
+}
+
+export async function exportScanReport() {
+  const btn = $("export-btn");
+  if (btn) btn.disabled = true;
+  try {
+    const res = await api("/api/v1/export-brief", {
+      repo: state.repo || ".",
+      format: "markdown"
+    });
+    if (!res || !res.content) {
+      showToast("Failed to generate export report");
+      return;
+    }
+    const blob = new Blob([res.content], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ultron-architecture-report-${new Date().toISOString().slice(0, 10)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("Architecture report exported");
+  } catch (err) {
+    showToast(`Export error: ${err.message || err}`);
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }

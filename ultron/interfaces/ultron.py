@@ -131,7 +131,7 @@ def main():
         print(pkg["prompt_package"])
         sys.exit(0)
     # Subcommand Handling
-    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate", "scan", "verify", "mcp", "hook", "impact"):
+    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate", "scan", "verify", "mcp", "hook", "impact", "export"):
         cmd = sys.argv[1]
         sub_parser = argparse.ArgumentParser(prog=f"ultron {cmd}")
         sub_parser.add_argument("--repo", default=".", help="Path to codebase repository")
@@ -141,6 +141,9 @@ def main():
         elif cmd == "report":
             sub_parser.add_argument("--format", default="markdown", choices=["markdown", "html", "json"], help="Output format")
             sub_parser.add_argument("--output", help="Output file path (optional)")
+        elif cmd == "export":
+            sub_parser.add_argument("--format", default="markdown", choices=["markdown", "json", "html", "text"], help="Export output format (default: markdown)")
+            sub_parser.add_argument("--output", default=None, help="Path to write exported report to file")
         elif cmd == "brief":
             sub_parser.add_argument("file", nargs="?", default="", help="Target file path to generate mission brief for")
             sub_parser.add_argument("--intent", default="", help="Natural language change intent")
@@ -595,6 +598,15 @@ class InterfaceHandler:
                 max_depth=getattr(sub_args, "max_depth", 5),
                 runner=getattr(sub_args, "runner", "auto"),
                 json_output=getattr(sub_args, "json", False)
+            )
+            sys.exit(code)
+
+        elif cmd == "export":
+            from ultron.interfaces.cli.commands.export import run_export_command
+            code = run_export_command(
+                repo_path=sub_args.repo,
+                fmt=getattr(sub_args, "format", "markdown"),
+                output_path=getattr(sub_args, "output", None)
             )
             sys.exit(code)
 
