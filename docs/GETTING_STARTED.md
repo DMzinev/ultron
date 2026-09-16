@@ -534,3 +534,71 @@ Once configured, your agent can call Ultron autonomously during editing:
 - `audit_file(target_file)`: Scan for syntax drift and call anomalies.
 - `explain_violation(violation_id)`: Get plain-English remediation instructions.
 
+---
+
+## Appendix D — Native Git Pre-Commit & Pre-Push Quality Gate Hook
+
+Ultron can install native Git hooks that automatically run architectural regression checks before every commit and push, preventing developers and AI agents from landing degrading changes:
+
+### D.1 Install Hooks
+
+```bash
+# Install pre-commit and pre-push hooks in the current repository
+ultron hook install --repo .
+
+# Install with a specific baseline reference for regression gating
+ultron hook install --repo . --base HEAD
+```
+
+The installer:
+- Discovers the correct `.git/hooks/` directory (supports standard repos, worktrees, and submodules).
+- Generates portable shell scripts (POSIX/Git Bash compatible with explicit LF line endings).
+- Resolves the correct Python interpreter (virtual environment → local `.venv` → system Python).
+- Backs up any existing foreign hooks as `<hook>.bak.<microsecond_timestamp>` before overwriting.
+- Is fully idempotent — safe to run repeatedly.
+
+### D.2 Uninstall & Status
+
+```bash
+# Remove Ultron hooks and restore any previously backed-up foreign hooks
+ultron hook uninstall --repo .
+
+# Check current hook installation status
+ultron hook status --repo .
+```
+
+---
+
+## Appendix E — Differential Impact Simulator (`ultron impact`)
+
+When an AI agent edits a file, running the entire test suite can take minutes. `ultron impact` computes the exact topological blast radius and maps affected production files to their corresponding test files, enabling targeted test execution:
+
+```bash
+# Compute blast radius and affected test set for a specific file
+ultron impact ultron/core/analyzer.py
+
+# Output machine-readable JSON for agent consumption
+ultron impact ultron/core/analyzer.py --json
+
+# Limit traversal depth and specify test runner
+ultron impact ultron/core/analyzer.py --max-depth 5 --runner pytest
+```
+
+### E.1 Output Fields
+
+| Field | Description |
+|:---|:---|
+| `target` | The file being analyzed |
+| `callers` | Direct upstream caller count |
+| `blast_radius` | Total transitive downstream files at risk |
+| `blast_score` | Normalized severity score |
+| `severity` | Classification: `LOW` (< 5.0), `MEDIUM` (5.0–15.0), `HIGH` (≥ 15.0) |
+| `affected_files` | List of all transitively affected production files |
+| `affected_tests` | List of test files covering the affected production files |
+| `recommended_command` | Auto-generated test runner command for the affected test subset |
+
+### E.2 Severity Thresholds
+
+- **LOW** (blast score < 5.0): Isolated change, minimal downstream risk.
+- **MEDIUM** (blast score 5.0–15.0): Moderate fan-out, targeted test subset recommended.
+- **HIGH** (blast score ≥ 15.0): High fan-out, full regression suite recommended.

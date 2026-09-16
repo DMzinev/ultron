@@ -4707,3 +4707,50 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None. All 15 impact simulator unit tests passing deterministically with 0 skips. Full master verification gate passing with 892 tests, 0 failures, 0 errors, 0 skipped.
 
+---
+
+### 2026-09-16 — Task P4-D1: Clean-Room Build, Wheel Distribution Invariant & Documentation Reality Sign-Off
+
+**Branch:** `agent/P4-D1-release-validation`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=892 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=894 failures=0 errors=0 skipped=0`
+
+**Attempted:** Validate clean-room distribution wheel build and archive completeness in `ultron/tests/test_distribution_packaging.py`; harden packaging exclusions by adding `"ultron.scratch*"` to `[tool.setuptools.packages.find].exclude` in `pyproject.toml` and `find_packages(exclude=[...])` in `setup.py` to guarantee zero scratch playground files leak into release wheels; author static AST and text assertions in `test_scratch_exclusion_declared_in_packaging_config` verifying scratch exclusions; author `test_clean_room_wheel_archive_invariants` building a wheel to an isolated temporary directory, inspecting the `.whl` archive via `zipfile.ZipFile`, asserting the presence of all core modules, web assets (`web/modules/*.js`), RKM data (`migrations/*.sql`, `rulepacks/**/*.json`), and console script entry points (`entry_points.txt`), and asserting zero leakage of forbidden paths (`ultron/tests/`, `ultron/scratch/`, `ultron/validation/`); expand CLI subcommands verification in `test_documentation_reality.py` to enforce bidirectional parity across all 8 CLI subcommands (`scan`, `brief`, `gate`, `verify`, `init`, `mcp`, `hook`, `impact`); synchronize all documentation counters and references across `README.md` (badges, 892+ tests, 44-task ledger, Phase 4 CLI subcommands, composite GitHub Action `DMzinev/ultron-action@v1`), `docs/GETTING_STARTED.md` (Appendix D for `ultron hook` and Appendix E for `ultron impact`), `docs/RESOURCES.md` (892+ tests, 8 subcommands, 44 planned tasks), and `docs/TASK_PROGRESS_TRACKER.md` (row 44 COMPLETED); preserve all constitutional invariants (server.py < 300 lines, all 13 frontend JS modules < 400 lines, zero external base dependencies, zero skips across all test suites).
+
+**Antigravity self-audit result:**
+- [x] Hardened packaging exclusions: added `"ultron.scratch*"` to `pyproject.toml` and `setup.py`.
+- [x] Added static exclude assertion `test_scratch_exclusion_declared_in_packaging_config` in `ultron/tests/test_distribution_packaging.py`.
+- [x] Added clean-room wheel archive completeness test `test_clean_room_wheel_archive_invariants` in `ultron/tests/test_distribution_packaging.py` asserting presence of all core modules, web assets, migrations, rulepacks, entry points, and absence of tests/scratch.
+- [x] Expanded `subcommands` list in `ultron/tests/test_documentation_reality.py` to all 8 CLI subcommands (`scan`, `brief`, `gate`, `verify`, `init`, `mcp`, `hook`, `impact`).
+- [x] Synchronized `README.md`: test badge (`892 passed | 0 failed`), test count (`892+ automated tests`), task count (`44-task execution ledger`), documented `ultron mcp install`, `ultron hook install`, `ultron impact`, and official composite GitHub Action `DMzinev/ultron-action@v1`.
+- [x] Synchronized `docs/GETTING_STARTED.md`: added Appendix D (`ultron hook install`, `uninstall`, `status`) and Appendix E (`ultron impact <file>`).
+- [x] Synchronized `docs/RESOURCES.md`: updated CLI subcommand list, test count (`892+`), and task milestone (`44 planned tasks`).
+- [x] Updated `docs/TASK_PROGRESS_TRACKER.md`: row 44 marked COMPLETED.
+- [x] Dedicated packaging test suite passes: `24 ran, 0 failed, 0 errors, 0 skipped` in `test_distribution_packaging.py`.
+- [x] Documentation reality test suite passes: `5 ran, 0 failed, 0 errors, 0 skipped` in `test_documentation_reality.py`.
+- [x] Invariant test suites pass: `39 ran, 0 failed, 0 errors, 0 skipped` (`test_skip_invariants`, `test_frontend_invariants`, `test_self_scan_integrity`, `test_documentation_reality`, `test_project_log_compliance`, `test_distribution_packaging`).
+- [x] Master verification gate passes cleanly: `TESTS: 894 ran, 0 failed, 0 errors, 0 skipped` in `scripts/verify.py` in 240.163s (Exit code: 0).
+- [x] Server line ceiling strictly preserved: `server.py` is 297 lines (< 300).
+- [x] Frontend line ceiling strictly preserved: all 13 JS modules strictly < 400 lines.
+- [x] Pure standard library: zero new external dependencies introduced (`dependencies = []`, `install_requires = []`).
+- [x] Zero writes to host repository root: all wheel build tests execute in `tempfile.TemporaryDirectory()` and clean up residue.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML model or classifier claims.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are hermetic. Verified wheel archive tests execute in isolated sandbox directories created via `tempfile.TemporaryDirectory()`; zero external network queries to PyPI or remote endpoints.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive packaging invariants: positive verification of required core modules, static assets (`web/modules/*.js`), migrations, rulepacks, and entry points; negative verification of excluded directories (`ultron/tests/`, `ultron/scratch/`, `ultron/validation/`); verified static presence of `"ultron.scratch*"` in both `pyproject.toml` and `setup.py` AST.
+5. **Silent Failure Check:** Tested explicit failure modes: missing required modules or leaked forbidden files trigger explicit assertion failures in `test_clean_room_wheel_archive_invariants`; build failures surface subprocess return code and stderr output; missing CLI subcommands fail loudly in `test_readme_cli_commands_valid`.
+6. **Causal / Probabilistic Claims:** Exclusion of `"ultron.scratch*"` in `pyproject.toml` and `setup.py` causally prevents local scratch playgrounds from being packaged into distribution wheels, confirmed empirically by archive inspection.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P4-D1 (Clean-Room Build, Wheel Distribution Invariant & Documentation Reality Sign-Off) COMPLETED on `agent/P4-D1-release-validation`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 894 tests passing deterministically with 0 skips. Phase 4 and the entire 44-task roadmap are 100% complete and verified. Ready for v1.4.0 release tagging.
+
+

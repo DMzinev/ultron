@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/DMzinev/ultron/actions/workflows/ci.yml"><img src="https://github.com/DMzinev/ultron/actions/workflows/ci.yml/badge.svg" alt="CI Build Status" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-3776AB?logo=python&logoColor=white" alt="Python Versions" /></a>
-  <a href="scripts/verify.py"><img src="https://img.shields.io/badge/tests-820%20passed%20%7C%200%20failed-10B981?logo=githubactions&logoColor=white" alt="Tests" /></a>
+  <a href="scripts/verify.py"><img src="https://img.shields.io/badge/tests-894%20passed%20%7C%200%20failed-10B981?logo=githubactions&logoColor=white" alt="Tests" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
   <a href="#-the-4-interactive-pillars"><img src="https://img.shields.io/badge/architecture%20health-100%2F100-10B981" alt="Architecture Health" /></a>
   <a href="#-honest-limitations"><img src="https://img.shields.io/badge/core%20runtime-zero%20dependencies-8B5CF6" alt="Zero Dependencies" /></a>
@@ -227,7 +227,7 @@ $ ultron gate --repo . --max-high 2 --min-health 80.0 --github-annotations
 Ultron is structured cleanly into cohesive subsystems:
 - **`ultron/core/`**: The static analysis core — AST traversal (`analyzer.py`), dependency topology (`graph.py`), cycle detection (`cycle_detector.py`), git churn (`git_adapter.py`), coverage ingestion (`coverage_adapter.py`), and RKM store (`rkm/store.py`).
 - **`ultron/interfaces/`**: Developer interfaces — local dashboard server (`server.py`, strictly < 300 lines), unified CLI (`ultron.py`), MCP server (`mcp_server.py`), and vanilla web assets (`web/`).
-- **`ultron/tests/`**: 820+ automated tests partitioned strictly across unit, integration, and security boundaries.
+- **`ultron/tests/`**: 892+ automated tests partitioned strictly across unit, integration, and security boundaries.
 - **`scripts/`**: Automation entry points including canonical test runner (`verify.py`).
 - **`docs/`**: Complete architecture specifications, benchmarks, and guides.
 
@@ -241,7 +241,7 @@ Explore deep architectural documentation in our [Central Resources Hub](docs/RES
 - **[Confidence Weight Calibration](docs/calibration/CONFIDENCE_WEIGHT_CALIBRATION.md)**: Empirical evaluation against git defect history.
 - **[System Architecture Map](docs/architecture/SYSTEM_MAP.md)**: Subsystem boundaries and communication flow.
 - **[Observation Data Pipeline](docs/architecture/OBSERVATION_DATA_PIPELINE.md)**: End-to-end data processing specification.
-- **[Task Progress Tracker](docs/TASK_PROGRESS_TRACKER.md)**: 36-task execution ledger and verified commit hashes.
+- **[Task Progress Tracker](docs/TASK_PROGRESS_TRACKER.md)**: 44-task execution ledger and verified commit hashes.
 - **[Contributing Guide](CONTRIBUTING.md)**: Development environment and code review guidelines.
 - **[Security Policy](SECURITY.md)**: Vulnerability disclosure and privacy architecture.
 
@@ -279,8 +279,31 @@ ultron verify --json
 # Initialize Repository Knowledge Model (RKM) database
 ultron init --repo .
 
+# Auto-configure AI editor MCP integration (Cursor, Claude, Windsurf, VS Code)
+ultron mcp install --client cursor
+ultron mcp install --client all --global --json
+
+# Install native Git pre-commit & pre-push quality gate hooks
+ultron hook install --repo .
+ultron hook uninstall --repo .
+ultron hook status --repo .
+
+# Compute differential blast radius and affected test set for a file
+ultron impact ultron/core/analyzer.py --json
+ultron impact ultron/core/analyzer.py --max-depth 5 --runner pytest
+
 # Launch local dashboard server
 ultron-server --port 8000 --host 127.0.0.1
+```
+
+### 🏗️ GitHub Action — 1-Line CI Integration
+
+Integrate Ultron as an automated architectural quality gate in your GitHub Actions workflow using the official composite action:
+```yaml
+- uses: DMzinev/ultron-action@v1
+  with:
+    max-high: 10
+    min-health: 65.0
 ```
 
 ---

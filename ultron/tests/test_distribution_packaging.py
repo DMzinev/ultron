@@ -542,7 +542,160 @@ def sample_func(a, b):
 
         return handler
 
+    # --------------------------------------------------------------------------
+    # 7. Static Packaging Exclusion & Clean-Room Wheel Archive Verification
+    # --------------------------------------------------------------------------
+
+    def test_scratch_exclusion_declared_in_packaging_config(self):
+        """Verify that 'ultron.scratch*' is explicitly declared in exclude lists of both pyproject.toml and setup.py."""
+        # 1. pyproject.toml — parse raw text for exclude entry
+        pyproject_path = os.path.join(REPO_ROOT, "pyproject.toml")
+        with open(pyproject_path, "r", encoding="utf-8") as f:
+            pyproject_content = f.read()
+        self.assertIn(
+            '"ultron.scratch*"',
+            pyproject_content,
+            "pyproject.toml [tool.setuptools.packages.find] exclude must contain 'ultron.scratch*'"
+        )
+
+        # 2. setup.py — AST parse for find_packages exclude argument
+        setup_path = os.path.join(REPO_ROOT, "setup.py")
+        with open(setup_path, "r", encoding="utf-8") as f:
+            setup_tree = ast.parse(f.read(), filename="setup.py")
+
+        found_scratch_exclude = False
+        for node in ast.walk(setup_tree):
+            if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "find_packages":
+                for kw in node.keywords:
+                    if kw.arg == "exclude":
+                        exclude_list = ast.literal_eval(kw.value)
+                        if "ultron.scratch*" in exclude_list:
+                            found_scratch_exclude = True
+                            break
+        self.assertTrue(
+            found_scratch_exclude,
+            "setup.py find_packages(exclude=[...]) must contain 'ultron.scratch*'"
+        )
+
+    def test_clean_room_wheel_archive_invariants(self):
+        """Build a wheel into a temp dir and verify archive completeness and exclusion hygiene."""
+        import zipfile
+        import shutil
+
+        # Build into isolated temp directory to avoid polluting REPO_ROOT
+        with tempfile.TemporaryDirectory(prefix="ultron_wheel_") as tmp_out:
+            # Prefer uv build (portable, handles build deps automatically)
+            # Fall back to pip wheel --no-deps if uv unavailable
+            uv_bin = shutil.which("uv")
+            if uv_bin:
+                cmd = [uv_bin, "build", "--wheel", "--out-dir", tmp_out]
+            else:
+                cmd = [
+                    sys.executable, "-m", "pip", "wheel",
+                    "--no-deps", "--no-build-isolation",
+                    "-w", tmp_out, ".",
+                ]
+
+            proc = subprocess.run(
+                cmd,
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            self.assertEqual(
+                proc.returncode, 0,
+                f"Wheel build failed (exit {proc.returncode}):\n{proc.stderr}"
+            )
+
+            # Clean up build/ and egg-info residue that build tools may leave in REPO_ROOT
+            for residue in ("build", "ultron_risk_scorer.egg-info"):
+                residue_path = os.path.join(REPO_ROOT, residue)
+                if os.path.isdir(residue_path):
+                    shutil.rmtree(residue_path, ignore_errors=True)
+
+            # Find the .whl file
+            whl_files = [f for f in os.listdir(tmp_out) if f.endswith(".whl")]
+            self.assertEqual(len(whl_files), 1, f"Expected exactly 1 .whl file, found: {whl_files}")
+            whl_path = os.path.join(tmp_out, whl_files[0])
+
+            with zipfile.ZipFile(whl_path, "r") as zf:
+                names = zf.namelist()
+
+                # --- Positive assertions: core modules present ---
+                required_entries = [
+                    "ultron/__init__.py",
+                    "ultron/__main__.py",
+                    "ultron/core/analyzer.py",
+                    "ultron/core/cycle_detector.py",
+                    "ultron/core/risk/scoring.py",
+                    "ultron/core/rkm/store.py",
+                    "ultron/interfaces/server.py",
+                    "ultron/interfaces/ultron.py",
+                    "ultron/interfaces/mcp_server.py",
+                    "ultron/interfaces/cli/commands/hook.py",
+                    "ultron/interfaces/cli/commands/impact.py",
+                    "ultron/interfaces/cli/commands/mcp.py",
+                    "ultron/config/settings.py",
+                ]
+                for entry in required_entries:
+                    self.assertTrue(
+                        any(n == entry for n in names),
+                        f"Required module '{entry}' missing from wheel archive"
+                    )
+
+                # --- Positive assertions: web assets present ---
+                web_assets = [
+                    "ultron/interfaces/web/index.html",
+                    "ultron/interfaces/web/index.css",
+                    "ultron/interfaces/web/index.js",
+                    "ultron/interfaces/web/modules/api.js",
+                    "ultron/interfaces/web/modules/graph.js",
+                    "ultron/interfaces/web/modules/dashboard.js",
+                    "ultron/interfaces/web/modules/state.js",
+                ]
+                for asset in web_assets:
+                    self.assertTrue(
+                        any(n == asset for n in names),
+                        f"Required web asset '{asset}' missing from wheel archive"
+                    )
+
+                # --- Positive assertions: RKM data files present ---
+                self.assertTrue(
+                    any("migrations/" in n and n.endswith(".sql") for n in names),
+                    "No SQL migration files found in wheel archive"
+                )
+                self.assertTrue(
+                    any("rulepacks/" in n and n.endswith(".json") for n in names),
+                    "No rulepack JSON files found in wheel archive"
+                )
+
+                # --- Positive assertions: entry_points.txt present ---
+                ep_entries = [n for n in names if n.endswith("entry_points.txt")]
+                self.assertTrue(
+                    len(ep_entries) >= 1,
+                    "entry_points.txt missing from wheel dist-info"
+                )
+                ep_content = zf.read(ep_entries[0]).decode("utf-8")
+                self.assertIn("ultron", ep_content)
+                self.assertIn("ultron-server", ep_content)
+                self.assertIn("ultron-mcp", ep_content)
+
+                # --- Negative assertions: forbidden paths absent ---
+                forbidden_prefixes = [
+                    "ultron/tests/",
+                    "ultron/scratch/",
+                    "ultron/validation/",
+                ]
+                leaked = [
+                    n for n in names
+                    if any(n.startswith(pfx) for pfx in forbidden_prefixes)
+                ]
+                self.assertEqual(
+                    leaked, [],
+                    f"Wheel archive contains forbidden files that should be excluded: {leaked}"
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
-

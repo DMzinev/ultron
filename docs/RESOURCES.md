@@ -44,13 +44,13 @@ ultron/
 │   │   │   └── mission_routes.py    # AI mission compilation and handoff
 │   │   └── middleware/          # Security, error handling, and payload validation
 │   ├── cli/                     # CLI subcommand implementations
-│   │   └── commands/            # Handlers for `scan`, `brief`, `gate`, `verify`, `init`
+│   │   └── commands/            # Handlers for `scan`, `brief`, `gate`, `verify`, `init`, `mcp`, `hook`, `impact`
 │   └── web/                     # Interactive control plane frontend (Zero external JS/CSS frameworks)
 │       ├── index.html           # 4-pillar UI layout (Dashboard, Graph, Studio, Auditor)
 │       ├── index.css            # Dark-theme responsive ergonomics and typography
 │       └── index.js             # Client-side state, D3-compatible SVG rendering, and API bridge
 │
-├── tests/                       # 820+ automated tests partitioned across boundaries
+├── tests/                       # 892+ automated tests partitioned across boundaries
 │   ├── fixtures/                # Standard test repositories (clean_repo, tangled_repo, mixed_repo)
 │   ├── test_self_scan_integrity.py  # Partition invariant: zero test/fixture leakage in production
 │   ├── test_documentation_reality.py # Enforces 100% sync between docs and real code
@@ -90,7 +90,7 @@ ultron/
 - **Model Context Protocol (MCP)**: JSON-RPC 2.0 stdio server specification exposing 7 canonical tools (`get_risk_profile`, `get_blast_radius`, `compile_mission`, `audit_file`, `get_context_brief`, `evaluate_repository`, `explain_violation`).
 
 ### 5. Tracking & Forensic Verification
-- **[Task Progress Tracker](TASK_PROGRESS_TRACKER.md)**: Lifetime execution sequence of all 36 planned tasks across Phase 1, Phase 2, and Phase 3, commit hashes, and acceptance evidence.
+- **[Task Progress Tracker](TASK_PROGRESS_TRACKER.md)**: Lifetime execution sequence of all 44 planned tasks across Phase 1, Phase 2, Phase 3, and Phase 4, commit hashes, and acceptance evidence.
 - **[Project Log](../PROJECT_LOG.md)**: Forensic verification ledger with standard before/after test suite counts and Category B empirical checklists.
 - **[Untracked Inventory](UNTRACKED_INVENTORY.md)**: Audit record of temporary scratch scripts and artifacts.
 
@@ -139,5 +139,5 @@ Add Ultron to your `claude_desktop_config.json`:
 
 1. **Zero External Dependencies**: Core runtime is 100% pure standard library Python ($\ge 3.10$).
 2. **Backend Server Discipline**: `ultron/interfaces/server.py` is constrained to strictly `< 300` lines to prevent god-file regrowth.
-3. **Single Source-of-Truth Test Gate**: All verification executes through `python scripts/verify.py`, running 820+ tests with greppable output and clean JSON serialization.
+3. **Single Source-of-Truth Test Gate**: All verification executes through `python scripts/verify.py`, running 892+ tests with greppable output and clean JSON serialization.
 4. **Hermetic Local Loopback**: All network communication is bound strictly to `127.0.0.1`. Zero external telemetry, tracking, or telemetry reporting.
