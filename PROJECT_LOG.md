@@ -4844,3 +4844,52 @@ PENDING — not yet reviewed by an external party.
 
 **Open questions / follow-up:**
 None. All 908 tests passing deterministically with 0 skips. Ready for delivery audit and merge into master.
+
+---
+
+### 2026-09-17 — Task P5-B1: Rich Terminal Dashboard & ANSI Color Formatting for `ultron scan` and `ultron gate`
+
+**Branch:** `agent/P5-B1-rich-terminal-formatting`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=908 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=922 failures=0 errors=0 skipped=0`
+
+**Attempted:** Implement pure Python standard-library ANSI terminal formatting and rich colorized executive dashboards for `ultron scan` and `ultron gate`; create `ultron/interfaces/cli/formatting.py` with terminal color detection (`supports_color`) honoring `sys.stdout.isatty()`, `NO_COLOR`, `TERM=dumb`, Windows Virtual Terminal Processing (`ENABLE_VIRTUAL_TERMINAL_PROCESSING` via `ctypes.windll.kernel32.SetConsoleMode`), and explicit `--color` / `--no-color` overrides; implement Unicode encoding capability detection (`can_encode_unicode`) with safe ASCII fallbacks for non-UTF-8 terminals (e.g. `cp1252`); implement ANSI width stripping (`strip_ansi`), colorized severity pills (`format_badge`), health score progress bars (`format_score_bar`), box-drawing wrappers (`_box_row` with strict inner width truncation and padding), and multi-pane executive summary dashboards (`format_scan_dashboard`, `format_gate_summary`); refactor `ultron/interfaces/cli/commands/analysis.py` to extract `run_scan_command` supporting interactive rich dashboard rendering and machine-readable `--json` output; update `ultron/interfaces/cli/commands/gate.py` to render colorized pass/fail summaries and threshold evaluations; update `ultron/interfaces/ultron.py` to route `scan` subcommand through `run_scan_command` and add `--no-color` and `--color` flags to `scan` and `gate` parsers; author 14 hermetic unit tests in `ultron/tests/test_cli_formatting.py` with zero skips and dynamic target stream resolution; maintain all line-count invariants (`server.py` at 297 lines < 300, all 13 JS modules < 400 lines) and zero external dependencies.
+
+**Antigravity self-audit result:**
+- [x] Implemented pure Python standard-library ANSI formatting module at `ultron/interfaces/cli/formatting.py` (223 lines).
+- [x] Implemented `supports_color` with multi-tier checks: forced flags (`force_color`), `NO_COLOR` environment variable, `TERM=dumb`, stream TTY probe, and Windows VTP enablement via `ctypes`.
+- [x] Implemented `can_encode_unicode` detecting stream encoding support with ASCII fallbacks (`[OK]`, `[FAIL]`, `\-`, `+--+`) preventing codec crashes on Windows `cp1252`.
+- [x] Implemented `strip_ansi` with regex pattern stripping ANSI sequences for accurate visible text width calculations.
+- [x] Implemented `_box_row` with strict inner width padding and length truncation preventing box-drawing border misalignment.
+- [x] Implemented `format_scan_dashboard` rendering architecture health, risk distribution bar, top risky files, and quick commands.
+- [x] Implemented `format_gate_summary` rendering colorized pass/fail banner, threshold comparison table, and failure reasons.
+- [x] Modularized `run_scan_command` in `ultron/interfaces/cli/commands/analysis.py` supporting `--json`, `--color`, `--no-color`, and error handling.
+- [x] Enhanced `run_gate_command` in `ultron/interfaces/cli/commands/gate.py` with colorized output support and dynamic stream safe printing.
+- [x] Registered symmetric `--no-color` and `--color` flags in `ultron/interfaces/ultron.py` and routed `cmd == "scan"` to `run_scan_command`.
+- [x] Authored 14 hermetic unit tests in `ultron/tests/test_cli_formatting.py` covering color detection, ANSI stripping, Unicode fallback, box row geometry, dashboard rendering, gate summaries, and stream safety.
+- [x] Unit test suite passes cleanly: `14 ran, 0 failed, 0 errors, 0 skipped` in 0.009s.
+- [x] Existing CI gate suites pass cleanly: `43 ran, 0 failed, 0 errors, 0 skipped` in 19.47s (`test_ci_gate`, `test_ci_gate_contract`, `test_ci_action`).
+- [x] Core invariant suites pass cleanly: `46 ran, 0 failed, 0 errors, 0 skipped` in 15.864s (`test_skip_invariants`, `test_frontend_invariants`, `test_self_scan_integrity`, `test_distribution_packaging`, `test_documentation_reality`, `test_project_log_compliance`).
+- [x] Master verification gate passes cleanly: `TESTS: 922 ran, 0 failed, 0 errors, 0 skipped` in `scripts/verify.py` in 287.822s (Exit code: 0).
+- [x] Server line ceiling strictly preserved: `server.py` is 297 lines (< 300).
+- [x] Frontend line ceiling strictly preserved: all 13 JS modules strictly < 400 lines (none touched).
+- [x] Pure standard library: zero new external dependencies introduced (`dependencies = []`).
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML model or classifier claims.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are hermetic. Verified all 14 unit tests execute locally with mocked terminal streams, environment variables, and memory data structures; zero external network queries; zero external CLI dependencies.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: box-row length invariants (`_box_row` visible length strictly equals `inner_width + 4` across short, exact-fit, and overflowing text); health score bar bounds (0.0%, 50.0%, 100.0%, negative and >100 clamped); `supports_color` matrix across `force_color=True/False`, `NO_COLOR=""/"1"`, `TERM="dumb"`, and `isatty=True/False`; stream encoding fallback probes (`utf-8` vs `cp1252`/`ascii`).
+5. **Silent Failure Check:** Tested explicit failure modes: non-TTY and non-Unicode streams safely degrade to unadorned ASCII text without raising `UnicodeEncodeError` or leaking escape codes; `safe_print` catches stream encoding/I/O errors and falls back to ASCII replacement print; `run_scan_command` and `run_gate_command` catch missing repositories or bad arguments, returning non-zero exit codes with actionable error messages.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P5-B1 (Rich Terminal Dashboard & ANSI Color Formatting for `ultron scan` and `ultron gate`) COMPLETED on `agent/P5-B1-rich-terminal-formatting`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 922 tests passing deterministically with 0 skips. Ready for delivery audit and merge into master.
+

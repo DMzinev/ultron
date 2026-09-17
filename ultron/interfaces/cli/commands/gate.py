@@ -141,19 +141,22 @@ def extract_baseline_from_git(repo_path: str, base_ref: str) -> Optional[Dict[st
         return None
 
 
-def safe_print(text: str, file=sys.stdout) -> None:
+def safe_print(text: str, file=None) -> None:
     """Safely prints UTF-8 text to stdout/stderr across Windows charmap (cp1252) and POSIX."""
+    target = file if file is not None else sys.stdout
     try:
-        print(text, file=file)
+        print(text, file=target)
+        return
     except UnicodeEncodeError:
-        if hasattr(file, "buffer"):
-            try:
-                file.buffer.write((text + "\n").encode("utf-8", errors="replace"))
-                file.flush()
-                return
-            except Exception:
-                pass
-        print(text.encode("ascii", errors="replace").decode("ascii"), file=file)
+        pass
+    if hasattr(target, "buffer"):
+        try:
+            target.buffer.write((text + "\n").encode("utf-8", errors="replace"))
+            target.flush()
+            return
+        except Exception:
+            pass
+    print(text.encode("ascii", errors="replace").decode("ascii"), file=target)
 
 
 def run_gate_command(
@@ -171,7 +174,9 @@ def run_gate_command(
     github_annotations: bool = False,
     output_json: Optional[str] = None,
     comment_pr: bool = False,
-    github_token: Optional[str] = None
+    github_token: Optional[str] = None,
+    no_color: bool = False,
+    force_color: Optional[bool] = None
 ) -> int:
     """
     Executes the Ultron Architectural Quality Gate.
@@ -311,14 +316,25 @@ def run_gate_command(
     if json_output:
         safe_print(json.dumps(result_payload, indent=2))
     else:
+        resolved_force = False if no_color else force_color
+        from ultron.interfaces.cli.formatting import supports_color, format_gate_summary, colorize, BOLD, RED, GREEN
+        color_enabled = supports_color(sys.stdout, force_color=resolved_force)
+
         if not output_comment and not github_step_summary:
-            safe_print(pr_comment)
+            if color_enabled:
+                safe_print(format_gate_summary(gate_decision, current_analysis, color=True))
+            else:
+                safe_print(pr_comment)
+
         if not gate_decision["passed"]:
-            safe_print("\n[Ultron Gate: FAILED] Quality gate thresholds breached:", file=sys.stderr)
+            fail_banner = "\n[Ultron Gate: FAILED] Quality gate thresholds breached:"
+            safe_print(colorize(fail_banner, BOLD, RED, enabled=color_enabled), file=sys.stderr)
             for reason in gate_decision.get("reasons", []):
-                safe_print(f"  - ❌ {reason}", file=sys.stderr)
+                reason_line = f"  - ❌ {reason}"
+                safe_print(colorize(reason_line, RED, enabled=color_enabled), file=sys.stderr)
         else:
-            safe_print(f"\n[Ultron Gate: PASSED] Codebase health: {gate_decision.get('current_health', 100.0):.1f}/100 (delta: {gate_decision.get('health_delta', 0.0):+.1f} pts).", file=sys.stderr)
+            pass_banner = f"\n[Ultron Gate: PASSED] Codebase health: {gate_decision.get('current_health', 100.0):.1f}/100 (delta: {gate_decision.get('health_delta', 0.0):+.1f} pts)."
+            safe_print(colorize(pass_banner, BOLD, GREEN, enabled=color_enabled), file=sys.stderr)
 
     # 13. Return Exit Code
     if fail_on_regression and not gate_decision["passed"]:

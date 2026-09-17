@@ -153,6 +153,8 @@ def main():
             sub_parser.add_argument("--no-browser", action="store_true", default=False, help="Do not open browser automatically")
         elif cmd in ("analyze", "scan"):
             sub_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON to stdout")
+            sub_parser.add_argument("--no-color", action="store_true", default=False, help="Suppress ANSI color escape codes")
+            sub_parser.add_argument("--color", action="store_true", default=False, help="Force ANSI color escape codes even in non-interactive streams")
         elif cmd == "gate":
             sub_parser.add_argument("--max-high", type=int, default=None, help="Maximum allowed HIGH risk files")
             sub_parser.add_argument("--min-health", type=float, default=None, help="Minimum allowed health score (0-100)")
@@ -164,6 +166,8 @@ def main():
             sub_parser.add_argument("--fail-on-high", action="store_true", default=False, help="Exit 1 if any HIGH risk files or violations exist")
             sub_parser.add_argument("--strict", action="store_true", default=False, help="Strict mode (0 health drop, fail on any high)")
             sub_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON to stdout")
+            sub_parser.add_argument("--no-color", action="store_true", default=False, help="Suppress ANSI color escape codes")
+            sub_parser.add_argument("--color", action="store_true", default=False, help="Force ANSI color escape codes even in non-interactive streams")
             sub_parser.add_argument("--output-comment", dest="output_comment", default=None, help="Path to write PR comment markdown")
             sub_parser.add_argument("--output-markdown", dest="output_comment", default=None, help="Alias for --output-comment")
             sub_parser.add_argument("--output-json", default=None, help="Path to write machine-readable JSON output to file")
@@ -539,34 +543,21 @@ class InterfaceHandler:
                 github_annotations=sub_args.github_annotations,
                 output_json=sub_args.output_json,
                 comment_pr=sub_args.comment_pr,
-                github_token=sub_args.github_token
+                github_token=sub_args.github_token,
+                no_color=getattr(sub_args, "no_color", False),
+                force_color=True if getattr(sub_args, "color", False) else None
             )
             sys.exit(code)
 
-
         elif cmd == "scan":
-            from ultron.interfaces.cli.commands.gate import extract_current_analysis
-            try:
-                analysis = extract_current_analysis(repo_path)
-                payload = {
-                    "status": "success",
-                    "repo": analysis["repo"],
-                    "total_files": analysis["total_files"],
-                    "health_score": analysis["health_score"],
-                    "risks": analysis["risks"],
-                    "policy_violations": analysis["policy_violations"]
-                }
-                if getattr(sub_args, "json", False):
-                    print(json.dumps(payload, indent=2))
-                else:
-                    print(f"[+] Ultron: Scanned {analysis['total_files']} files in {analysis['repo']}. Health score: {analysis['health_score']:.1f}/100")
-                sys.exit(0)
-            except Exception as e:
-                if getattr(sub_args, "json", False):
-                    print(json.dumps({"status": "error", "error": str(e)}))
-                else:
-                    print(f"[-] Scan failed: {e}", file=sys.stderr)
-                sys.exit(1)
+            from ultron.interfaces.cli.commands.analysis import run_scan_command
+            code = run_scan_command(
+                repo_path=repo_path,
+                json_output=getattr(sub_args, "json", False),
+                no_color=getattr(sub_args, "no_color", False),
+                force_color=True if getattr(sub_args, "color", False) else None
+            )
+            sys.exit(code)
 
         elif cmd == "verify":
             from ultron.interfaces.cli.commands.verify import run_verify_command
