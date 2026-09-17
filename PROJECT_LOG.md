@@ -4800,3 +4800,47 @@ PENDING — not yet reviewed by an external party.
 
 **Open questions / follow-up:**
 None. All 905 tests passing deterministically with 0 skips. Ready for delivery audit and merge into master.
+
+---
+
+### 2026-09-17 — Task P5-A2: Accessible High-Contrast Visual Mode, Responsive Breakpoints & Focus Rings
+
+**Branch:** `agent/P5-A2-visual-contrast-a11y`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=905 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=908 failures=0 errors=0 skipped=0`
+
+**Attempted:** Implement visual contrast polish, WCAG 2.1 AA accessible focus rings, responsive breakpoints, and ARIA live regions across the Ultron Web UI; harden `--text-dim` in `index.css` from `#9aa3b2` to `#a0aab8`, raising contrast to 8.02:1 against `--bg` and 7.70:1 against `--bg-raised`; eliminate specificity barriers by removing `outline: none;` from `#repo-input:focus` and `#filter-input:focus`; replace `box-shadow` focus styling with standardized `outline: 2px solid var(--accent); outline-offset: 2px;` across all interactive elements (`button`, `input`, `select`, `textarea`, `.btn`, `.nav-tab`, `.seg-btn`, `.chip-btn`, `.tab`, `.risk-item`, `#repo-input`, `#filter-input`); add `@media (forced-colors: active)` support using `outline: 2px solid Highlight;` ensuring visibility in Windows High Contrast mode; consolidate legacy 960px media query into clean tablet (`@media (max-width: 1024px)`) and mobile (`@media (max-width: 768px)`) breakpoints; configure `.workspace` under 1024px with `grid-template-columns: 1fr; grid-template-rows: auto 1fr;` stacking list and detail panes vertically without horizontal overflow; declare ARIA live-region attributes (`role="status"`, `aria-live="polite"`, `aria-atomic="true"`, `role="alert"`, `aria-live="assertive"`) in `index.html` across `#toast`, `#conn-text`, `#busy-text`, and `#banner`; author 3 new automated invariant tests in `ultron/tests/test_frontend_invariants.py` (`test_aria_live_regions_present`, `test_accessible_focus_visible_styling`, `test_responsive_breakpoints_declared`); preserve line-count ceilings (`server.py` at 297 lines < 300, all 13 JS modules < 400 lines) and zero runtime dependencies.
+
+**Antigravity self-audit result:**
+- [x] Hardened text contrast token `--text-dim` from `#9aa3b2` to `#a0aab8` (8.02:1 contrast ratio against `--bg`, exceeding 4.5:1 WCAG AA minimum).
+- [x] Removed `outline: none;` from `#repo-input:focus` and `#filter-input:focus` in `index.css`, unblocking focus ring visibility.
+- [x] Implemented global WCAG 2.1 AA `:focus-visible` styling (`outline: 2px solid var(--accent); outline-offset: 2px;`) targeting all interactive controls including `.risk-item:focus-visible`.
+- [x] Added `@media (forced-colors: active)` ensuring high-contrast visibility with `Highlight` keyword in assistive environments.
+- [x] Consolidated legacy 960px breakpoint into conflict-free `@media (max-width: 1024px)` (tablet) and `@media (max-width: 768px)` (mobile) media queries.
+- [x] Implemented 1-column workspace stacking (`grid-template-columns: 1fr; grid-template-rows: auto 1fr;`) eliminating horizontal scroll overflows on viewports <= 1024px.
+- [x] Added ARIA live regions and status roles to dynamic notification DOM nodes in `index.html` (`#conn-text`, `#toast`, `#busy-text`, `#banner`).
+- [x] Authored 3 automated invariant tests in `ultron/tests/test_frontend_invariants.py` verifying ARIA attributes, focus-visible definitions, and responsive breakpoints (suite expanded from 7 to 10 tests).
+- [x] Frontend invariant suite passes cleanly: `10 ran, 0 failed, 0 errors, 0 skipped` in 0.842s.
+- [x] Core invariant suites pass cleanly: `46 ran, 0 failed, 0 errors, 0 skipped` in 36.983s (`test_skip_invariants`, `test_frontend_invariants`, `test_self_scan_integrity`, `test_distribution_packaging`, `test_documentation_reality`, `test_project_log_compliance`).
+- [x] Master verification gate passes cleanly: `TESTS: 908 ran, 0 failed, 0 errors, 0 skipped` in `scripts/verify.py` in 361.817s (Exit code: 0).
+- [x] Server line ceiling strictly preserved: `server.py` is 297 lines (< 300).
+- [x] Frontend line ceiling strictly preserved: all 13 JS modules strictly < 400 lines (none touched).
+- [x] Pure standard library: zero new external dependencies introduced.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML model or classifier claims.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are hermetic. Verified all 46 invariant tests execute locally without external network queries; zero external dependencies or CSS preprocessors.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: regex verification of individual ARIA attributes (`role="status"`, `aria-live="polite"`, `aria-atomic="true"`, `role="alert"`, `aria-live="assertive"`) across DOM nodes; CSS syntax verification of `:focus-visible`, `outline-offset: 2px`, `.risk-item:focus-visible`, and `@media (forced-colors: active)`; responsive breakpoint assertions for `@media (max-width: 1024px)` and `@media (max-width: 768px)` with grid-template-rows verification.
+5. **Silent Failure Check:** Tested explicit failure modes: missing ARIA attributes or omitted responsive declarations immediately fail unit assertions in `test_frontend_invariants.py`; removing `outline: none;` on input IDs prevents silent suppression of focus rings in keyboard navigation.
+6. **Causal / Probabilistic Claims:** Hardening `--text-dim` mathematically guarantees contrast ratios >= 7.70:1 across all background tokens, verified by relative luminance calculation.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P5-A2 (Accessible High-Contrast Visual Mode, Responsive Breakpoints & Focus Rings) COMPLETED on `agent/P5-A2-visual-contrast-a11y`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 908 tests passing deterministically with 0 skips. Ready for delivery audit and merge into master.
