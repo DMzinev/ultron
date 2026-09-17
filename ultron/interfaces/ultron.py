@@ -174,6 +174,7 @@ def main():
             sub_parser.add_argument("--github-annotations", action="store_true", default=False, help="Explicitly emit GitHub Actions workflow annotations")
             sub_parser.add_argument("--comment-pr", action="store_true", default=False, help="Post PR review comment via GitHub REST API")
             sub_parser.add_argument("--github-token", default=None, help="GitHub token for PR review commenting")
+            sub_parser.add_argument("--sarif", dest="sarif_output", default=None, help="Path to write SARIF 2.1.0 static analysis report")
         elif cmd == "verify":
             sub_parser.add_argument("--pattern", default="test_*.py", help="Test file naming pattern (default: test_*.py)")
             sub_parser.add_argument("--test-dir", default="ultron/tests", help="Directory containing tests relative to repo (default: ultron/tests)")
@@ -554,7 +555,8 @@ class InterfaceHandler:
                 comment_pr=sub_args.comment_pr,
                 github_token=sub_args.github_token,
                 no_color=getattr(sub_args, "no_color", False),
-                force_color=True if getattr(sub_args, "color", False) else None
+                force_color=True if getattr(sub_args, "color", False) else None,
+                sarif_output=getattr(sub_args, "sarif_output", None)
             )
             sys.exit(code)
 

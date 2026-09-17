@@ -4940,4 +4940,53 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None. All 935 tests passing deterministically with 0 skips. Ready for delivery audit and merge into master.
 
+---
+
+### 2026-09-17 — Task P5-C1: Native SARIF 2.1.0 Static Analysis Export for GitHub Code Scanning Tab (`ultron gate --sarif`)
+
+**Branch:** `agent/P5-C1-sarif-export`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=935 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=947 failures=0 errors=0 skipped=0`
+
+**Attempted:** Author a pure Python standard-library OASIS SARIF (Static Analysis Results Interchange Format) 2.1.0 static analysis exporter (`ultron/core/sarif_reporter.py`) adhering strictly to the official OASIS SARIF 2.1.0 JSON schema for native integration with GitHub Advanced Security Code Scanning tabs, GitLab SAST, Azure DevOps, and SonarQube; map all Ultron architectural policy violations, circular dependency cycles, and high/critical risk hotspots into valid SARIF results with relative POSIX `%SRCROOT%` URIs and 1-based coordinates; dynamically register rules in `tool.driver.rules` for all emitted findings and custom policy rules; implement Windows-safe atomic file replacement with file handle closure before `os.replace`; wire `--sarif <output_path>` into `ultron gate` via `ultron/interfaces/cli/commands/gate.py` and `ultron/interfaces/ultron.py`; add `sarif-output` input into `.github/actions/ultron-gate/action.yml` forwarding to the gate CLI; author 12 hermetic unit tests in `ultron/tests/test_sarif_export.py` with zero skips; preserve all line ceilings (`server.py` at 297 lines < 300, all 13 JS modules < 400 lines) and zero external dependencies.
+
+**Antigravity self-audit result:**
+- [x] Implemented pure Python standard-library OASIS SARIF 2.1.0 exporter at `ultron/core/sarif_reporter.py` (417 lines).
+- [x] Conforms to SARIF 2.1.0 schema (`$schema: https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json`, `version: "2.1.0"`).
+- [x] Built canonical driver rules inventory: `ULTRON-CIRCULAR-DEP`, `ULTRON-RISK-CRITICAL`, `ULTRON-RISK-HIGH`, `ULTRON-COMPLEXITY-HOTSPOT`, `ULTRON-COUPLING-BOTTLENECK`.
+- [x] Implemented dynamic rule registration: dynamically injects rule descriptors into `tool.driver.rules` for custom policy rules so every finding has a registered driver rule descriptor.
+- [x] Implemented `normalize_sarif_uri` producing relative POSIX URIs with `%SRCROOT%` base ID, stripping Windows backslashes and `./` prefixes.
+- [x] Implemented deterministic primary location partial fingerprints (SHA-256) for stable tracking in GitHub Code Scanning.
+- [x] Implemented Windows-safe atomic file replacement (`write_sarif_file`) ensuring temporary file handle is closed before `os.replace`.
+- [x] Updated `run_gate_command` in `ultron/interfaces/cli/commands/gate.py` with `sarif_output: Optional[str] = None` and export logic.
+- [x] Updated `ultron/interfaces/ultron.py` to register `--sarif` in `cmd == "gate"` parser and pass `sarif_output` to `run_gate_command`.
+- [x] Updated `.github/actions/ultron-gate/action.yml` to declare `sarif-output` input and forward `--sarif` in the composite bash runner.
+- [x] Authored 12 hermetic unit tests in `ultron/tests/test_sarif_export.py` with zero skips.
+- [x] Unit test suite passes cleanly: `12 ran, 0 failed, 0 errors, 0 skipped` in 0.037s.
+- [x] Existing CI gate suites pass cleanly: `76 ran, 0 failed, 0 errors, 0 skipped` in 16.583s (`test_skip_invariants`, `test_frontend_invariants`, `test_distribution_packaging`, `test_ci_gate`, `test_ci_gate_contract`, `test_ci_action`).
+- [x] Documentation reality and project log compliance pass: `10 ran, 0 failed, 0 errors, 0 skipped` in 0.010s.
+- [x] Self-scan integrity and partition invariants pass: `3 ran, 0 failed, 0 errors, 0 skipped` in 5.588s.
+- [x] Master verification gate passes cleanly: `TESTS: 947 ran, 0 failed, 0 errors, 0 skipped` in `scripts/verify.py` in 357.779s (Exit code: 0).
+- [x] Server line ceiling strictly preserved: `server.py` is 297 lines (< 300).
+- [x] Frontend line ceiling strictly preserved: all 13 JS modules strictly < 400 lines (none touched).
+- [x] Pure standard library: zero new external dependencies introduced (`dependencies = []`).
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML model or classifier claims.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are hermetic. Verified all 12 unit tests execute locally in temporary directories (`tempfile.TemporaryDirectory`) with mocked analyses and in-memory data structures; zero external network queries; zero external CLI dependencies.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: URI normalization across Windows backslashes, absolute paths, leading slashes, and empty/None values; severity mapping across CRITICAL, HIGH, MEDIUM, LOW, and UNKNOWN; atomic file replacement with parent directory auto-creation; clean repository with 0 findings producing valid empty results array; rule inventory completeness.
+5. **Silent Failure Check:** Tested explicit failure modes: missing parent directories are created automatically via `os.makedirs(exist_ok=True)`; exceptions during SARIF file write catch and remove temporary files; `run_gate_command` catches SARIF generation exceptions defensively and logs actionable warnings to stderr without crashing the gate.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P5-C1 (Native SARIF 2.1.0 Static Analysis Export for GitHub Code Scanning Tab) COMPLETED on `agent/P5-C1-sarif-export`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 947 tests passing deterministically with 0 skips. Ready for delivery audit and merge into master.
+
 

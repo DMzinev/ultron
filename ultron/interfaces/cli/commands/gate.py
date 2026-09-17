@@ -176,7 +176,8 @@ def run_gate_command(
     comment_pr: bool = False,
     github_token: Optional[str] = None,
     no_color: bool = False,
-    force_color: Optional[bool] = None
+    force_color: Optional[bool] = None,
+    sarif_output: Optional[str] = None
 ) -> int:
     """
     Executes the Ultron Architectural Quality Gate.
@@ -277,6 +278,17 @@ def run_gate_command(
             json.dump(result_payload, f, indent=2)
         if not json_output:
             safe_print(f"[Ultron Gate] JSON analysis written to: {out_json_file}", file=sys.stderr)
+
+    # 7b. Output to SARIF 2.1.0 file if specified
+    if sarif_output:
+        try:
+            from ultron.core.sarif_reporter import SARIFReporter
+            sarif_data = SARIFReporter.generate_sarif_report(current_analysis, repo_path=repo)
+            SARIFReporter.write_sarif_file(sarif_data, sarif_output)
+            if not json_output:
+                safe_print(f"[Ultron Gate] SARIF 2.1.0 report written to: {sarif_output}", file=sys.stderr)
+        except Exception as e:
+            safe_print(f"[Ultron Gate Warning] Failed writing SARIF report to '{sarif_output}': {e}", file=sys.stderr)
 
     # 8. Append to GitHub Step Summary if running in GitHub Actions
     github_step_summary = os.environ.get("GITHUB_STEP_SUMMARY")

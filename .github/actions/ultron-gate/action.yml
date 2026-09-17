@@ -55,6 +55,10 @@ inputs:
     description: 'GitHub token for PR review commenting (e.g. ${{ secrets.GITHUB_TOKEN }})'
     required: false
     default: ''
+  sarif-output:
+    description: 'Path to write SARIF 2.1.0 static analysis report (e.g. results.sarif)'
+    required: false
+    default: ''
 
 outputs:
   passed:
@@ -117,6 +121,10 @@ runs:
 
         if [ -n "${{ inputs.output-markdown }}" ]; then
           ARGS+=(--output-markdown "${{ inputs.output-markdown }}")
+        fi
+
+        if [ -n "${{ inputs.sarif-output }}" ]; then
+          ARGS+=(--sarif "${{ inputs.sarif-output }}")
         fi
 
         if [ "${{ inputs.github-annotations }}" = "true" ]; then
