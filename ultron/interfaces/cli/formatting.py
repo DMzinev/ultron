@@ -243,11 +243,26 @@ def format_scan_dashboard(
 
     # Repository & Health Section
     lines.append(_box_row(f"{colorize('Repository:', BOLD, enabled=color)}   {repo_name}", inner_width, vt))
+    if analysis.get("workspace"):
+        ws_info = f"{analysis['workspace']} ({analysis.get('workspace_path', '')})"
+        lines.append(_box_row(f"{colorize('Workspace:', BOLD, enabled=color)}    {ws_info}", inner_width, vt))
     lines.append(_box_row(f"{colorize('Total Files:', BOLD, enabled=color)}  {total_files}", inner_width, vt))
 
     score_bar = format_score_bar(health_score, width=20, color=color, use_unicode=use_unicode)
     lines.append(_box_row(f"{colorize('Health Score:', BOLD, enabled=color)} {score_bar}", inner_width, vt))
     lines.append(sep_line)
+
+    monorepo = analysis.get("monorepo")
+    if monorepo and monorepo.get("is_monorepo"):
+        lines.append(_box_row(colorize("MONOREPO WORKSPACE BREAKDOWN", BOLD, enabled=color), inner_width, vt))
+        for ws in monorepo.get("workspaces", [])[:6]:
+            w_line = f"  * {ws['name']} ({ws['path']}) - {ws.get('file_count', 0)} files [{ws.get('package_type', 'generic')}]"
+            lines.append(_box_row(w_line, inner_width, vt))
+        cycles = monorepo.get("cross_workspace_cycles", [])
+        if cycles:
+            cycle_alert = colorize(f"  [!] Cross-workspace circular imports: {len(cycles)} cycle(s) detected", RED, BOLD, enabled=color)
+            lines.append(_box_row(cycle_alert, inner_width, vt))
+        lines.append(sep_line)
 
     # Risk Distribution Summary
     crit_badge = colorize(f"CRITICAL: {crit_count}", BOLD, RED if crit_count > 0 else GRAY, enabled=color)
