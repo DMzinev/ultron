@@ -43,8 +43,8 @@ export async function runCodeAudit() {
 
   try {
     const res = await api("/api/audit", payload);
-    if (!res.success) {
-      throw new Error(res.error || "Audit Incomplete");
+    if (!res || !res.success) {
+      throw new Error((res && res.error) || "Audit Incomplete");
     }
     const anomalies = res.anomalies || [];
 
@@ -87,6 +87,7 @@ export async function runCodeAudit() {
 
       if (list) list.innerHTML = items.join("");
     }
+    return { success: true, anomalies, violations: fileViolations };
   } catch (err) {
     if (shield) shield.className = "auditor-shield anomaly";
     if (shieldIcon) shieldIcon.textContent = "✕";
@@ -94,6 +95,7 @@ export async function runCodeAudit() {
     if (verdictTitle) verdictTitle.textContent = "Audit Failed";
     if (verdictDesc) verdictDesc.textContent = err.message;
     if (list) list.innerHTML = `<div class="pane-note">${esc(err.message)}</div>`;
+    return { success: false, error: err.message };
   } finally {
     if (btn) {
       btn.disabled = false;

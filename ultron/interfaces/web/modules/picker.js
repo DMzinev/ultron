@@ -24,3 +24,29 @@ export async function openPicker(startPath) {
     $("picker-list").innerHTML = `<li class="picker-note">${esc(err.message)}</li>`;
   }
 }
+
+export function closePicker() {
+  const box = $("picker");
+  if (box) box.hidden = true;
+}
+
+export function togglePicker(startPath) {
+  const box = $("picker");
+  if (box && !box.hidden) {
+    box.hidden = true;
+    return;
+  }
+  openPicker(startPath);
+}
+
+export function setupPickerClickOutside() {
+  document.addEventListener("click", (e) => {
+    const box = $("picker");
+    if (!box || box.hidden) return;
+    const browseBtn = $("browse-btn");
+    if (browseBtn && (browseBtn === e.target || browseBtn.contains(e.target))) return;
+    if (!box.contains(e.target)) {
+      box.hidden = true;
+    }
+  });
+}

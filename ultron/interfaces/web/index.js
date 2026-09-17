@@ -15,7 +15,7 @@ import { selectFile as selectFileModule, renderWhy, loadCode, loadBrief, paintBr
 import { renderTopologyGraph as renderTopologyGraphModule, openNodeInspector, graphSimulationNodes } from "./modules/graph.js";
 import { compileAgentMission, copyStudioOutput, downloadStudioOutput } from "./modules/studio.js";
 import { runCodeAudit as runCodeAuditModule } from "./modules/auditor.js";
-import { openPicker as openPickerModule } from "./modules/picker.js";
+import { openPicker as openPickerModule, closePicker, togglePicker, setupPickerClickOutside } from "./modules/picker.js";
 import { toggleShortcutsModal, closeShortcutsModal } from "./modules/modals.js";
 
 /* ---------------- Shared State Facade ---------------- */
@@ -35,9 +35,7 @@ export async function openPicker(startPath) { return openPickerModule(startPath)
 
 export function switchView(viewName) {
   state.activeView = viewName;
-  document.querySelectorAll("#nav-tabs .nav-tab").forEach((btn) => {
-    btn.classList.toggle("is-active", btn.dataset.view === viewName);
-  });
+  document.querySelectorAll("#nav-tabs .nav-tab").forEach((btn) => btn.classList.toggle("is-active", btn.dataset.view === viewName));
   ["view-dashboard", "view-graph", "view-studio", "view-auditor"].forEach((vid) => {
     const el = $(vid);
     if (!el) return;
@@ -45,9 +43,7 @@ export function switchView(viewName) {
     el.hidden = !isTarget;
     el.classList.toggle("is-active", isTarget);
   });
-  if (viewName === "graph" && state.graphData) {
-    requestAnimationFrame(() => renderTopologyGraph());
-  }
+  if (viewName === "graph" && state.graphData) requestAnimationFrame(() => renderTopologyGraph());
 }
 
 /* ---------------- Server Connection & Heartbeat ---------------- */
@@ -175,16 +171,13 @@ export function renderTopologyGraph() {
 }
 
 export async function runCodeAudit() {
-  // Dispatches code safety audit via /api/audit endpoint
   try {
     const res = await runCodeAuditModule();
-    if (!res.success) {
-      showToast("Audit Incomplete: " + (res.error || "Unknown audit failure"));
-    }
+    if (res && !res.success) showToast("Audit Incomplete: " + (res.error || "Unknown audit failure"));
     return res;
   } catch (err) {
     showToast("Audit Incomplete: " + (err.message || "Unknown error"));
-    throw err;
+    return { success: false, error: err.message };
   }
 }
 
@@ -196,8 +189,10 @@ export function setupKeyboardShortcuts() {
     const active = document.activeElement;
     const isEditing = active && (["INPUT", "TEXTAREA", "SELECT"].includes(active.tagName) || active.isContentEditable);
     if (e.key === "Escape") {
+      const p = $("picker");
+      if (p && !p.hidden) { closePicker(); return; }
       if (isEditing) { active.blur(); return; }
-      for (const id of ["shortcuts-modal", "violations-drawer", "graph-inspector", "picker"]) {
+      for (const id of ["shortcuts-modal", "violations-drawer", "graph-inspector"]) {
         const el = $(id);
         if (el && !el.hidden) { el.hidden = true; return; }
       }
@@ -219,6 +214,7 @@ export function setupKeyboardShortcuts() {
 
 export function wire() {
   setupKeyboardShortcuts();
+  setupPickerClickOutside();
 
   $("nav-tabs")?.addEventListener("click", (e) => {
     const btn = e.target.closest(".nav-tab");
@@ -237,9 +233,10 @@ export function wire() {
     ["filter-input", "input", applyFilter],
     ["clear-filter-btn", "click", () => { const el = $("filter-input"); if (el) { el.value = ""; applyFilter(); el.focus(); } }],
     ["repo-input", "keydown", (e) => { if (e.key === "Enter") scan(); }],
-    ["browse-btn", "click", () => openPicker($("repo-input")?.value?.trim() || "")],
-    ["picker-close", "click", () => { if ($("picker")) $("picker").hidden = true; }],
-    ["picker-use", "click", () => { if (state.pickerPath) $("repo-input").value = state.pickerPath; if ($("picker")) $("picker").hidden = true; }],
+    ["browse-btn", "click", () => togglePicker($("repo-input")?.value?.trim() || "")],
+    ["picker-close", "click", closePicker],
+    ["picker-x", "click", closePicker],
+    ["picker-use", "click", () => { if (state.pickerPath) $("repo-input").value = state.pickerPath; closePicker(); }],
     ["violations-chip", "click", () => { const d = $("violations-drawer"); if (d && !(d.hidden = !d.hidden)) renderViolations(); }],
     ["close-violations", "click", () => { if ($("violations-drawer")) $("violations-drawer").hidden = true; }],
     ["copy-brief", "click", copyBrief],
@@ -383,10 +380,11 @@ export async function init() {
   setInterval(pingServer, 20000);
   try {
     const res = await api("/api/get-repo-root");
-    if (res.repo_root && $("repo-input")) $("repo-input").value = res.repo_root;
-  } catch (_) {
-    /* server may not be running yet */
-  }
+    if (res.repo_root && $("repo-input")) {
+      $("repo-input").value = res.repo_root;
+      if (!state.repo) scan();
+    }
+  } catch (_) {}
 }
 
 document.addEventListener("DOMContentLoaded", init);

@@ -215,17 +215,21 @@ export function renderTopologyGraph(handlers = {}) {
     const tgt = simMap.get(tId);
     if (!src || !tgt) return;
 
-    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", src.x);
-    line.setAttribute("y1", src.y);
-    line.setAttribute("x2", tgt.x);
-    line.setAttribute("y2", tgt.y);
+    const dx = tgt.x - src.x;
+    const dy = tgt.y - src.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const curvature = Math.min(dist * 0.15, 40);
+    const mx = (src.x + tgt.x) / 2 - (dy / dist) * curvature;
+    const my = (src.y + tgt.y) / 2 + (dx / dist) * curvature;
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", `M${src.x},${src.y} Q${mx},${my} ${tgt.x},${tgt.y}`);
+    path.setAttribute("fill", "none");
     const isCycle = !!link.in_cycle;
-    line.setAttribute("class", isCycle ? "link cycle-link" : "link");
-    if (isCycle) line.setAttribute("title", `Circular import cycle: ${src.label} ⇄ ${tgt.label}`);
-    line.setAttribute("data-src", src.id);
-    line.setAttribute("data-tgt", tgt.id);
-    g.appendChild(line);
+    path.setAttribute("class", isCycle ? "link cycle-link" : "link");
+    if (isCycle) path.setAttribute("title", `Circular import cycle: ${src.label} ⇄ ${tgt.label}`);
+    path.setAttribute("data-src", src.id);
+    path.setAttribute("data-tgt", tgt.id);
+    g.appendChild(path);
   });
 
   graphSimulationNodes.forEach((node) => {
@@ -246,8 +250,9 @@ export function renderTopologyGraph(handlers = {}) {
     circle.setAttribute("cx", node.x);
     circle.setAttribute("cy", node.y);
     circle.setAttribute("r", node.radius);
-    circle.setAttribute("fill", "#11141c");
-    circle.setAttribute("stroke", node.in_cycle ? "#ef4444" : (node.packageColor || color));
+    const nodeColor = node.in_cycle ? "#ef4444" : (node.packageColor || color);
+    circle.setAttribute("fill", color === "var(--high)" ? "rgba(255,107,107,0.12)" : color === "var(--med)" ? "rgba(255,180,84,0.10)" : "rgba(78,201,160,0.08)");
+    circle.setAttribute("stroke", nodeColor);
     circle.setAttribute("stroke-width", node.in_cycle ? "3" : "2.5");
     circle.setAttribute("class", "node");
     circle.setAttribute("data-id", node.id);

@@ -25,7 +25,7 @@ html, body {
 
 body { display: flex; flex-direction: column; }
 
-.hidden {
+[hidden], .hidden {
     display: none !important;
 }
 
@@ -805,7 +805,7 @@ textarea:focus-visible,
 .graph-stage {
   flex: 1;
   position: relative;
-  background: var(--bg);
+  background: radial-gradient(ellipse at 50% 50%, #131620 0%, #0a0c10 70%);
   min-height: 480px;
   overflow: hidden;
 }
@@ -817,58 +817,67 @@ textarea:focus-visible,
 }
 .topology-svg:active { cursor: grabbing; }
 .topology-svg .link {
-  stroke: rgba(255, 255, 255, 0.12);
-  stroke-width: 1.2px;
-  transition: stroke .2s;
+  stroke: rgba(91, 140, 255, 0.08);
+  stroke-width: 1px;
+  transition: stroke .25s, stroke-width .25s, opacity .25s;
 }
 .topology-svg .link.active {
   stroke: var(--accent);
-  stroke-width: 2px;
+  stroke-width: 2.5px;
+  opacity: 1;
+  filter: drop-shadow(0 0 3px rgba(91, 140, 255, 0.5));
 }
 .topology-svg .link.cycle-link {
   stroke: #ef4444;
-  stroke-width: 2.2px;
+  stroke-width: 2px;
   stroke-dasharray: 6 3;
   animation: cycleDash 1.2s linear infinite;
-  opacity: 0.95;
+  opacity: 0.9;
+  filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.4));
 }
 @keyframes cycleDash {
   to { stroke-dashoffset: -18; }
 }
 .topology-svg .cluster-circle {
-  fill: rgba(255, 255, 255, 0.015);
-  stroke: rgba(255, 255, 255, 0.07);
-  stroke-dasharray: 4 4;
+  fill: rgba(91, 140, 255, 0.02);
+  stroke: rgba(91, 140, 255, 0.08);
+  stroke-dasharray: 5 5;
+  stroke-width: 1.5px;
 }
 .topology-svg .cluster-label {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 11px;
   font-weight: 600;
-  fill: var(--text-dim);
+  fill: rgba(160, 170, 184, 0.7);
   text-anchor: middle;
   pointer-events: none;
+  letter-spacing: 0.5px;
 }
 .topology-svg .node {
   cursor: pointer;
-  transition: r .2s, stroke-width .2s;
+  transition: r .2s ease, stroke-width .2s ease, filter .2s ease;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
 }
 .topology-svg .node:hover {
-  stroke-width: 4px;
+  stroke-width: 5px;
+  filter: drop-shadow(0 0 8px currentColor);
 }
 .topology-svg .node-glow {
   pointer-events: none;
-  animation: pulse-glow 2s infinite ease-in-out;
+  opacity: 0.4;
+  animation: pulse-glow 2.5s infinite ease-in-out;
 }
 @keyframes pulse-glow {
-  0%, 100% { opacity: 0.3; transform: scale(1); }
-  50% { opacity: 0.8; transform: scale(1.15); }
+  0%, 100% { opacity: 0.25; r: attr(r); }
+  50% { opacity: 0.7; }
 }
 .topology-svg .node-text {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 10px;
-  fill: var(--text-dim);
+  font-size: 9.5px;
+  fill: rgba(230, 233, 239, 0.65);
   text-anchor: middle;
   pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
 .graph-inspector {

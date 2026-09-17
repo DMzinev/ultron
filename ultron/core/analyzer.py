@@ -19,6 +19,11 @@ class CallVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 MAX_PARSE_SIZE = 1024 * 1024
+_FILE_AST_CACHE = {}
+
+def clear_ast_cache():
+    """Clears the in-memory AST file cache."""
+    _FILE_AST_CACHE.clear()
 
 def analyze_file(filepath):
     """
@@ -27,8 +32,20 @@ def analyze_file(filepath):
     - definitions: list of defined functions/classes with metadata and calls
     """
     try:
-        if os.path.exists(filepath) and os.path.getsize(filepath) > MAX_PARSE_SIZE:
+        if not os.path.exists(filepath):
+            return {'imports': [], 'definitions': [], 'error': 'file_not_found'}
+        st = os.stat(filepath)
+        if st.st_size > MAX_PARSE_SIZE:
             return {'imports': [], 'definitions': [], 'skipped': 'file_size_limit_exceeded'}
+
+        cached = _FILE_AST_CACHE.get(filepath)
+        if cached and cached[0] == st.st_mtime and cached[1] == st.st_size:
+            data = cached[2]
+            return {
+                'imports': list(data['imports']),
+                'definitions': [dict(d) for d in data['definitions']]
+            }
+
         with open(filepath, 'r', encoding='utf-8-sig') as f:
             source = f.read()
         tree = ast.parse(source)
@@ -58,7 +75,12 @@ def analyze_file(filepath):
                     visitor.visit(child)
                     methods.append({'name': child.name, 'args': [arg.arg for arg in child.args.args], 'calls': list(set(visitor.calls))})
             definitions.append({'type': 'class', 'name': node.name, 'lineno': node.lineno, 'methods': methods})
-    return {'imports': list(set(imports)), 'definitions': definitions}
+    res = {'imports': list(set(imports)), 'definitions': definitions}
+    try:
+        _FILE_AST_CACHE[filepath] = (st.st_mtime, st.st_size, res)
+    except Exception:
+        pass
+    return res
 
 def analyze_directory(dirpath, os=os, cancel_token=None):
     """
