@@ -271,7 +271,7 @@ def format_scan_dashboard(
         risks,
         key=lambda r: (
             0 if r.get("level") == "CRITICAL" else (1 if r.get("level") == "HIGH" else (2 if r.get("level") == "MEDIUM" else 3)),
-            -float(r.get("complexity", 1))
+            -float(r.get("complexity") or 1)
         )
     )
 
@@ -281,7 +281,7 @@ def format_scan_dashboard(
             fpath = r.get("file_path") or r.get("file") or "unknown"
             lvl = r.get("level", "LOW")
             badge = format_badge(lvl, lvl, color=color)
-            comp = r.get("complexity", 1)
+            comp = r.get("complexity") if r.get("complexity") is not None else 1
             f_display = f"{idx}. {badge} {fpath} (complexity: {comp})"
             lines.append(_box_row(f_display, inner_width, vt))
             mitigation = r.get("mitigation")
