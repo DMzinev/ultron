@@ -4989,4 +4989,52 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None. All 947 tests passing deterministically with 0 skips. Ready for delivery audit and merge into master.
 
+---
+
+### 2026-09-17 — Task P5-C2: Monorepo Workspace & Multi-Package Architecture Comparison (`ultron scan --workspace <pkg>`, `ultron gate --workspace <pkg>`)
+
+**Branch:** `agent/P5-C2-monorepo-workspaces`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=947 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=963 failures=0 errors=0 skipped=0`
+
+**Attempted:** Author a pure Python standard-library monorepo workspace detection, file-to-package mapping, and cross-package boundary analysis engine (`ultron/core/monorepo.py`); detect multi-package monorepos across Python (`pyproject.toml` with uv/poetry workspaces), Node/TS (`package.json`, `pnpm-workspace.yaml`), Rust (`Cargo.toml`), and convention-based directory structures (`packages/*`, `apps/*`, `libs/*`, `services/*`, etc.); implement longest-prefix file-to-package mapping with path normalization and fail-closed directory traversal rejection; compute cross-package dependency matrix and detect inter-package circular import cycles via DFS; implement fail-closed invalid workspace rejection in `ultron scan` and `ultron gate` (exit code 1); compute scoped health scores on filtered workspace codebases skipping whole-repo database re-runs; forward workspace scoping to git baseline comparisons in `extract_baseline_from_git`; enhance `format_scan_dashboard` with monorepo package breakdown and cycle alerts; register `--workspace` in `ultron.py` subparsers; author 16 hermetic unit tests in `ultron/tests/test_monorepo_workspaces.py` with zero skips; preserve all line ceilings (`server.py` at 297 lines < 300, all 13 JS modules < 400 lines) and zero external runtime dependencies (`dependencies = []`).
+
+**Antigravity self-audit result:**
+- [x] Implemented `ultron/core/monorepo.py` with `WorkspacePackage`, `detect_workspaces`, `map_files_to_workspaces`, `find_workspace`, `filter_codebase_to_workspace`, `analyze_cross_workspace_dependencies`, and `generate_monorepo_report`.
+- [x] Implemented longest-prefix file mapping supporting nested workspace packages.
+- [x] Implemented fail-closed directory traversal rejection (`_is_safe_workspace_path`) rejecting `..` and null bytes.
+- [x] Implemented inter-package circular import cycle detection via DFS.
+- [x] Updated `extract_current_analysis` in `gate.py` to support `workspace` scoping and calculate scoped health scores directly via `CIReporter._extract_health`.
+- [x] Updated `extract_baseline_from_git` in `gate.py` to forward `workspace` to baseline analysis.
+- [x] Updated `run_gate_command` in `gate.py` to fail closed on nonexistent workspace names (exit code 1).
+- [x] Updated `run_scan_command` in `analysis.py` to support `--workspace` filtering, fail closed on invalid names, and include monorepo summary in `--json` and dashboard.
+- [x] Updated `format_scan_dashboard` in `formatting.py` with monorepo package breakdown and circular import alerts.
+- [x] Registered `--workspace` in `ultron.py` subparsers for `scan`, `analyze`, and `gate`.
+- [x] Authored 16 hermetic unit tests in `ultron/tests/test_monorepo_workspaces.py` with zero skips.
+- [x] All 16 unit tests pass in 0.508s with zero skips.
+- [x] All 46 invariant tests pass cleanly in 15.159s (`test_skip_invariants`, `test_frontend_invariants`, `test_self_scan_integrity`, `test_documentation_reality`, `test_project_log_compliance`, `test_distribution_packaging`).
+- [x] Master verification gate passes cleanly: `TESTS: 963 ran, 0 failed, 0 errors, 0 skipped` in `scripts/verify.py` in 247.751s (Exit code: 0).
+- [x] Server line ceiling strictly preserved: `server.py` is 297 lines (< 300).
+- [x] Frontend line ceiling strictly preserved: all 13 JS modules strictly < 400 lines (`index.js` at 391 lines).
+- [x] Pure standard library: zero new external dependencies (`dependencies = []`).
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML models or heuristic classifiers are introduced. Workspace discovery, cross-package boundary mapping, and circular dependency detection are deterministic static analysis algorithms based on AST import graphs and manifest specs.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are hermetic. Verified all 16 unit tests execute in isolated temporary directories (`tempfile.TemporaryDirectory`) with synthetic directory structures and manifests; zero external network calls; zero external CLI dependencies.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: manifest discovery across UV, Poetry, package.json (array and dict formats), pnpm-workspace.yaml, and Cargo.toml; convention fallbacks (`packages/*`, `apps/*`); longest-prefix resolution for nested workspaces; direct and indirect circular import cycles; fail-closed invalid workspace rejection (`run_scan_command` and `run_gate_command` exit code 1); path traversal escapes (`../`) strictly rejected; empty repository returns `is_monorepo: False`.
+5. **Silent Failure Check:** Tested explicit failure modes: nonexistent workspace queries fail closed (exit code 1) instead of returning default 100.0 health; path traversal escapes in workspace arguments fail closed (exit code 1); corrupted manifests fallback gracefully without crashing.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P5-C2 (Monorepo Workspace & Multi-Package Architecture Comparison) COMPLETED on `agent/P5-C2-monorepo-workspaces`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 963 tests passing deterministically with 0 skips. Ready for delivery audit and merge into master.
+
+
 
