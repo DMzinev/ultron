@@ -131,7 +131,7 @@ def main():
         print(pkg["prompt_package"])
         sys.exit(0)
     # Subcommand Handling
-    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate", "scan", "verify", "mcp", "hook", "impact", "export"):
+    if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate", "scan", "verify", "mcp", "hook", "impact", "export", "watch"):
         cmd = sys.argv[1]
         sub_parser = argparse.ArgumentParser(prog=f"ultron {cmd}")
         sub_parser.add_argument("--repo", default=".", help="Path to codebase repository")
@@ -203,6 +203,15 @@ def main():
             sub_parser.add_argument("--max-depth", type=int, default=5, help="Maximum transitive traversal depth (default: 5)")
             sub_parser.add_argument("--runner", default="auto", choices=["auto", "unittest", "pytest"], help="Recommended test runner syntax ('auto', 'unittest', 'pytest')")
             sub_parser.add_argument("--json", action="store_true", default=False, help="Output machine-readable JSON")
+        elif cmd == "watch":
+            sub_parser.add_argument("--interval", type=float, default=1.0, help="Polling interval in seconds (default: 1.0)")
+            sub_parser.add_argument("--debounce", type=float, default=0.5, help="Debounce quiet period in seconds (default: 0.5)")
+            sub_parser.add_argument("--once", action="store_true", default=False, help="Run a single poll check and exit")
+            sub_parser.add_argument("--max-ticks", type=int, default=None, help="Maximum number of polling ticks before exiting (default: None)")
+            sub_parser.add_argument("--json", action="store_true", default=False, help="Output machine-readable JSON change events")
+            sub_parser.add_argument("--no-color", action="store_true", default=False, help="Suppress ANSI color escape codes")
+            sub_parser.add_argument("--color", action="store_true", default=False, help="Force ANSI color escape codes")
+            sub_parser.add_argument("--strict", action="store_true", default=False, help="Exit with non-zero code on health score drop")
             
         sub_args = sub_parser.parse_known_args(sys.argv[2:])[0]
         repo_path = os.path.abspath(sub_args.repo)
@@ -598,6 +607,21 @@ class InterfaceHandler:
                 repo_path=sub_args.repo,
                 fmt=getattr(sub_args, "format", "markdown"),
                 output_path=getattr(sub_args, "output", None)
+            )
+            sys.exit(code)
+
+        elif cmd == "watch":
+            from ultron.interfaces.cli.commands.watch import run_watch_command
+            code = run_watch_command(
+                repo_path=sub_args.repo,
+                interval=getattr(sub_args, "interval", 1.0),
+                debounce=getattr(sub_args, "debounce", 0.5),
+                once=getattr(sub_args, "once", False),
+                max_ticks=getattr(sub_args, "max_ticks", None),
+                json_output=getattr(sub_args, "json", False),
+                no_color=getattr(sub_args, "no_color", False),
+                force_color=True if getattr(sub_args, "color", False) else None,
+                strict=getattr(sub_args, "strict", False)
             )
             sys.exit(code)
 

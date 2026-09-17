@@ -4893,3 +4893,51 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None. All 922 tests passing deterministically with 0 skips. Ready for delivery audit and merge into master.
 
+---
+
+### 2026-09-17 — Task P5-B2: Continuous Architecture Watch Mode Daemon (`ultron watch --repo .`) with Live Differential Blast Radius Notices
+
+**Branch:** `agent/P5-B2-watch-daemon`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=922 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=935 failures=0 errors=0 skipped=0`
+
+**Attempted:** Implement pure Python standard-library continuous architecture watch mode daemon (`ultron watch --repo .`) in `ultron/interfaces/cli/commands/watch.py`; implement high-performance filesystem change detection (`scan_mtimes` and `detect_changes`) using `(st_mtime, st_size)` snapshot tuples and POSIX-normalized relative paths; ignore pruned directories (`.git`, `.venv`, `venv`, `env`, `__pycache__`, `.ultron`, `node_modules`, `scratch`, `build`, `dist`, `.egg-info`, `.pytest_cache`, `.coverage`); implement debouncing to allow editor write completion; compute differential topological blast radius via `BlastRadiusTracer.find_upstream_dependencies` and health score deltas via batch `extract_current_analysis`; format crisp 1-line real-time terminal notices (`format_watch_event`) with colorized change badges (`MODIFIED`, `ADDED`, `DELETED`), risk badges, blast radius file counts, and health score deltas (`+0.0` or `-3.5`); support `--once`, `--max-ticks`, `--json`, `--no-color`, `--color`, and `--strict` (terminating with exit code 1 if health drops or high-risk is introduced); register `watch` subcommand and arguments in `ultron/interfaces/ultron.py`; author 13 hermetic unit tests in `ultron/tests/test_watch_command.py` with 0 skips and dependency-injected mock timers; maintain all line-count invariants (`server.py` at 297 lines < 300, all 13 JS modules < 400 lines) and zero external dependencies.
+
+**Antigravity self-audit result:**
+- [x] Implemented pure Python standard-library watch daemon module at `ultron/interfaces/cli/commands/watch.py` (305 lines).
+- [x] Implemented `scan_mtimes` with POSIX forward-slash path normalization and defensive `(OSError, FileNotFoundError, PermissionError)` handling for transient editor file locks.
+- [x] Implemented `detect_changes` detecting modified (mtime or size change), added, and deleted source files.
+- [x] Implemented `compute_file_blast_radius` utilizing `BlastRadiusTracer.find_upstream_dependencies` with depth bounding (`max_depth=5`) and cycle detection.
+- [x] Implemented batch analysis extraction: `extract_current_analysis` called once per change batch rather than once per file for optimal performance.
+- [x] Implemented `format_watch_event` rendering timestamp, colored change type, file path, risk pill, blast radius, and colorized health delta.
+- [x] Implemented clean signal handling: `KeyboardInterrupt` caught gracefully with clean exit message and returncode 0.
+- [x] Implemented `--strict` gating exiting with code 1 if health degrades or high-risk files are introduced.
+- [x] Registered `watch` subcommand and all arguments (`--interval`, `--debounce`, `--once`, `--max-ticks`, `--json`, `--no-color`, `--color`, `--strict`) in `ultron/interfaces/ultron.py`.
+- [x] Authored 13 hermetic unit tests in `ultron/tests/test_watch_command.py` covering scanning, pruning, change detection, blast radius traversal, plain/color formatting, delta signs, nonexistent directories, once mode, modification callback, JSON lines, strict gating, and KeyboardInterrupt.
+- [x] Dedicated unit test suite passes cleanly: `13 ran, 0 failed, 0 errors, 0 skipped` in 0.695s.
+- [x] Existing CLI and CI gate suites pass cleanly: `72 ran, 0 failed, 0 errors, 0 skipped` in 4.981s (`test_cli_formatting`, `test_impact_simulator`, `test_ci_gate`, `test_ci_gate_contract`, `test_ci_action`).
+- [x] Core invariant suites pass cleanly: `46 ran, 0 failed, 0 errors, 0 skipped` in 16.445s (`test_skip_invariants`, `test_frontend_invariants`, `test_self_scan_integrity`, `test_distribution_packaging`, `test_documentation_reality`, `test_project_log_compliance`).
+- [x] Master verification gate passes cleanly: `TESTS: 935 ran, 0 failed, 0 errors, 0 skipped` in `scripts/verify.py` in 318.706s (Exit code: 0).
+- [x] Server line ceiling strictly preserved: `server.py` is 297 lines (< 300).
+- [x] Frontend line ceiling strictly preserved: all 13 JS modules strictly < 400 lines (none touched).
+- [x] Pure standard library: zero new external dependencies introduced (`dependencies = []`).
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML model or classifier claims.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are hermetic. Verified all 13 unit tests execute locally in temporary directories (`tempfile.TemporaryDirectory`) with injected timers (`sleep_fn=lambda _: None`) and callbacks; zero external network queries; zero external CLI dependencies.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: change detection across timestamp-only and size-only differences; directory pruning verification (ensuring `.git`, `.venv`, `.ultron`, `__pycache__` are excluded); health delta formatting across positive (`+5.0`), negative (`-3.0`), and zero (`+0.0`); strict mode gating on health drop vs clean; `once=True` and `max_ticks` loop bounding; clean `KeyboardInterrupt` exit.
+5. **Silent Failure Check:** Tested explicit failure modes: nonexistent repository path prints error and returns exit code 1; invalid JSON or transient I/O locks caught defensively per tick without crashing daemon; health regression under `--strict` immediately prints gating notice and returns exit code 1.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P5-B2 (Continuous Architecture Watch Mode Daemon with Live Differential Blast Radius Notices) COMPLETED on `agent/P5-B2-watch-daemon`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 935 tests passing deterministically with 0 skips. Ready for delivery audit and merge into master.
+
+
