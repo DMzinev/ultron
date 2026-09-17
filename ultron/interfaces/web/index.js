@@ -170,10 +170,11 @@ export function renderTopologyGraph() {
   });
 }
 
+// Dispatches code safety audit against /api/audit via auditor module
 export async function runCodeAudit() {
   try {
     const res = await runCodeAuditModule();
-    if (res && !res.success) showToast("Audit Incomplete: " + (res.error || "Unknown audit failure"));
+    if (!res.success) showToast("Audit Incomplete: " + (res.error || "Unknown audit failure"));
     return res;
   } catch (err) {
     showToast("Audit Incomplete: " + (err.message || "Unknown error"));

@@ -406,3 +406,13 @@ def extract_git_history(repo_path):
     except Exception:
         pass
     return bug_fix_counts
+
+
+def get_workspace_codebase(codebase, workspace_path):
+    """Filters a codebase dictionary to files belonging to a specific workspace directory path."""
+    clean_prefix = workspace_path.replace("\\", "/").strip("./")
+    prefix = f"{clean_prefix}/" if clean_prefix else ""
+    return {
+        f: data for f, data in codebase.items()
+        if f.replace("\\", "/").startswith(prefix) or f.replace("\\", "/") == clean_prefix
+    }

@@ -152,10 +152,12 @@ def main():
             sub_parser.add_argument("--port", type=int, default=8000, help="Initial port to bind (default: 8000)")
             sub_parser.add_argument("--no-browser", action="store_true", default=False, help="Do not open browser automatically")
         elif cmd in ("analyze", "scan"):
+            sub_parser.add_argument("--workspace", default=None, help="Filter analysis to specific workspace package")
             sub_parser.add_argument("--json", action="store_true", help="Output machine-readable JSON to stdout")
             sub_parser.add_argument("--no-color", action="store_true", default=False, help="Suppress ANSI color escape codes")
             sub_parser.add_argument("--color", action="store_true", default=False, help="Force ANSI color escape codes even in non-interactive streams")
         elif cmd == "gate":
+            sub_parser.add_argument("--workspace", default=None, help="Filter gate checks to specific workspace package")
             sub_parser.add_argument("--max-high", type=int, default=None, help="Maximum allowed HIGH risk files")
             sub_parser.add_argument("--min-health", type=float, default=None, help="Minimum allowed health score (0-100)")
             sub_parser.add_argument("--max-health-drop", type=float, default=5.0, help="Maximum allowed health score drop")
@@ -556,7 +558,8 @@ class InterfaceHandler:
                 github_token=sub_args.github_token,
                 no_color=getattr(sub_args, "no_color", False),
                 force_color=True if getattr(sub_args, "color", False) else None,
-                sarif_output=getattr(sub_args, "sarif_output", None)
+                sarif_output=getattr(sub_args, "sarif_output", None),
+                workspace=getattr(sub_args, "workspace", None)
             )
             sys.exit(code)
 
@@ -564,6 +567,7 @@ class InterfaceHandler:
             from ultron.interfaces.cli.commands.analysis import run_scan_command
             code = run_scan_command(
                 repo_path=repo_path,
+                workspace=getattr(sub_args, "workspace", None),
                 json_output=getattr(sub_args, "json", False),
                 no_color=getattr(sub_args, "no_color", False),
                 force_color=True if getattr(sub_args, "color", False) else None

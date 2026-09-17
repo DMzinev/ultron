@@ -33,22 +33,42 @@ def serialize_risk_packet(r: Any) -> Dict[str, Any]:
     }
 
 
-def extract_current_analysis(repo_path: str) -> Dict[str, Any]:
+def extract_current_analysis(repo_path: str, workspace: Optional[str] = None) -> Dict[str, Any]:
     """
     Executes headless AST analysis, evaluates risk profiles, runs governance policy engine,
-    and computes calibrated composite health score.
+    and computes calibrated composite health score. Optionally scopes analysis to a workspace package.
     """
     abs_repo = os.path.abspath(os.path.normpath(repo_path))
     try:
+        from ultron.core.monorepo import (
+            detect_workspaces,
+            find_workspace,
+            filter_codebase_to_workspace,
+            WorkspaceNotFoundError,
+        )
+
         codebase = analyzer.analyze_directory(abs_repo)
+        target_ws = None
+
+        if workspace:
+            workspaces = detect_workspaces(abs_repo)
+            target_ws = find_workspace(workspaces, workspace)
+            if not target_ws:
+                raise WorkspaceNotFoundError(f"Workspace '{workspace}' not found in repository.")
+            codebase = filter_codebase_to_workspace(codebase, target_ws)
+
         if not codebase:
-            return {
+            res: Dict[str, Any] = {
                 "repo": abs_repo.replace("\\", "/"),
                 "risks": [],
                 "policy_violations": [],
                 "health_score": 100.0,
                 "total_files": 0
             }
+            if target_ws:
+                res["workspace"] = target_ws.name
+                res["workspace_path"] = target_ws.path
+            return res
 
         target_files = [f for f in codebase.keys() if f.endswith(".py")]
         raw_risks = scoring.evaluate_risks(codebase, target_files, repo_path=abs_repo)
@@ -62,41 +82,54 @@ def extract_current_analysis(repo_path: str) -> Dict[str, Any]:
 
         violations = policy_res.get("violations", [])
 
-        # Calibrated health score via EvolutionEngine & RKM store
-        db_path = os.path.join(abs_repo, ".ultron", "repository.db")
-        health_score = 100.0
-        try:
-            from ultron.core.pipeline import orchestrator
-            from ultron.core.rkm.store import RepositoryStore
-            from ultron.core.rkm.evolution.engine import EvolutionEngine
-
-            orchestrator.analyze_repository(abs_repo, force=True)
-            if os.path.exists(db_path):
-                store = RepositoryStore(db_path)
-                try:
-                    meta = store.get_metadata()
-                    if meta and meta.latest_analysis_run_id:
-                        health_run = EvolutionEngine.evaluate_health_score(store, meta.latest_analysis_run_id)
-                        health_score = round(
-                            (health_run.architecture_stability * 0.4 +
-                             health_run.rule_compliance * 0.4 +
-                             health_run.complexity_trend * 0.2) * 100, 1
-                        )
-                finally:
-                    store.close()
-            else:
-                health_score = CIReporter._extract_health({"risks": serialized_risks})
-        except Exception:
+        # Scoped health score: if workspace is active, calculate directly over filtered files
+        if target_ws:
             health_score = CIReporter._extract_health({"risks": serialized_risks})
+        else:
+            # Calibrated health score via EvolutionEngine & RKM store for entire repository
+            db_path = os.path.join(abs_repo, ".ultron", "repository.db")
+            health_score = 100.0
+            try:
+                from ultron.core.pipeline import orchestrator
+                from ultron.core.rkm.store import RepositoryStore
+                from ultron.core.rkm.evolution.engine import EvolutionEngine
 
-        return {
+                orchestrator.analyze_repository(abs_repo, force=True)
+                if os.path.exists(db_path):
+                    store = RepositoryStore(db_path)
+                    try:
+                        meta = store.get_metadata()
+                        if meta and meta.latest_analysis_run_id:
+                            health_run = EvolutionEngine.evaluate_health_score(store, meta.latest_analysis_run_id)
+                            health_score = round(
+                                (health_run.architecture_stability * 0.4 +
+                                 health_run.rule_compliance * 0.4 +
+                                 health_run.complexity_trend * 0.2) * 100, 1
+                            )
+                    finally:
+                        store.close()
+                else:
+                    health_score = CIReporter._extract_health({"risks": serialized_risks})
+            except Exception:
+                health_score = CIReporter._extract_health({"risks": serialized_risks})
+
+        result_payload: Dict[str, Any] = {
             "repo": abs_repo.replace("\\", "/"),
             "risks": serialized_risks,
             "policy_violations": violations,
             "health_score": health_score,
             "total_files": len(codebase)
         }
+        if target_ws:
+            result_payload["workspace"] = target_ws.name
+            result_payload["workspace_path"] = target_ws.path
+
+        return result_payload
+
     except Exception as e:
+        from ultron.core.monorepo import WorkspaceNotFoundError
+        if isinstance(e, WorkspaceNotFoundError):
+            raise
         print(f"[Ultron Gate Warning] Current analysis encountered an issue: {e}", file=sys.stderr)
         return {
             "repo": abs_repo.replace("\\", "/"),
@@ -107,10 +140,11 @@ def extract_current_analysis(repo_path: str) -> Dict[str, Any]:
         }
 
 
-def extract_baseline_from_git(repo_path: str, base_ref: str) -> Optional[Dict[str, Any]]:
+def extract_baseline_from_git(repo_path: str, base_ref: str, workspace: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Extracts git archive snapshot of base_ref into a temporary directory, runs analyzer,
     and returns baseline analysis dictionary without leaving persistent disk artifacts.
+    Optionally scopes baseline analysis to a target workspace package.
     """
     abs_repo = os.path.abspath(os.path.normpath(repo_path))
     try:
@@ -134,7 +168,7 @@ def extract_baseline_from_git(repo_path: str, base_ref: str) -> Optional[Dict[st
                     tar.extractall(path=temp_dir, filter='data')
                 else:
                     tar.extractall(path=temp_dir)
-            return extract_current_analysis(temp_dir)
+            return extract_current_analysis(temp_dir, workspace=workspace)
 
     except (subprocess.SubprocessError, FileNotFoundError, OSError) as err:
         print(f"[Ultron Gate Warning] Could not extract git baseline from '{base_ref}': {err}", file=sys.stderr)
@@ -177,7 +211,8 @@ def run_gate_command(
     github_token: Optional[str] = None,
     no_color: bool = False,
     force_color: Optional[bool] = None,
-    sarif_output: Optional[str] = None
+    sarif_output: Optional[str] = None,
+    workspace: Optional[str] = None
 ) -> int:
     """
     Executes the Ultron Architectural Quality Gate.
@@ -191,8 +226,25 @@ def run_gate_command(
         fail_on_high = True
         fail_on_regression = True
 
+    # Workspace validation (Fail-Closed Protection)
+    if workspace:
+        from ultron.core.monorepo import detect_workspaces, find_workspace
+        ws_list = detect_workspaces(repo)
+        target_ws = find_workspace(ws_list, workspace)
+        if not target_ws:
+            available = ", ".join([w.name for w in ws_list]) if ws_list else "none detected"
+            safe_print(
+                f"[Ultron Gate Error] Workspace '{workspace}' not found in repository. Available: {available}",
+                file=sys.stderr
+            )
+            return 1
+
     # 1. Analyze Current Codebase
-    current_analysis = extract_current_analysis(repo)
+    try:
+        current_analysis = extract_current_analysis(repo, workspace=workspace)
+    except Exception as e:
+        safe_print(f"[Ultron Gate Error] Failed to analyze repository: {e}", file=sys.stderr)
+        return 1
 
     # 2. Resolve Baseline Analysis
     baseline_analysis = None
@@ -207,7 +259,7 @@ def run_gate_command(
         else:
             safe_print(f"[Ultron Gate Warning] Baseline JSON file '{base_file}' not found.", file=sys.stderr)
     elif base:
-        baseline_analysis = extract_baseline_from_git(repo, base)
+        baseline_analysis = extract_baseline_from_git(repo, base, workspace=workspace)
 
     # 3. Evaluate Quality Gate Decision
     gate_decision = CIReporter.evaluate_regression_gate(
