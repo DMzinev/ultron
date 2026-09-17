@@ -14,6 +14,7 @@ Asserts:
 
 import glob
 import os
+import re
 import shutil
 import subprocess
 import unittest
@@ -144,6 +145,66 @@ class TestFrontendInvariants(unittest.TestCase):
         self.assertIn('id="shortcuts-modal"', html, "index.html must contain #shortcuts-modal")
         self.assertIn('id="btn-shortcuts-help"', html, "index.html must contain #btn-shortcuts-help")
         self.assertIn('id="export-btn"', html, "index.html must contain #export-btn")
+
+    def test_aria_live_regions_present(self):
+        """Asserts ARIA live regions and status roles are declared on dynamic notification nodes."""
+        index_html_path = os.path.join(WEB_DIR, "index.html")
+        with open(index_html_path, "r", encoding="utf-8") as f:
+            html = f.read()
+
+        # Toast notification element
+        self.assertTrue(
+            re.search(r'<div[^>]*id="toast"[^>]*role="status"', html),
+            "Expected #toast to declare role='status'",
+        )
+        self.assertTrue(
+            re.search(r'<div[^>]*id="toast"[^>]*aria-live="polite"', html),
+            "Expected #toast to declare aria-live='polite'",
+        )
+        self.assertTrue(
+            re.search(r'<div[^>]*id="toast"[^>]*aria-atomic="true"', html),
+            "Expected #toast to declare aria-atomic='true'",
+        )
+
+        # Connection status element
+        self.assertTrue(
+            re.search(r'<span[^>]*id="conn-text"[^>]*aria-live="polite"', html),
+            "Expected #conn-text to declare aria-live='polite'",
+        )
+
+        # Busy state announcement
+        self.assertTrue(
+            re.search(r'<p[^>]*id="busy-text"[^>]*(role="status"|aria-live="polite")', html),
+            "Expected #busy-text to declare role='status' or aria-live='polite'",
+        )
+
+        # Banner alert element
+        self.assertTrue(
+            re.search(r'<div[^>]*id="banner"[^>]*(role="alert"|aria-live="assertive")', html),
+            "Expected #banner to declare role='alert' or aria-live='assertive'",
+        )
+
+    def test_accessible_focus_visible_styling(self):
+        """Asserts index.css contains WCAG 2.1 AA focus-visible rings and forced-colors query."""
+        index_css_path = os.path.join(WEB_DIR, "index.css")
+        with open(index_css_path, "r", encoding="utf-8") as f:
+            css = f.read()
+
+        self.assertIn(":focus-visible", css, "index.css must define :focus-visible rules")
+        self.assertIn("outline: 2px solid var(--accent)", css, "index.css must declare accent outline on focus-visible")
+        self.assertIn("outline-offset: 2px", css, "index.css must declare outline-offset: 2px on focus-visible")
+        self.assertIn(".risk-item:focus-visible", css, "index.css must explicitly target .risk-item:focus-visible")
+        self.assertIn("@media (forced-colors: active)", css, "index.css must support forced-colors high contrast")
+
+    def test_responsive_breakpoints_declared(self):
+        """Asserts index.css contains responsive 1024px (tablet) and 768px (mobile) breakpoints."""
+        index_css_path = os.path.join(WEB_DIR, "index.css")
+        with open(index_css_path, "r", encoding="utf-8") as f:
+            css = f.read()
+
+        self.assertIn("@media (max-width: 1024px)", css, "index.css must declare @media (max-width: 1024px)")
+        self.assertIn("@media (max-width: 768px)", css, "index.css must declare @media (max-width: 768px)")
+        self.assertIn("grid-template-rows: auto 1fr", css, "index.css 1024px query must define grid-template-rows: auto 1fr")
 
 
 if __name__ == "__main__":
