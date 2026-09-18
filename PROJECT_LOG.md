@@ -5083,6 +5083,53 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None. All 973 tests passing deterministically with 0 skips. Ready for delivery audit and merge into master.
 
+---
+
+### 2026-09-18 — Task P5-D2: Wheel Distribution Invariant, Release Notes & v1.5.0 Ecosystem Sign-Off
+
+**Branch:** `agent/P5-D2-wheel-release-v150`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=973 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=973 failures=0 errors=0 skipped=0`
+
+**Attempted:** Complete the 52nd and final task of the Ultron modernization roadmap. Synchronize package version to 1.5.0 across pyproject.toml, setup.py, ultron/__init__.py, mcp_server.py, sarif_reporter.py, and index.html footer; expand automated clean-room wheel distribution testing in test_distribution_packaging.py asserting presence of Phase 5 CLI commands (export.py, watch.py), Phase 5 core modules (formatting.py, sarif_reporter.py, monorepo.py), all 13 web frontend ES modules, and dist-info/METADATA version 1.5.0; update test parity assertions across test_frontend_invariants.py, test_mcp_client_roundtrip.py, test_sarif_export.py, and test_documentation_reality.py; update README.md test passing badge (973 passed, 0 failed), test count (973), tracker ledger link (52 tasks), CLI reference section (ultron export, ultron watch, --sarif, --workspace), and append official v1.5.0 Release Notes; update docs/TASK_PROGRESS_TRACKER.md marking all 52 tasks across Phases 1 through 5 100% completed; preserve all constitutional line ceilings, standard library zero-dependency core, and 0 test skips.
+
+**Antigravity self-audit result:**
+- [x] Synchronized version `1.5.0` across `pyproject.toml`, `setup.py`, `ultron/__init__.py`, `mcp_server.py`, `sarif_reporter.py`, and `index.html`.
+- [x] Preserved `&bull;` HTML entity in `index.html:454` (`RKM Engine v1.5.0 &bull; Local AST Zero-Revision Verification`).
+- [x] Expanded `test_clean_room_wheel_archive_invariants` to assert presence of Phase 5 commands (`export.py`, `watch.py`), core modules (`formatting.py`, `sarif_reporter.py`, `monorepo.py`), all 13 web frontend JS modules with full `ultron/interfaces/web/` prefix, and `dist-info/METADATA` (`Version: 1.5.0`).
+- [x] Updated `test_package_version_parity` asserting 4-way version 1.5.0 synchronization.
+- [x] Updated `test_footer_version_synchronization` in `test_frontend_invariants.py`.
+- [x] Updated `test_client_handshake_initialize` in `test_mcp_client_roundtrip.py`.
+- [x] Updated `test_sarif_tool_driver_metadata` in `test_sarif_export.py`.
+- [x] Updated `test_readme_cli_commands_valid` in `test_documentation_reality.py` with `export` and `watch`.
+- [x] Updated `README.md` test badge (`tests-973 passed | 0 failed`), tour count (`973 automated tests`), task tracker link (`52-task execution ledger`), CLI reference (`export`, `watch`, `--sarif`, `--workspace`), and official `v1.5.0 Release Notes`.
+- [x] Packaging tests pass: 20/20 tests pass in 31.819s (`test_distribution_packaging.py`).
+- [x] Targeted test suites pass: 34/34 tests pass in 3.762s (`test_frontend_invariants.py`, `test_mcp_client_roundtrip.py`, `test_sarif_export.py`, `test_documentation_reality.py`).
+- [x] Invariant test suites pass: 11/11 tests pass in 12.851s (`test_skip_invariants.py`, `test_self_scan_integrity.py`, `test_project_log_compliance.py`).
+- [x] End-to-end workflow suite passes: 10/10 tests pass in 2.792s (`test_e2e_workflow.py`).
+- [x] Master SSOT verification gate passes cleanly: `TESTS: 973 ran, 0 failed, 0 errors, 0 skipped` via `scripts/verify.py`.
+- [x] Constitutional line ceilings strictly preserved: `server.py` at 297 lines (< 300); all 13 frontend JS modules strictly < 400 lines.
+- [x] Pure standard library: zero new external runtime dependencies (`dependencies = []`).
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML classifiers or heuristic calibration curves were introduced or altered in Task P5-D2. All version strings and metadata entries are deterministic constants.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task P5-D2 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All tests are 100% hermetic. Clean-room wheel archive built inside `tempfile.TemporaryDirectory(prefix="ultron_wheel_")`; zero host filesystem pollution; zero outbound network calls.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: exact empty list `[]` for base dependencies; exact version string match `1.5.0` across 6 independent sources; wheel archive inspection of all 18 required python modules and all 13 web modules; dist-info `METADATA` file presence and `Version: 1.5.0` content match; forbidden directory exclusion (`tests/`, `scratch/`, `validation/`); CLI subcommands list reflection in `ultron.py`.
+5. **Silent Failure Check:** Tested explicit failure modes: missing modules in wheel archive raise `AssertionError`; version mismatches across any of the 6 sources fail immediately with descriptive diff messages; non-existent CLI subcommands in README fail `test_readme_cli_commands_valid`.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P5-D2 (Wheel Distribution Invariant, Release Notes & v1.5.0 Ecosystem Sign-Off) COMPLETED on `agent/P5-D2-wheel-release-v150`. All 52 tasks across Phases 1 through 5 100% complete. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 52 planned tasks in the Ultron modernization roadmap are complete and verified. Ready for delivery audit and final merge into master.
+
+
 
 
 

@@ -14,7 +14,7 @@ if os.path.exists(readme_path):
 
 setup(
     name="ultron-risk-scorer",
-    version="1.4.0",
+    version="1.5.0",
     description="AI-Assisted Software Architecture Platform",
     long_description=readme,
     long_description_content_type="text/markdown",

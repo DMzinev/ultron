@@ -415,7 +415,7 @@ def handle_mcp_request(raw_line):
             "result": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "ultron-mcp-middleware", "version": "1.4.0"}
+                "serverInfo": {"name": "ultron-mcp-middleware", "version": "1.5.0"}
             }
         }
     elif method == "tools/list":

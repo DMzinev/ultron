@@ -127,14 +127,14 @@ class TestFrontendInvariants(unittest.TestCase):
                 )
 
     def test_footer_version_synchronization(self):
-        """Asserts index.html footer displays synchronized engine version v1.4.0."""
+        """Asserts index.html footer displays synchronized engine version v1.5.0."""
         index_html_path = os.path.join(WEB_DIR, "index.html")
         with open(index_html_path, "r", encoding="utf-8") as f:
             html = f.read()
         self.assertIn(
-            "RKM Engine v1.4.0",
+            "RKM Engine v1.5.0",
             html,
-            "index.html footer must display RKM Engine v1.4.0",
+            "index.html footer must display RKM Engine v1.5.0",
         )
 
     def test_shortcuts_modal_and_export_elements_present(self):

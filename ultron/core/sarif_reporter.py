@@ -149,7 +149,7 @@ class SARIFReporter:
         cls,
         analysis_dict: Dict[str, Any],
         repo_path: str = ".",
-        driver_version: str = "1.4.0"
+        driver_version: str = "1.5.0"
     ) -> Dict[str, Any]:
         """
         Generates a complete, OASIS SARIF 2.1.0 compliant JSON dictionary.

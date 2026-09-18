@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/DMzinev/ultron/actions/workflows/ci.yml"><img src="https://github.com/DMzinev/ultron/actions/workflows/ci.yml/badge.svg" alt="CI Build Status" /></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-3776AB?logo=python&logoColor=white" alt="Python Versions" /></a>
-  <a href="scripts/verify.py"><img src="https://img.shields.io/badge/tests-894%20passed%20%7C%200%20failed-10B981?logo=githubactions&logoColor=white" alt="Tests" /></a>
+  <a href="scripts/verify.py"><img src="https://img.shields.io/badge/tests-973%20passed%20%7C%200%20failed-10B981?logo=githubactions&logoColor=white" alt="Tests" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
   <a href="#-the-4-interactive-pillars"><img src="https://img.shields.io/badge/architecture%20health-100%2F100-10B981" alt="Architecture Health" /></a>
   <a href="#-honest-limitations"><img src="https://img.shields.io/badge/core%20runtime-zero%20dependencies-8B5CF6" alt="Zero Dependencies" /></a>
@@ -227,7 +227,7 @@ $ ultron gate --repo . --max-high 2 --min-health 80.0 --github-annotations
 Ultron is structured cleanly into cohesive subsystems:
 - **`ultron/core/`**: The static analysis core — AST traversal (`analyzer.py`), dependency topology (`graph.py`), cycle detection (`cycle_detector.py`), git churn (`git_adapter.py`), coverage ingestion (`coverage_adapter.py`), and RKM store (`rkm/store.py`).
 - **`ultron/interfaces/`**: Developer interfaces — local dashboard server (`server.py`, strictly < 300 lines), unified CLI (`ultron.py`), MCP server (`mcp_server.py`), and vanilla web assets (`web/`).
-- **`ultron/tests/`**: 892+ automated tests partitioned strictly across unit, integration, and security boundaries.
+- **`ultron/tests/`**: 973 automated tests partitioned strictly across unit, integration, and security boundaries.
 - **`scripts/`**: Automation entry points including canonical test runner (`verify.py`).
 - **`docs/`**: Complete architecture specifications, benchmarks, and guides.
 
@@ -241,7 +241,7 @@ Explore deep architectural documentation in our [Central Resources Hub](docs/RES
 - **[Confidence Weight Calibration](docs/calibration/CONFIDENCE_WEIGHT_CALIBRATION.md)**: Empirical evaluation against git defect history.
 - **[System Architecture Map](docs/architecture/SYSTEM_MAP.md)**: Subsystem boundaries and communication flow.
 - **[Observation Data Pipeline](docs/architecture/OBSERVATION_DATA_PIPELINE.md)**: End-to-end data processing specification.
-- **[Task Progress Tracker](docs/TASK_PROGRESS_TRACKER.md)**: 44-task execution ledger and verified commit hashes.
+- **[Task Progress Tracker](docs/TASK_PROGRESS_TRACKER.md)**: 52-task execution ledger and verified commit hashes.
 - **[Contributing Guide](CONTRIBUTING.md)**: Development environment and code review guidelines.
 - **[Security Policy](SECURITY.md)**: Vulnerability disclosure and privacy architecture.
 
@@ -264,11 +264,26 @@ Ultron is built on strict engineering honesty. Know what it does and does not do
 # Scan a repository and output machine-readable JSON
 ultron scan --repo . --json
 
+# Monorepo scoped analysis for specific packages
+ultron scan --repo . --workspace pkg_core
+
 # Generate a 7-field AI mission brief for a target file
 ultron brief ultron/core/analyzer.py --intent "optimize loop performance" --json
 
+# Export comprehensive architecture report in markdown, json, html, or text
+ultron export --repo . --format markdown --output ultron-architecture-report.md
+
+# Continuous architecture watch daemon with live differential blast radius notices
+ultron watch --repo .
+
 # Enforce architectural thresholds in CI pipelines
 ultron gate --repo . --max-high 12 --min-health 65.0 --github-annotations
+
+# Enforce quality gate with OASIS SARIF 2.1.0 output for GitHub Advanced Security
+ultron gate --repo . --max-high 10 --min-health 70.0 --sarif results.sarif
+
+# Enforce quality gate scoped to a specific monorepo workspace package
+ultron gate --repo . --workspace pkg_core --strict
 
 # Execute master test verification with greppable summary
 ultron verify
@@ -332,6 +347,22 @@ TESTS: <ran> ran, <failed> failed, <errors> errors, <skipped> skipped
 ```
 - **Exit Code 0**: All discovered tests passed cleanly (or skipped).
 - **Exit Code 1**: Any test failed or encountered a runtime error.
+
+---
+
+## 🎉 Ultron v1.5.0 Release Notes — Enterprise Observability Milestone
+
+Ultron **v1.5.0** marks the formal completion of the 5-phase, 52-task modernization roadmap, transitioning Ultron from a prototype into an enterprise-grade, zero-dependency architectural control plane for developers and autonomous AI coding agents.
+
+### Key Highlights in v1.5.0:
+- **True Zero-Dependency Core**: 100% pure Python standard library runtime (`dependencies = []`, `install_requires = []`). No heavy ML or native compilation required for full operational parity.
+- **Continuous Observability Watch Daemon (`ultron watch`)**: Automated filesystem monitoring with debounced mtime polling, real-time delta calculation, and differential blast radius notifications.
+- **OASIS SARIF 2.1.0 GitHub Integration (`ultron gate --sarif`)**: Full compliance with the official OASIS SARIF 2.1.0 schema for seamless ingestion into GitHub Advanced Security Code Scanning, GitLab SAST, and SonarQube.
+- **Monorepo Workspace Federation (`--workspace`)**: Automated workspace discovery across Python, TypeScript/Node, Rust, and standard monorepo folder layouts (`packages/*`, `apps/*`), with cross-package boundary isolation and scoped gating.
+- **Multi-Format Architecture Reporting (`ultron export`)**: 1-click Web UI export and dedicated CLI generation supporting `markdown`, `json`, `html`, and `text` executive architecture briefs.
+- **Native ANSI Terminal Ergonomics**: Modular box-drawing summaries and color-coded risk pills supporting `NO_COLOR`, `TERM=dumb`, Windows `SetConsoleMode`, and interactive detection.
+- **Accessible & High-Contrast Micro-Interactions**: WCAG 2.1 AA compliant contrast ratios, accessible keyboard shortcuts modal (`?`), ARIA live status regions, and mobile/tablet responsive breakpoints.
+- **Clean-Room Packaging & E2E Validation**: 973 automated tests passing with strictly 0 skips repository-wide; clean-room hermetic wheel distribution and 9-stage end-to-end workflow verification.
 
 ---
 
