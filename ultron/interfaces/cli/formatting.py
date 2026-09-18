@@ -66,26 +66,36 @@ def can_encode_unicode(stream=None) -> bool:
 def supports_color(stream=None, force_color: Optional[bool] = None) -> bool:
     """
     Detects whether the target stream supports ANSI color codes.
-    Follows https://no-color.org and respects TERM=dumb and explicit overrides.
+    Follows 5-level precedence hierarchy:
+    1. Explicit user override (force_color: True/False).
+    2. NO_COLOR standard (https://no-color.org) and TERM=dumb disable color.
+    3. Ambient CI detection (GITHUB_ACTIONS=true, CI=true/1).
+    4. Interactive TTY stream check (target.isatty()).
+    5. Windows Virtual Terminal Processing initialization.
     """
+    # Level 1: Explicit user choice overrides all environment detection
     if force_color is not None:
         return bool(force_color)
 
     target = stream if stream is not None else sys.stdout
 
-    # 1. NO_COLOR standard (https://no-color.org): any non-empty value disables color
+    # Level 2: NO_COLOR standard (https://no-color.org): any non-empty value disables color
     if os.environ.get("NO_COLOR", "") != "":
         return False
 
-    # 2. TERM=dumb disables color
+    # TERM=dumb disables color
     if os.environ.get("TERM") == "dumb":
         return False
 
-    # 3. Stream must be an interactive TTY
+    # Level 3: Ambient CI environment detection (GitHub Actions, GitLab CI, etc.)
+    if os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("CI") in ("true", "1"):
+        return True
+
+    # Level 4: Stream must be an interactive TTY
     if not hasattr(target, "isatty") or not target.isatty():
         return False
 
-    # 4. Windows Virtual Terminal Processing initialization
+    # Level 5: Windows Virtual Terminal Processing initialization
     if sys.platform == "win32":
         try:
             import ctypes

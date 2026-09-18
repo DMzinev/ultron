@@ -5207,3 +5207,46 @@ PENDING — not yet reviewed by an external party.
 
 **Open questions / follow-up:**
 None. Blocker B2 resolved. Next task: RC-A3 (Make CLI rendering independent of ambient CI variables).
+
+---
+
+### 2026-09-18 — Task RC-A3: Make CLI Rendering Independent of Ambient CI Variables
+
+**Branch:** `release/1.5.0rc1-stabilization`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=974 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=980 failures=0 errors=0 skipped=0`
+
+**Attempted:** Eliminate Blocker B1 where Linux CI failed `test_gate_command_color_and_no_color_options` because ambient `GITHUB_ACTIONS=true` and `GITHUB_STEP_SUMMARY` variables suppressed human-readable stdout rendering and bypassed forced-color options; implement the constitutional 5-level precedence hierarchy in `ultron/interfaces/cli/formatting.py:supports_color` with explicit user choice (Level 1), `NO_COLOR`/`TERM=dumb` (Level 2), ambient CI environment detection for `GITHUB_ACTIONS` and `CI` (Level 3), interactive TTY checking (Level 4), and Windows VT mode initialization (Level 5); standardize `ultron/interfaces/cli/commands/gate.py` console rendering to unconditionally output `format_gate_summary(..., color=color_enabled)` in clean box formatting (colored or plain) without leaking raw Markdown table syntax to the terminal or silencing output when writing step summaries; redirect workflow annotations to `stderr` in `--json` mode guaranteeing pure JSON on `stdout`; expand `ultron/tests/test_cli_formatting.py` with all 6 mandated CI/ANSI test permutations (20/20 passed in 0.019s); master gate passes with 980 tests, 0 failures, 0 errors, 0 skips.
+
+**Antigravity self-audit result:**
+- [x] Eliminated Blocker B1: empirically reproduced failure before fix and verified clean pass after fix.
+- [x] Implemented constitutional 5-level precedence model in `ultron/interfaces/cli/formatting.py:supports_color`.
+- [x] Decoupled `$GITHUB_STEP_SUMMARY` file writes from stdout rendering in `ultron/interfaces/cli/commands/gate.py`.
+- [x] Standardized non-JSON console output to uniformly emit `format_gate_summary` with `color=color_enabled`.
+- [x] Guaranteed zero pollution on stdout under `json_output=True` (annotations redirect to stderr).
+- [x] Expanded `ultron/tests/test_cli_formatting.py` to 20 tests covering all 6 mandated test permutations: CI forced-color, CI no-color, explicit annotations with/without color, clean JSON, NO_COLOR precedence, and newline/box integrity.
+- [x] CLI formatting test suite passes cleanly: 20/20 tests pass in 0.019s (`test_cli_formatting.py`).
+- [x] CI action test suite passes cleanly: 12/12 tests pass in 9.599s (`test_ci_action.py`).
+- [x] Project log compliance suite passes: 5/5 tests pass (`test_project_log_compliance.py`).
+- [x] Master SSOT verification gate passes cleanly: `TESTS: 980 ran, 0 failed, 0 errors, 0 skipped` (266.027s) via `scripts/verify.py`.
+- [x] Constitutional line ceilings strictly preserved: `server.py` at 297 lines (< 300); all 13 web frontend JS modules strictly < 400 lines; `gate.py` at 405 lines; `formatting.py` at 430 lines.
+- [x] Pure standard library: zero new external runtime dependencies (`dependencies = []`).
+- [x] Zero skips: 0 skips maintained across all 980 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML classifiers or heuristic calibration curves were introduced or altered in Task RC-A3.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-A3 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All tests are 100% hermetic. Simulated GitHub Actions environment variables (`GITHUB_ACTIONS`, `GITHUB_STEP_SUMMARY`) are scoped via `unittest.mock.patch.dict`; zero network requests.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions across all 6 permutations: forced color under CI produces ANSI `\033[` on stdout; `--no-color` under CI produces 0 ANSI codes on stdout and stderr; `--json` produces valid parseable JSON with 0 ANSI and 0 annotations on stdout; `NO_COLOR=1` suppresses color unless `force_color=True` explicitly overrides it; `strip_ansi(colored) == plain` proves identical visual box dimensions.
+5. **Silent Failure Check:** Tested explicit failure modes: Blocker B1 reproduced pre-fix (`AssertionError: '\x1b[' not found in '::notice...'`); verified post-fix handles both pass and fail decisions, missing baseline, and disk read errors with informative banners on stderr.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task RC-A3 (Make CLI Rendering Independent of Ambient CI Variables) COMPLETED on `release/1.5.0rc1-stabilization`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. Blocker B1 resolved. Next task: RC-A4 (Make remote CI the real release gate).

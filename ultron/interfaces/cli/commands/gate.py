@@ -374,7 +374,7 @@ def run_gate_command(
     if should_emit_annotations:
         annotations = CIReporter.format_github_annotations(gate_decision, current_analysis)
         for ann in annotations:
-            safe_print(ann, file=sys.stdout if not json_output else sys.stderr)
+            safe_print(ann, file=sys.stderr if json_output else sys.stdout)
 
     # 12. Output Result Payload to stdout
     if json_output:
@@ -384,11 +384,7 @@ def run_gate_command(
         from ultron.interfaces.cli.formatting import supports_color, format_gate_summary, colorize, BOLD, RED, GREEN
         color_enabled = supports_color(sys.stdout, force_color=resolved_force)
 
-        if not output_comment and not github_step_summary:
-            if color_enabled:
-                safe_print(format_gate_summary(gate_decision, current_analysis, color=True))
-            else:
-                safe_print(pr_comment)
+        safe_print(format_gate_summary(gate_decision, current_analysis, color=color_enabled))
 
         if not gate_decision["passed"]:
             fail_banner = "\n[Ultron Gate: FAILED] Quality gate thresholds breached:"

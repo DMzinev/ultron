@@ -323,6 +323,140 @@ class TestCLIFormatting(unittest.TestCase):
                     self.assertEqual(exit_code, 0)
                     self.assertIn("\033[", mock_stdout.getvalue())
 
+    def test_gate_command_ci_env_forced_color(self):
+        """Asserts GITHUB_ACTIONS=true + GITHUB_STEP_SUMMARY + force_color=True emits ANSI on stdout (Blocker B1 fix)."""
+        mock_analysis = {
+            "repo": "ci_gate_test",
+            "total_files": 12,
+            "health_score": 90.0,
+            "risks": [],
+            "policy_violations": []
+        }
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true", "GITHUB_STEP_SUMMARY": "step_summary.md"}):
+            with patch("ultron.interfaces.cli.commands.gate.extract_current_analysis", return_value=mock_analysis):
+                with patch("builtins.open", unittest.mock.mock_open()):
+                    with patch("sys.stderr", new_callable=io.StringIO):
+                        with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+                            exit_code = run_gate_command(repo_path="ci_gate_test", force_color=True, fail_on_regression=False)
+                            self.assertEqual(exit_code, 0)
+                            self.assertIn("\033[", mock_stdout.getvalue())
+                            self.assertIn("ULTRON ARCHITECTURAL QUALITY GATE", mock_stdout.getvalue())
+
+    def test_gate_command_ci_env_no_color(self):
+        """Asserts GITHUB_ACTIONS=true + no_color=True emits zero ANSI on stdout and stderr."""
+        mock_analysis = {
+            "repo": "ci_gate_no_color",
+            "total_files": 5,
+            "health_score": 75.0,
+            "risks": [],
+            "policy_violations": []
+        }
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
+            with patch("ultron.interfaces.cli.commands.gate.extract_current_analysis", return_value=mock_analysis):
+                with patch("sys.stderr", new_callable=io.StringIO) as mock_stderr:
+                    with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+                        exit_code = run_gate_command(repo_path="ci_gate_no_color", no_color=True, fail_on_regression=False)
+                        self.assertEqual(exit_code, 0)
+                        self.assertNotIn("\033[", mock_stdout.getvalue())
+                        self.assertNotIn("\033[", mock_stderr.getvalue())
+
+    def test_gate_command_explicit_annotations_with_and_without_color(self):
+        """Asserts --github-annotations emits annotations to stdout, and color responds strictly to force_color/no_color."""
+        mock_analysis = {
+            "repo": "ann_test",
+            "total_files": 8,
+            "health_score": 95.0,
+            "risks": [],
+            "policy_violations": []
+        }
+        with patch("ultron.interfaces.cli.commands.gate.extract_current_analysis", return_value=mock_analysis):
+            with patch("sys.stderr", new_callable=io.StringIO):
+                # Annotations with forced color
+                with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+                    exit_code = run_gate_command(repo_path="ann_test", github_annotations=True, force_color=True, fail_on_regression=False)
+                    self.assertEqual(exit_code, 0)
+                    out = mock_stdout.getvalue()
+                    self.assertIn("::notice", out)
+                    self.assertIn("\033[", out)
+
+                # Annotations with no color
+                with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+                    exit_code = run_gate_command(repo_path="ann_test", github_annotations=True, no_color=True, fail_on_regression=False)
+                    self.assertEqual(exit_code, 0)
+                    out = mock_stdout.getvalue()
+                    self.assertIn("::notice", out)
+                    self.assertNotIn("\033[", out)
+
+    def test_gate_command_json_output_zero_pollution(self):
+        """Asserts json_output=True emits strictly valid JSON to stdout without ANSI or workflow commands."""
+        mock_analysis = {
+            "repo": "json_test",
+            "total_files": 15,
+            "health_score": 88.0,
+            "risks": [],
+            "policy_violations": []
+        }
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
+            with patch("ultron.interfaces.cli.commands.gate.extract_current_analysis", return_value=mock_analysis):
+                with patch("sys.stderr", new_callable=io.StringIO) as mock_stderr:
+                    with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+                        exit_code = run_gate_command(repo_path="json_test", json_output=True, fail_on_regression=False)
+                        self.assertEqual(exit_code, 0)
+                        raw_stdout = mock_stdout.getvalue()
+                        self.assertNotIn("\033[", raw_stdout)
+                        self.assertNotIn("::notice", raw_stdout)
+                        self.assertNotIn("::error", raw_stdout)
+                        parsed = json.loads(raw_stdout)
+                        self.assertEqual(parsed.get("status"), "PASSED")
+                        # Workflow annotations redirect to stderr in JSON mode
+                        self.assertIn("::notice", mock_stderr.getvalue())
+
+    def test_gate_command_no_color_env_precedence(self):
+        """Asserts NO_COLOR disables color by default, but explicit force_color=True overrides it."""
+        mock_analysis = {
+            "repo": "no_color_test",
+            "total_files": 4,
+            "health_score": 80.0,
+            "risks": [],
+            "policy_violations": []
+        }
+        with patch.dict(os.environ, {"NO_COLOR": "1"}):
+            with patch("ultron.interfaces.cli.commands.gate.extract_current_analysis", return_value=mock_analysis):
+                with patch("sys.stderr", new_callable=io.StringIO):
+                    # Default with NO_COLOR=1: no ANSI
+                    with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+                        exit_code = run_gate_command(repo_path="no_color_test", fail_on_regression=False)
+                        self.assertEqual(exit_code, 0)
+                        self.assertNotIn("\033[", mock_stdout.getvalue())
+
+                    # Explicit force_color=True overrides NO_COLOR=1
+                    with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
+                        exit_code = run_gate_command(repo_path="no_color_test", force_color=True, fail_on_regression=False)
+                        self.assertEqual(exit_code, 0)
+                        self.assertIn("\033[", mock_stdout.getvalue())
+
+    def test_gate_command_newline_and_box_integrity(self):
+        """Asserts format_gate_summary produces consistent box-drawing across colored and plain output."""
+        gate_decision = {
+            "passed": True,
+            "current_health": 92.5,
+            "baseline_health": 90.0,
+            "health_delta": 2.5,
+            "high_risk_count": 0,
+            "high_violations_count": 0,
+            "total_violations_count": 0
+        }
+        analysis = {"repo": "box_test", "total_files": 20}
+        colored = format_gate_summary(gate_decision, analysis, color=True)
+        plain = format_gate_summary(gate_decision, analysis, color=False)
+
+        self.assertIn("\033[", colored)
+        self.assertNotIn("\033[", plain)
+        self.assertEqual(strip_ansi(colored), plain)
+        # Consistent line endings
+        self.assertIn("\n", plain)
+        self.assertNotIn("\r\n", plain)
+
     def test_cli_scan_subcommand_dispatch(self):
         """Asserts ultron main() correctly dispatches scan subcommand with flags."""
         from ultron.interfaces.ultron import main
