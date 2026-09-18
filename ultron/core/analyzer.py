@@ -100,7 +100,7 @@ def analyze_directory(dirpath, os=os, cancel_token=None):
 
         # Prune dirs in-place to avoid scanning virtualenvs, builds, test files, and scratch dirs
         dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('venv', 'env', 'test_env', '__pycache__', 'tests', 'node_modules', 'scratch', 'dist', 'synapse_project', 'docs', 'ultron_risk_scorer.egg-info')]
-        
+
         for file in files:
             if cancel_token is not None:
                 if callable(cancel_token):
@@ -134,7 +134,7 @@ def build_dependency_graph(codebase, granularity="all"):
     file_links = []
     symbol_links = []
     all_links = []
-    
+
     # 1. Build module map for robust prefix-based import resolution
     mod_map = {}
     for f in codebase:
@@ -203,7 +203,7 @@ def build_dependency_graph(codebase, granularity="all"):
     for rel_path, analysis in codebase.items():
         norm_rel = rel_path.replace("\\", "/")
         file_imports = analysis.get('imports', [])
-        
+
         # Add file node
         file_node = {
             'id': norm_rel,
@@ -211,7 +211,7 @@ def build_dependency_graph(codebase, granularity="all"):
             'label': norm_rel
         }
         file_nodes.append(file_node)
-        
+
         # File imports -> File links
         for imp in file_imports:
             parts = imp.split('.')
@@ -245,7 +245,7 @@ def build_dependency_graph(codebase, granularity="all"):
             name = defn.get('name')
             node_id = f"{norm_rel}:{name}"
             symbol_ids.add(node_id)
-            
+
             # Add function/class node
             sym_node = {
                 'id': node_id,
@@ -254,14 +254,14 @@ def build_dependency_graph(codebase, granularity="all"):
                 'file': norm_rel
             }
             symbol_nodes.append(sym_node)
-            
+
             # Link file to its definitions (only in 'all' mode, not in 'symbol' to preserve closure)
             all_links.append({
                 'source': norm_rel,
                 'target': node_id,
                 'type': 'contains'
             })
-            
+
             # Process calls inside definitions
             for call in defn.get('calls', []):
                 target_file = _resolve_call_target(norm_rel, call, file_imports)
@@ -274,13 +274,13 @@ def build_dependency_graph(codebase, granularity="all"):
                     }
                     symbol_links.append(call_link)
                     all_links.append(call_link)
-                    
+
             if defn.get('type') == 'class':
                 for method in defn.get('methods', []):
                     m_name = method.get('name')
                     m_node_id = f"{norm_rel}:{name}.{m_name}"
                     symbol_ids.add(m_node_id)
-                    
+
                     # Add method node
                     m_sym_node = {
                         'id': m_node_id,
@@ -289,7 +289,7 @@ def build_dependency_graph(codebase, granularity="all"):
                         'file': norm_rel
                     }
                     symbol_nodes.append(m_sym_node)
-                    
+
                     # Link class to method (symbol-to-symbol contains)
                     class_m_link = {
                         'source': node_id,
@@ -298,7 +298,7 @@ def build_dependency_graph(codebase, granularity="all"):
                     }
                     symbol_links.append(class_m_link)
                     all_links.append(class_m_link)
-                    
+
                     # Link method calls
                     for call in method.get('calls', []):
                         target_file = _resolve_call_target(norm_rel, call, file_imports)
@@ -332,7 +332,7 @@ def extract_git_history(repo_path):
     """
     import subprocess
     bug_fix_counts = {}
-    
+
     try:
         chk = subprocess.run(
             ["git", "rev-parse", "--is-inside-work-tree"],
@@ -350,7 +350,7 @@ def extract_git_history(repo_path):
             logger.info("[Ultron] No git history found — bug-prone-file scaling is inactive.")
             _EMITTED_NO_GIT_HISTORY = True
         return bug_fix_counts
-    
+
     try:
         # Check if keyword search matches any commits
         cmd_commits = [
@@ -364,13 +364,13 @@ def extract_git_history(repo_path):
             "--grep=patch"
         ]
         chk_commits = subprocess.run(
-            cmd_commits, 
-            capture_output=True, 
-            text=True, 
+            cmd_commits,
+            capture_output=True,
+            text=True,
             cwd=repo_path
         )
         matched_commits = [c for c in chk_commits.stdout.splitlines() if c.strip()]
-        
+
         if not matched_commits:
             global _EMITTED_NO_TAGGED_COMMITS
             if not _EMITTED_NO_TAGGED_COMMITS:
@@ -380,21 +380,21 @@ def extract_git_history(repo_path):
 
         # Run git log with list of modified files in each commit
         cmd = [
-            "git", "log", 
-            "--name-only", 
-            "--pretty=format:", 
-            "-i", 
-            "--grep=fix", 
-            "--grep=bug", 
-            "--grep=issue", 
-            "--grep=hotfix", 
+            "git", "log",
+            "--name-only",
+            "--pretty=format:",
+            "-i",
+            "--grep=fix",
+            "--grep=bug",
+            "--grep=issue",
+            "--grep=hotfix",
             "--grep=patch"
         ]
         res = subprocess.run(
-            cmd, 
-            capture_output=True, 
-            text=True, 
-            cwd=repo_path, 
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=repo_path,
             timeout=5.0
         )
         if res.returncode == 0:
@@ -415,4 +415,4 @@ def get_workspace_codebase(codebase, workspace_path):
     return {
         f: data for f, data in codebase.items()
         if f.replace("\\", "/").startswith(prefix) or f.replace("\\", "/") == clean_prefix
-    }
+    }

@@ -85,6 +85,15 @@
 | 51 | **P5-D1** | `agent/P5-D1-product-reality-audit` | **COMPLETED** | `ac9c5ce` | Exhaustive 9-stage end-to-end product reality audit (`test_e2e_workflow.py`) verifying clean-room launch, repository connection, analysis pipeline, SQLite RKM persistence, dashboard health overview, dependency topology graph, studio prompt synthesis, code safety auditor, multi-format report export, and scoped monorepo gating in a 100% hermetic sandbox; 10 hermetic tests passing; master gate passes (`TESTS: 973 ran, 0 failed, 0 errors, 0 skipped`). |
 | 52 | **P5-D2** | `agent/P5-D2-wheel-release-v150` | **COMPLETED** | `b4460e2` | Clean-room wheel packaging verification, version 1.5.0 synchronization across metadata sources (pyproject.toml, setup.py, ultron/__init__.py, mcp_server.py, sarif_reporter.py, index.html), comprehensive wheel archive inspection with dist-info METADATA v1.5.0 and all 13 web modules, README documentation and official v1.5.0 release notes; master gate passes (`TESTS: 973 ran, 0 failed, 0 errors, 0 skipped`). |
 
+### Phase 6: Release Candidate Stabilization (`docs/RELEASE_CANDIDATE_STABILIZATION_PLAN.md`)
+
+| # | Task ID | Branch | Status | Commit | Description & Verification Evidence |
+|:---:|:---|:---|:---:|:---:|:---|
+| 53 | **RC-A1** | `release/1.5.0rc1-stabilization` | **COMPLETED** | `PENDING_COMMIT` | Safe local and remote master reconciliation, fast-forward ancestor proof, trailing whitespace resolution in touched Phase 5 lines of `ultron/core/analyzer.py` (git diff --check passing), zero AST regressions across 28 graph/analyzer tests; master gate passes (`TESTS: 973 ran, 0 failed, 0 errors, 0 skipped`); integration branch pushed to remote origin without force-pushing. |
+| 54 | **RC-A2** | `release/1.5.0rc1-stabilization` | **PENDING** | - | Fix the GitHub Action manifest (`.github/actions/ultron-gate/action.yml`). |
+| 55 | **RC-A3** | `release/1.5.0rc1-stabilization` | **PENDING** | - | Make CLI rendering independent of ambient CI variables (`gate.py`, `test_cli_formatting.py`). |
+| 56 | **RC-A4** | `release/1.5.0rc1-stabilization` | **PENDING** | - | Make remote CI the real release gate (`ci.yml`, `test-action.yml`). |
+
 ---
 
 ## 5. Authoritative Environment Skip Dependency Table
