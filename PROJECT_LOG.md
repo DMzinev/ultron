@@ -5036,5 +5036,53 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None. All 963 tests passing deterministically with 0 skips. Ready for delivery audit and merge into master.
 
+---
+
+### 2026-09-17 — Task P5-D1: End-to-End Product Reality Audit & Clean-Room Build (`ultron.tests.test_e2e_workflow`)
+
+**Branch:** `agent/P5-D1-product-reality-audit`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=963 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=973 failures=0 errors=0 skipped=0`
+
+**Attempted:** Implement an exhaustive, hermetic end-to-end product reality audit test suite (`ultron/tests/test_e2e_workflow.py`) verifying the complete 9-stage developer and AI coding agent journey: Launch -> Connect -> Analyze -> Dashboard -> Graph -> Studio -> Auditor -> Export -> CI Gate in a clean-room, temporary sandbox. Verify ephemeral server binding on dynamic port 0; MIME types and asset delivery for root HTML, CSS, main JS, and all 12 ES submodules; repository heartbeat and atomic configuration via `/api/set-repo-root` and `/api/get-repo-root`; background analysis triggering and polling via `/api/v1/analyze` and `/api/v1/progress`; SQLite RKM database creation (`.ultron/repository.db`) with schema v1.3.0 verification; dashboard overview and architecture health scoring; visual dependency graph at file and symbol granularities; AI studio prompt synthesis and multi-agent context briefs (Claude, Codex, Antigravity); code safety auditor with target files and inline code payloads; multi-format architecture report export (markdown, json, html, text); headless quality gate execution with workspace scoping and fail-closed security. Maintain 100% hermetic isolation in `tempfile.TemporaryDirectory()`, zero skips, zero external dependencies, and all constitutional line ceilings.
+
+**Antigravity self-audit result:**
+- [x] Authored `ultron/tests/test_e2e_workflow.py` containing 10 comprehensive tests validating all 9 stages individually and in an integrated sequential journey.
+- [x] Tested Stage 1: verified HTTP 200 and MIME content-types for `/`, `/index.html` (`text/html`), `/index.css` (`text/css`), `/index.js` (`application/javascript`), and all 12 ES submodules (`modules/api.js`, `auditor.js`, `dashboard.js`, `detail.js`, `graph.js`, `modals.js`, `picker.js`, `state.js`, `storage.js`, `studio.js`, `ui.js`, `violations.js`).
+- [x] Tested Stage 2: verified `/api/v1/health` heartbeat payload, `/api/set-repo-root` configuration persistence in sandboxed config file, and `/api/get-repo-root` reflection.
+- [x] Tested Stage 3: verified `/api/v1/analyze` execution, `/api/v1/progress` polling until `"success"`, and SQLite `.ultron/repository.db` creation with schema manifest `1.3.0` and table verification (`rkm_manifest`, `rkm_metadata`, `rkm_analysis_runs`, `rkm_files`, `rkm_symbols`, `rkm_dependencies`, `rkm_rules`).
+- [x] Tested Stage 4: verified Pillar 1 `/api/v1/overview` and `/api/architecture-health` response schemas, file counts, calibrated health scores (0-100), and memory snapshots.
+- [x] Tested Stage 5: verified Pillar 2 `/api/dependency-graph` at `file` and `symbol` granularities with nodes, links, complexity, coupling, risk levels, and package clusters.
+- [x] Tested Stage 6: verified Pillar 3 `/api/generate` prompt synthesis and `/api/v1/context-brief` multi-agent handoffs for Claude, Codex, and Antigravity.
+- [x] Tested Stage 7: verified Pillar 4 `/api/audit` code safety analysis against target files and inline code payloads returning structured anomalies.
+- [x] Tested Stage 8: verified `/api/v1/export-brief` across `markdown`, `json`, `html`, and `text` formats with valid structure and schema version `1.0.0`.
+- [x] Tested Stage 9: verified `run_gate_command` headless execution, workspace scoping (`pkg_core`, `pkg_web`), and fail-closed rejection of non-existent workspaces (exit code 1).
+- [x] Tested Stage 10: executed master integrated sequential audit verifying continuous state transitions without any mocks or stubs.
+- [x] Dedicated e2e suite passes: 10/10 tests pass in 1.997s with zero skips.
+- [x] Invariant suites pass: 46/46 tests pass in 20.295s (`test_skip_invariants`, `test_frontend_invariants`, `test_self_scan_integrity`, `test_documentation_reality`, `test_distribution_packaging`, `test_project_log_compliance`).
+- [x] Master single-source-of-truth verification gate passes cleanly: `TESTS: 973 ran, 0 failed, 0 errors, 0 skipped` via `scripts/verify.py` in 254.153s (Exit code: 0).
+- [x] Server line ceiling strictly preserved: `server.py` is 297 lines (< 300).
+- [x] Frontend line ceiling strictly preserved: all 13 JS modules strictly < 400 lines (`index.js` at 391 lines).
+- [x] Pure standard library: zero new external dependencies (`dependencies = []`).
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML models or heuristic classifiers are introduced. The audit suite executes end-to-end integration assertions against deterministic HTTP route contracts, SQLite databases, and AST analysis outputs.
+2. **Human Feedback / Rating Claims:** N/A.
+3. **External Data Dependencies:** All tests are 100% hermetic. Verified all 10 tests execute against an ephemeral in-process server bound to dynamic port 0 inside `tempfile.TemporaryDirectory()`; configuration files are isolated to a temporary directory; zero host filesystem mutations; zero external network calls.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: ephemeral port binding (port 0); MIME headers with UTF-8 charsets; status polling transitions (`running` -> `success`); empty and non-empty code payloads in `/api/audit`; all 4 export formats (`markdown`, `json`, `html`, `text`); valid vs non-existent workspace packages in quality gate (`run_gate_command` exit code 0 vs 1).
+5. **Silent Failure Check:** Tested explicit failure modes: non-existent workspace queries fail closed (exit code 1); background analysis progress step is validated to complete with `error is None`; `ACTIVE_JOB` state is reset in `setUpClass` and `tearDownClass` to prevent cross-test pollution.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task P5-D1 (End-to-End Product Reality Audit & Clean-Room Build) COMPLETED on `agent/P5-D1-product-reality-audit`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. All 973 tests passing deterministically with 0 skips. Ready for delivery audit and merge into master.
+
+
 
 
