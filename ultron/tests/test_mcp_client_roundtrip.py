@@ -162,6 +162,8 @@ class TestMCPClientRoundtrip(unittest.TestCase):
         self.assertEqual(result.get("protocolVersion"), "2024-11-05")
         self.assertIn("tools", result.get("capabilities", {}))
         self.assertEqual(result.get("serverInfo", {}).get("name"), "ultron-mcp-middleware")
+        from ultron import get_version
+        self.assertEqual(result.get("serverInfo", {}).get("version"), get_version())
         self.assertEqual(result.get("serverInfo", {}).get("version"), "1.5.0")
 
     # -----------------------------------------------------------------------

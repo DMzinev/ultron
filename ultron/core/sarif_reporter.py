@@ -149,12 +149,16 @@ class SARIFReporter:
         cls,
         analysis_dict: Dict[str, Any],
         repo_path: str = ".",
-        driver_version: str = "1.5.0"
+        driver_version: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Generates a complete, OASIS SARIF 2.1.0 compliant JSON dictionary.
         Dynamic rule registration ensures every result has an associated driver rule descriptor.
         """
+        if driver_version is None:
+            from ultron import get_version
+            driver_version = get_version()
+
         registered_rules: Dict[str, Dict[str, Any]] = {}
         for r in cls.CANONICAL_RULES:
             registered_rules[r["id"]] = dict(r)

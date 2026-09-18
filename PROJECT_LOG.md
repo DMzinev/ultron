@@ -5295,3 +5295,47 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 Phase RC-A complete. Next milestone: Phase RC-B (Release Artifact and Public Truth), beginning with Task RC-B1 (Add a real version command).
 
+---
+
+### 2026-09-18 — Task RC-B1: Add a Real Version Command
+
+**Branch:** `release/1.5.0rc1-stabilization`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=981 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=991 failures=0 errors=0 skipped=0`
+
+**Attempted:** Implement a single-source-of-truth version architecture and expose real, strictly parsed CLI version interfaces (`ultron --version`, `ultron version`, `ultron version --json`) per `docs/RELEASE_CANDIDATE_STABILIZATION_PLAN.md` lines 297-323 (Task RC-B1); establish `ultron/_version.py` (`__version__ = "1.5.0"`) as the canonical version source; configure `pyproject.toml` with `[tool.setuptools.dynamic] version = {attr = "ultron._version.__version__"}` and dynamic metadata in `setup.py`; implement authoritative `get_version()` in `ultron/__init__.py` using `importlib.metadata.version("ultron-risk-scorer")` with fallback to `__version__` catching only `PackageNotFoundError`; create `ultron/interfaces/cli/commands/version.py` with strict argument parsing rejecting unknown options (exit 2), supporting `--help` (exit 0) and `--json` (emitting JSON with schema `1.0.0`, version, python, path, and non-invasive capability probes for `radon`, `pystray`, and `PIL` via `importlib.util.find_spec`); synchronize MCP server (`mcp_server.py`), SARIF driver version (`sarif_reporter.py`), UI reality compiler (`ui_reality_compiler.py`), REST API health routes (`system_routes.py`, `health_routes.py`), Web UI footer (`#foot-engine-ver` in `index.html` refreshed dynamically via `pingServer()` in `index.js`), and release subsystem (`ultron.release`, `version_manager.py`, `audit.py`); update route contract snapshot (`fixtures/route_contract.json`); implement 10 unit and CLI tests in `ultron/tests/test_version_command.py` including hermetic clean-room wheel installation and execution outside the repository asserting the path points to site-packages with robust build artifact cleanup; master verification gate passes with 991 tests, 0 failures, 0 errors, 0 skips in 306.874s.
+
+**Antigravity self-audit result:**
+- [x] Established single authoritative version source: `ultron/_version.py` (`__version__ = "1.5.0"`).
+- [x] Configured setuptools dynamic metadata: `pyproject.toml` (`dynamic = ["version"]`, `[tool.setuptools.dynamic] version = {attr = "ultron._version.__version__"}`) and `setup.py`.
+- [x] Implemented authoritative resolver: `ultron.get_version()` resolves from `importlib.metadata` when installed, falling back to `__version__` for source checkout, catching only `PackageNotFoundError`.
+- [x] Created strict version CLI command: `ultron/interfaces/cli/commands/version.py` using `parse_args`, rejecting unknown arguments with exit 2, supporting `--help` (exit 0) and `--json` (versioned schema `"1.0.0"`).
+- [x] Non-invasive capability probing: Uses `importlib.util.find_spec` to probe `radon`, `pystray`, and `PIL` without importing them or causing side effects.
+- [x] Synchronized across all surfaces: MCP (`mcp_server.py`), SARIF (`sarif_reporter.py`), UI reality (`ui_reality_compiler.py`), REST API (`/api/v1/health`), Web UI footer (`index.html` + `index.js`), and release engineering (`ultron.release`, `version_manager.py`, `audit.py`).
+- [x] Synchronized route contract: `ultron/tests/fixtures/route_contract.json` reflects `"version"` key in `GET /api/v1/health` (31/31 routes pass in `test_route_contract.py`).
+- [x] Hermetic clean-room wheel test: `test_clean_wheel_outside_repo_execution` builds wheel in ephemeral temp dir, installs into isolated virtualenv, and runs outside repo verifying site-packages path resolution with `try...finally` cleanup of build directories.
+- [x] Dedicated version test suite: 10/10 tests pass cleanly in `test_version_command.py`.
+- [x] Self-scan partition integrity: 3/3 tests pass in `test_self_scan_integrity.py`.
+- [x] Master SSOT verification gate passes cleanly: `TESTS: 991 ran, 0 failed, 0 errors, 0 skipped` (306.874s) via `scripts/verify.py`.
+- [x] Constitutional line ceilings strictly preserved: `server.py` at 297 lines (< 300); all 13 web frontend JS modules strictly < 400 lines (`index.js` at 392 lines).
+- [x] Pure standard library: zero new external runtime dependencies (`dependencies = []`).
+- [x] Zero skips: 0 skips maintained across all 991 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no machine learning classifiers, statistical precision/recall metrics, or calibration curves were introduced or altered in Task RC-B1.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-B1 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All tests are 100% hermetic. Clean-room wheel installation and execution run inside `tempfile.TemporaryDirectory` with isolated virtual environments; zero external network calls.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: `--bogus` flag strictly rejected with exit code 2; `--help` succeeds with exit code 0; `--version` outputs exact canonical string `ultron 1.5.0`; `--json` schema validated for exact fields (`version`, `python`, `path`, `capabilities`, `schema_version == "1.0.0"`); installed wheel outside repo strictly asserts `installed_path` does not start with `REPO_ROOT`; `_probe` verified with known standard module and nonexistent package.
+5. **Silent Failure Check:** Tested explicit failure modes: `PackageNotFoundError` caught specifically and falls back to `__version__`; invalid CLI flags reject immediately with usage and non-zero exit; corrupted/absent paths handled gracefully.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task RC-B1 (Add a Real Version Command) COMPLETED on `release/1.5.0rc1-stabilization`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. Task RC-B1 fully implemented and verified. Next task: RC-B2 (Align supported Python versions).
+

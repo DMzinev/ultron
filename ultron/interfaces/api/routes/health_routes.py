@@ -13,8 +13,10 @@ def handle_v1_health(handler: Any) -> None:
         db_path = os.path.normpath(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".ultron", "rkm.db")))
         db_exists = os.path.exists(db_path)
 
+        from ultron import get_version
         payload = {
             "status": "healthy",
+            "version": get_version(),
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "environment": {
                 "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",

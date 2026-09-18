@@ -4,6 +4,8 @@ from ultron.core.ui_reality_compiler import UIRealityCompiler
 class TestVisualReality(unittest.TestCase):
     def test_browser_reality_snapshot_schema(self):
         snap = UIRealityCompiler.generate_browser_reality_snapshot()
+        from ultron import get_version
+        self.assertEqual(snap.get("version"), get_version())
         self.assertEqual(snap.get("version"), "1.5.0")
         self.assertGreater(snap.get("total_dom_elements", 0), 200)
         self.assertGreater(snap.get("interactive_controls", 0), 20)

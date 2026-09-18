@@ -4,6 +4,8 @@ import os
 import json
 import traceback
 
+from ultron import get_version
+
 def log_err(msg):
     """Routes diagnostic logging strictly to stderr to prevent stdout JSON-RPC corruption."""
     sys.stderr.write(f"[Ultron MCP] {msg}\n")
@@ -415,7 +417,7 @@ def handle_mcp_request(raw_line):
             "result": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "ultron-mcp-middleware", "version": "1.5.0"}
+                "serverInfo": {"name": "ultron-mcp-middleware", "version": get_version()}
             }
         }
     elif method == "tools/list":

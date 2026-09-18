@@ -269,7 +269,12 @@ class TestDistributionPackaging(unittest.TestCase):
     def test_package_version_parity(self):
         """Verify 4-way version 1.5.0 synchronization across package, pyproject, setup, and MCP."""
         import ultron
+        from ultron._version import __version__ as CANONICAL_VERSION
+        from ultron import get_version
+
         self.assertEqual(getattr(ultron, "__version__", None), "1.5.0", "ultron.__version__ must be 1.5.0")
+        self.assertEqual(get_version(), "1.5.0")
+        self.assertEqual(CANONICAL_VERSION, "1.5.0")
 
         # 1. MCP Server initialize handshake version
         from ultron.interfaces import mcp_server
@@ -278,8 +283,9 @@ class TestDistributionPackaging(unittest.TestCase):
         init_resp = json.loads(init_resp_raw) if isinstance(init_resp_raw, str) else init_resp_raw
         mcp_ver = init_resp.get("result", {}).get("serverInfo", {}).get("version")
         self.assertEqual(mcp_ver, "1.5.0", f"mcp_server serverInfo version must be 1.5.0, got: {mcp_ver}")
+        self.assertEqual(mcp_ver, get_version())
 
-        # 2. pyproject.toml version
+        # 2. pyproject.toml dynamic version
         pyproject_path = os.path.join(REPO_ROOT, "pyproject.toml")
         try:
             import tomllib
@@ -289,18 +295,21 @@ class TestDistributionPackaging(unittest.TestCase):
         if tomllib is not None:
             with open(pyproject_path, "rb") as f:
                 pyproj_data = tomllib.load(f)
-            pyproj_ver = pyproj_data.get("project", {}).get("version")
+            dynamic_fields = pyproj_data.get("project", {}).get("dynamic", [])
+            self.assertIn("version", dynamic_fields, "pyproject.toml project must declare dynamic version")
+            attr_ref = pyproj_data.get("tool", {}).get("setuptools", {}).get("dynamic", {}).get("version", {}).get("attr")
+            self.assertEqual(attr_ref, "ultron._version.__version__")
         else:
             with open(pyproject_path, "r", encoding="utf-8") as f:
                 content = f.read()
-            m = re.search(r'version\s*=\s*["\']([^"\']+)["\']', content)
-            pyproj_ver = m.group(1) if m else None
-        self.assertEqual(pyproj_ver, "1.5.0", f"pyproject.toml project version must be 1.5.0, got: {pyproj_ver}")
+            self.assertIn('dynamic = ["version"]', content)
+            self.assertIn('version = {attr = "ultron._version.__version__"}', content)
 
-        # 3. setup.py static AST parse
+        # 3. setup.py execution & dynamic AST parse
         setup_path = os.path.join(REPO_ROOT, "setup.py")
         with open(setup_path, "r", encoding="utf-8") as f:
-            setup_tree = ast.parse(f.read(), filename="setup.py")
+            setup_code = f.read()
+            setup_tree = ast.parse(setup_code, filename="setup.py")
 
         setup_kwargs = {}
         for node in ast.walk(setup_tree):
@@ -309,8 +318,8 @@ class TestDistributionPackaging(unittest.TestCase):
                 break
 
         self.assertIn("version", setup_kwargs, "setup.py must declare version keyword")
-        setup_ver = ast.literal_eval(setup_kwargs["version"])
-        self.assertEqual(setup_ver, "1.5.0", f"setup.py version must be 1.5.0, got: {setup_ver}")
+        self.assertIn("version_dict", setup_code)
+        self.assertIn("_version.py", setup_code)
 
     def test_zero_base_dependencies_declared(self):
         """Verify that base distribution requires 0 external dependencies (pure Python standard library)."""
@@ -626,6 +635,7 @@ def sample_func(a, b):
                 required_entries = [
                     "ultron/__init__.py",
                     "ultron/__main__.py",
+                    "ultron/_version.py",
                     "ultron/core/analyzer.py",
                     "ultron/core/cycle_detector.py",
                     "ultron/core/risk/scoring.py",
@@ -641,6 +651,7 @@ def sample_func(a, b):
                     "ultron/interfaces/cli/commands/mcp.py",
                     "ultron/interfaces/cli/commands/export.py",
                     "ultron/interfaces/cli/commands/watch.py",
+                    "ultron/interfaces/cli/commands/version.py",
                     "ultron/config/settings.py",
                 ]
                 for entry in required_entries:

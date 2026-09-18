@@ -12,9 +12,14 @@ if os.path.exists(readme_path):
     with open(readme_path, "r", encoding="utf-8") as f:
         readme = f.read()
 
+version_dict = {}
+with open(os.path.join(here, "ultron", "_version.py"), "r", encoding="utf-8") as f:
+    exec(f.read(), version_dict)
+version = version_dict["__version__"]
+
 setup(
     name="ultron-risk-scorer",
-    version="1.5.0",
+    version=version,
     description="AI-Assisted Software Architecture Platform",
     long_description=readme,
     long_description_content_type="text/markdown",

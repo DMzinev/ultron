@@ -11,9 +11,11 @@ from ultron.core.pipeline.orchestrator import AnalysisArtifactBundle, compute_re
 
 class TestVersionIntegrity(unittest.TestCase):
     def test_canonical_version_constant(self):
-        """Asserts canonical package version is 1.0.0-RC1."""
-        self.assertEqual(__version__, "1.0.0-RC1")
-        self.assertEqual(VersionManager.get_canonical_version(), "1.0.0-RC1")
+        """Asserts canonical package version matches single source 1.5.0."""
+        from ultron._version import __version__ as ROOT_VERSION
+        self.assertEqual(__version__, ROOT_VERSION)
+        self.assertEqual(VersionManager.get_canonical_version(), ROOT_VERSION)
+        self.assertEqual(__version__, "1.5.0")
 
     def test_version_manager_micro_increment(self):
         """Asserts VersionManager increments micro version components correctly."""

@@ -128,14 +128,17 @@ class TestFrontendInvariants(unittest.TestCase):
 
     def test_footer_version_synchronization(self):
         """Asserts index.html footer displays synchronized engine version v1.5.0."""
+        from ultron import get_version
         index_html_path = os.path.join(WEB_DIR, "index.html")
         with open(index_html_path, "r", encoding="utf-8") as f:
             html = f.read()
+        expected_version = f'RKM Engine <span id="foot-engine-ver">v{get_version()}</span>'
         self.assertIn(
-            "RKM Engine v1.5.0",
+            expected_version,
             html,
-            "index.html footer must display RKM Engine v1.5.0",
+            f"index.html footer must display {expected_version}",
         )
+        self.assertIn("1.5.0", html)
 
     def test_shortcuts_modal_and_export_elements_present(self):
         """Asserts shortcuts modal markup and export report button are present in index.html."""

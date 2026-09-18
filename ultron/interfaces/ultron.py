@@ -130,6 +130,11 @@ def main():
         pkg = generate_vibe_context_package(intent)
         print(pkg["prompt_package"])
         sys.exit(0)
+
+    if len(sys.argv) > 1 and sys.argv[1] == "version":
+        from ultron.interfaces.cli.commands.version import run_version_command
+        sys.exit(run_version_command(sys.argv[2:]))
+
     # Subcommand Handling
     if len(sys.argv) > 1 and sys.argv[1] in ("init", "analyze", "check", "explain", "history", "report", "dashboard", "demo", "brief", "gate", "scan", "verify", "mcp", "hook", "impact", "export", "watch"):
         cmd = sys.argv[1]
@@ -632,6 +637,8 @@ class InterfaceHandler:
             sys.exit(code)
 
     parser = argparse.ArgumentParser(description="Ultron: Code Architecture Risk & AI Mission Control")
+    from ultron import get_version
+    parser.add_argument("--version", action="version", version=f"ultron {get_version()}")
     parser.add_argument("--repo", default=".", help="Path to codebase repository")
     parser.add_argument("--intent", help="Natural language change intent description (required for prompt generation)")
     parser.add_argument("--files", help="Comma-separated relative paths of files to modify")

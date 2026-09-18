@@ -51,9 +51,10 @@ export function switchView(viewName) {
 export async function pingServer() {
   const el = $("conn");
   try {
-    await api("/api/v1/health");
+    const res = await api("/api/v1/health");
     if (el) el.className = "conn is-ok";
     if ($("conn-text")) $("conn-text").textContent = "connected";
+    if (res && res.version && $("foot-engine-ver")) $("foot-engine-ver").textContent = `v${res.version}`;
   } catch (_) {
     if (el) el.className = "conn is-down";
     if ($("conn-text")) $("conn-text").textContent = "offline";

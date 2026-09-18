@@ -589,9 +589,9 @@ class UIRealityCompiler:
         """
         report = cls.audit_full_reality(base_dir)
         root = base_dir or os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+        from ultron import get_version
         snapshot = {
-            "version": "1.5.0",
+            "version": get_version(),
             "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "total_dom_elements": report.total_elements,
             "interactive_controls": report.interactive_elements,

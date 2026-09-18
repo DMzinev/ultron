@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 
 from ultron.release.schema import create_audit_context
 from ultron.release.policy import evaluate_release_policy
+from ultron.release.version_manager import CANONICAL_VERSION
 
 AI_GATEWAY_URL = "http://127.0.0.1:10531/v1/chat/completions"
 AI_GATEWAY_TIMEOUT = 3.0
@@ -30,7 +31,7 @@ def query_local_ai_review():
             "model": AI_GATEWAY_MODEL,
             "messages": [
                 {"role": "system", "content": "You are a release auditor. Provide a brief architectural risk assessment."},
-                {"role": "user", "content": "Ultron 1.0.0-RC1 release audit: all tests pass, performance benchmarks within budget, hard freeze active. Any concerns?"}
+                {"role": "user", "content": f"Ultron {CANONICAL_VERSION} release audit: all tests pass, performance benchmarks within budget, hard freeze active. Any concerns?"}
             ],
             "temperature": 0.2
         }).encode("utf-8")
@@ -74,7 +75,7 @@ def run_automated_audit():
     Generates release_report.json complying with schema.py, 
     invokes policy evaluation, and dynamically renders all markdown reports.
     """
-    print("[Ultron Evidence Collector] Collecting empirical evidence for 1.0.0-RC1...")
+    print(f"[Ultron Evidence Collector] Collecting empirical evidence for {CANONICAL_VERSION}...")
     start_time = time.time()
     
     # Generate audit context metadata
@@ -155,7 +156,7 @@ def run_automated_audit():
 
     # 5. Generate Single Canonical Contract: release_report.json
     report = {
-        "release_version": "1.0.0-RC1",
+        "release_version": CANONICAL_VERSION,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "audit_context": audit_ctx,
         "hard_freeze_active": True,
@@ -211,7 +212,7 @@ def run_automated_audit():
     # 7. Render RELEASE_READINESS_DASHBOARD.md dynamically from release_report.json
     ai_status_icon = "🟢 **PASS**" if ai_review["status"] == "ONLINE" else "🟡 **SKIP**"
     ai_summary_short = ai_review["summary"].replace("\n", " ").replace("|", "\\|")[:80]
-    dashboard_content = f"""# Ultron 1.0.0 Release Readiness Dashboard
+    dashboard_content = f"""# Ultron {CANONICAL_VERSION} Release Readiness Dashboard
 
 ## Status Summary
 - **Release Version**: `{report['release_version']}`
@@ -271,7 +272,7 @@ def run_automated_audit():
     print("--> Rendered RELEASE_READINESS_DASHBOARD.md dynamically")
     
     # 8. Render RELEASE_CHECKLIST.md dynamically from release_report.json
-    checklist_content = f"""# Ultron 1.0.0 Release Candidate Checklist
+    checklist_content = f"""# Ultron {CANONICAL_VERSION} Release Candidate Checklist
 
 Canonical Contract: `{report_file}`
 Timestamp: `{report['timestamp']}`

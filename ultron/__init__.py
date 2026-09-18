@@ -1,5 +1,16 @@
-# Ultron package initialization
-__version__ = "1.5.0"
+from ultron._version import __version__
+
+
+def get_version() -> str:
+    """
+    Authoritative version resolver.
+    Uses importlib.metadata for installed wheels; falls back to __version__ for dev tree checkouts.
+    """
+    try:
+        from importlib.metadata import version as _meta_version, PackageNotFoundError
+        return _meta_version("ultron-risk-scorer")
+    except PackageNotFoundError:
+        return __version__
 
 import os
 import logging

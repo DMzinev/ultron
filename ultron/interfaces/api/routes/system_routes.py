@@ -191,6 +191,7 @@ class SystemRoutesMixin:
         return os.path.abspath(os.getcwd())
 
     def handle_v1_health(self):
+        from ultron import get_version
         repo_root = self.get_repo_root_path()
         db_path = os.path.join(repo_root, ".ultron", "repository.db")
         db_exists = os.path.exists(db_path)
@@ -198,6 +199,7 @@ class SystemRoutesMixin:
 
         self.send_json_response(200, {
             "status": "healthy",
+            "version": get_version(),
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "environment": {
                 "python_version": sys.version.split()[0],
