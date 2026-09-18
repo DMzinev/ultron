@@ -2,13 +2,114 @@ name: Ultron Continuous Integration & Validation Engineering
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ master, main, 'release/**' ]
   pull_request:
-    branches: [ master, main ]
+    branches: [ master, main, 'release/**' ]
 
 jobs:
-  validate-and-test:
-    name: Validation & Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+  build-wheel:
+    name: Build & Verify Release Candidate Wheel (Ubuntu, Python 3.12)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: '3.12'
+
+      - name: Install Packaging Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+
+      - name: Build Source Distribution and Wheel
+        run: python -m build --outdir dist/
+
+      - name: Validate Package Metadata with Twine
+        run: twine check dist/*
+
+      - name: Verify Clean-Room Wheel Distribution Invariants
+        run: python -m unittest ultron.tests.test_distribution_packaging
+
+      - name: Upload Candidate Wheel Artifact
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: ultron-candidate-wheel
+          path: dist/*.whl
+          if-no-files-found: error
+
+  built-wheel-smoke:
+    name: Built Wheel Smoke (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    needs: [ build-wheel ]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+        python-version: [ '3.10', '3.11', '3.12' ]
+
+    steps:
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download Candidate Wheel
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          name: ultron-candidate-wheel
+          path: wheel-dist
+
+      - name: Install Built Wheel in Clean-Room Environment
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install wheel-dist/*.whl
+
+      - name: Assert Zero-Dependency Base Environment (No Radon, Pillow, Pystray, Build)
+        shell: bash
+        run: |
+          python -c "import importlib.util; forbidden = ['radon', 'PIL', 'pystray', 'build', 'packaging']; found = [p for p in forbidden if importlib.util.find_spec(p) is not None]; print(f'Scan results for dev dependencies: found={found}'); assert not found, f'Forbidden packages present in zero-dependency environment: {found}'"
+
+      - name: Smoke Test CLI Entrypoints Outside Repository
+        shell: bash
+        run: |
+          python -c "import ultron; print(f'Ultron v{ultron.__version__} loaded cleanly from {ultron.__file__}')"
+          python -m ultron --help
+          python -m ultron.interfaces.ultron --help
+          ultron --help
+          ultron-server --help
+          ultron-mcp --help
+
+      - name: Smoke Test Scan Command on Temporary Target Directory
+        shell: bash
+        run: |
+          mkdir -p sample_smoke_target
+          cat << 'EOF' > sample_smoke_target/module.py
+          def calculate_area(width: float, height: float) -> float:
+              """Calculates the area of a rectangle."""
+              if width <= 0 or height <= 0:
+                  raise ValueError("Dimensions must be positive")
+              return width * height
+          EOF
+          ultron scan --repo sample_smoke_target --json
+
+      - name: Upload Smoke Test Logs on Failure
+        if: failure()
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: smoke-logs-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            sample_smoke_target/
+
+  source-unit-contract:
+    name: Source Unit & Contract (${{ matrix.os }}, Python ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -19,37 +120,179 @@ jobs:
 
     steps:
       - name: Checkout Codebase
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Set up Node.js for ES Module Verification
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
           node-version: '20'
 
-      - name: Install Python Dependencies
+      - name: Install Base Ultron (Clean Non-Editable Install, No Dev Extras)
+        shell: bash
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install -e .
-          python -m pip install coverage psutil
+          python -m pip install .
+
+      - name: Assert Absence of Radon in Base Environment
+        shell: bash
+        run: |
+          python -c "import importlib.util; assert importlib.util.find_spec('radon') is None, 'Radon must not be installed in base environment'"
 
       - name: Verify Python Compilation
+        shell: bash
         run: python -m compileall ultron
 
       - name: Verify ES Module Syntax
+        shell: bash
         run: python -c "import glob, subprocess; [subprocess.check_call(['node', '-c', f]) for f in glob.glob('ultron/interfaces/web/**/*.js', recursive=True)]"
 
-      - name: Execute Master Verification (Single Source of Truth - Pass 1)
-        timeout-minutes: 5
+      - name: Execute Source Unit and Contract Suites
+        shell: bash
         run: python scripts/verify.py
 
+      - name: Upload Unit & Contract Failure Logs
+        if: failure()
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: unit-contract-logs-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            *.log
+
+  integration-verification:
+    name: Integration & Dev Extras Verification (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+        python-version: [ '3.10', '3.11', '3.12' ]
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up Node.js for ES Module Verification
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: '20'
+
+      - name: Install Python Dev Extras Dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install .
+          python -m pip install coverage psutil
+
+      - name: Execute Master Verification (Single Source of Truth - Pass 1)
+        shell: bash
+        run: python scripts/verify.py 2>&1 | tee verify-pass1.log
+
       - name: Execute Master Verification Back-to-Back (Reproducibility Check - Pass 2)
-        timeout-minutes: 5
-        run: python scripts/verify.py
+        shell: bash
+        run: python scripts/verify.py 2>&1 | tee verify-pass2.log
+
+      - name: Upload Verification Failure Logs
+        if: failure()
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: verify-logs-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            verify-pass1.log
+            verify-pass2.log
+
+  composite-action:
+    name: Composite Action Validation (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: '3.12'
+
+      - name: Install Ultron (Clean Non-Editable Install)
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .
+
+      - name: Test Quality Gate Pass (Clean Repo Fixture)
+        id: gate-pass
+        uses: ./.github/actions/ultron-gate
+        with:
+          repo-path: 'ultron/tests/fixtures/clean_repo'
+          max-high: '0'
+          min-health: '80.0'
+          output-markdown: 'report-pass.md'
+          output-json: 'report-pass.json'
+
+      - name: Verify Pass Outputs
+        shell: bash
+        run: |
+          if [ "${{ steps.gate-pass.outputs.passed }}" != "true" ]; then
+            echo "Expected passed=true, got ${{ steps.gate-pass.outputs.passed }}"
+            exit 1
+          fi
+          if [ "${{ steps.gate-pass.outputs.exit-code }}" != "0" ]; then
+            echo "Expected exit-code=0, got ${{ steps.gate-pass.outputs.exit-code }}"
+            exit 1
+          fi
+          if [ ! -f "report-pass.md" ]; then
+            echo "Expected report-pass.md to exist"
+            exit 1
+          fi
+          if [ ! -f "report-pass.json" ]; then
+            echo "Expected report-pass.json to exist"
+            exit 1
+          fi
+
+      - name: Test Quality Gate Failure Handling (Tangled Repo Fixture)
+        id: gate-fail
+        uses: ./.github/actions/ultron-gate
+        with:
+          repo-path: 'ultron/tests/fixtures/tangled_repo'
+          min-health: '80.0'
+          fail-on-regression: 'false'
+          output-markdown: 'report-fail.md'
+
+      - name: Verify Fail Outputs Under Non-Regression Mode
+        shell: bash
+        run: |
+          if [ "${{ steps.gate-fail.outputs.passed }}" != "false" ]; then
+            echo "Expected passed=false for tangled_repo, got ${{ steps.gate-fail.outputs.passed }}"
+            exit 1
+          fi
+          if [ "${{ steps.gate-fail.outputs.exit-code }}" != "0" ]; then
+            echo "Expected exit-code=0 when fail-on-regression is false, got ${{ steps.gate-fail.outputs.exit-code }}"
+            exit 1
+          fi
+          if [ ! -f "report-fail.md" ]; then
+            echo "Expected report-fail.md to exist"
+            exit 1
+          fi

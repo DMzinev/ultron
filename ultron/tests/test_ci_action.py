@@ -31,6 +31,7 @@ class TestCIActionSchemaAndWorkflow(unittest.TestCase):
     def setUp(self):
         self.action_path = os.path.join(REPO_ROOT, ".github", "actions", "ultron-gate", "action.yml")
         self.workflow_path = os.path.join(REPO_ROOT, ".github", "workflows", "test-action.yml")
+        self.ci_workflow_path = os.path.join(REPO_ROOT, ".github", "workflows", "ci.yml")
 
     def test_action_yaml_schema_and_integrity(self):
         """Asserts .github/actions/ultron-gate/action.yml defines all 13 inputs, 4 outputs, and composite runner."""
@@ -118,6 +119,67 @@ class TestCIActionSchemaAndWorkflow(unittest.TestCase):
         self.assertIn("./.github/actions/ultron-gate", content)
         self.assertIn("clean_repo", content)
         self.assertIn("tangled_repo", content)
+
+    def test_ci_workflow_structure_and_job_decomposition(self):
+        """Asserts .github/workflows/ci.yml decomposes CI into 5 hermetic release jobs with pinned action SHAs."""
+        self.assertTrue(os.path.isfile(self.ci_workflow_path), f"ci.yml missing at {self.ci_workflow_path}")
+        with open(self.ci_workflow_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # 1. Branch Triggers include release/**
+        self.assertIn("release/**", content)
+
+        # 2. All 5 discrete jobs exist
+        expected_jobs = [
+            "build-wheel:",
+            "built-wheel-smoke:",
+            "source-unit-contract:",
+            "integration-verification:",
+            "composite-action:",
+        ]
+        for job in expected_jobs:
+            self.assertIn(job, content, f"Required CI job '{job}' missing in ci.yml")
+
+        # 3. built-wheel-smoke includes macOS, Linux, and Windows
+        self.assertIn("macos-latest", content)
+        self.assertIn("ubuntu-latest", content)
+        self.assertIn("windows-latest", content)
+
+        # 4. built-wheel-smoke asserts zero-dependency isolation (absence of radon, PIL, pystray)
+        self.assertIn("forbidden = ['radon', 'PIL', 'pystray'", content)
+
+        # 5. source-unit-contract runs base install without requirements.txt
+        self.assertIn("Radon must not be installed in base environment", content)
+
+        # 6. integration-verification runs dev extras and verify.py back-to-back
+        self.assertIn("-r requirements.txt", content)
+        self.assertIn("scripts/verify.py", content)
+
+        # 7. Immutable 40-character commit SHA pinning for all third-party actions
+        # across both ci.yml and test-action.yml
+        pinned_shas = {
+            "actions/checkout": "11bd71901bbe5b1630ceea73d27597364c9af683",
+            "actions/setup-python": "42375524e23c412d93fb67b49958b491fce71c38",
+            "actions/setup-node": "1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a",
+            "actions/upload-artifact": "4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1",
+            "actions/download-artifact": "cc203385981b70ca67e1cc392babf9cc229d5806",
+        }
+        import re
+        for action_name, sha in pinned_shas.items():
+            pattern = rf"{re.escape(action_name)}@{sha}\b"
+            self.assertRegex(
+                content,
+                pattern,
+                f"Action '{action_name}' is not pinned to expected immutable commit SHA {sha} in ci.yml"
+            )
+
+        with open(self.workflow_path, "r", encoding="utf-8") as f:
+            test_action_content = f.read()
+        self.assertIn("release/**", test_action_content)
+        self.assertIn("macos-latest", test_action_content)
+        self.assertIn(f"actions/checkout@{pinned_shas['actions/checkout']}", test_action_content)
+        self.assertIn(f"actions/setup-python@{pinned_shas['actions/setup-python']}", test_action_content)
+        self.assertNotIn("-e .", test_action_content, "test-action.yml must use non-editable install per Rule 5")
 
 
 class TestCIGateActionExecution(unittest.TestCase):

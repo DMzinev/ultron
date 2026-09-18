@@ -5250,3 +5250,48 @@ PENDING — not yet reviewed by an external party.
 
 **Open questions / follow-up:**
 None. Blocker B1 resolved. Next task: RC-A4 (Make remote CI the real release gate).
+
+---
+
+### 2026-09-18 — Task RC-A4: Make Remote CI the Real Release Gate
+
+**Branch:** `release/1.5.0rc1-stabilization`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=980 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=981 failures=0 errors=0 skipped=0`
+
+**Attempted:** Transform remote GitHub Actions CI from a monolithic, editable-install workflow into an authoritative release gate for Ultron v1.5.0rc1; decompose `.github/workflows/ci.yml` into 5 discrete, hermetic jobs: `build-wheel` (builds the release candidate wheel once per Rule 6 and validates with `twine check`), `built-wheel-smoke` (clean-room zero-dependency wheel smoke across Linux, Windows, and macOS on Python 3.10, 3.11, and 3.12 without source checkout, downloading candidate wheel via `actions/download-artifact` and asserting absence of `radon`, `PIL`, `pystray`, `build`, `packaging`), `source-unit-contract` (runs clean non-editable `pip install .` without `requirements.txt`, asserts absence of Radon, and executes compilation, ES modules, and unit/contract test suites), `integration-verification` (runs dev extras with `requirements.txt` + `coverage psutil` and executes `scripts/verify.py` back-to-back with stdout/stderr teed to log files), and `composite-action` (runs clean non-editable install and exercises `.github/actions/ultron-gate` across `clean_repo` and `tangled_repo` fixtures); update `.github/workflows/test-action.yml` to include macOS in its matrix, replace editable install with non-editable `pip install .`, and add `release/**` branch triggers; pin all 5 release-critical third-party actions to reviewed immutable 40-character commit SHAs (`checkout@11bd71901bbe5b1630ceea73d27597364c9af683`, `setup-python@42375524e23c412d93fb67b49958b491fce71c38`, `setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a`, `upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1`, `download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806`); extend `TestCIActionSchemaAndWorkflow` in `ultron/tests/test_ci_action.py` with `test_ci_workflow_structure_and_job_decomposition` asserting workflow job decomposition, matrix coverage, zero-dependency assertions, and 5-action immutable SHA pinning; master gate passes with 981 tests, 0 failures, 0 errors, 0 skips in 254.142s.
+
+**Antigravity self-audit result:**
+- [x] Decomposed CI into 5 discrete jobs: `build-wheel`, `built-wheel-smoke`, `source-unit-contract`, `integration-verification`, and `composite-action`.
+- [x] Enforced Rule 6: Candidate wheel is built once in `build-wheel` and downloaded into clean runner environments, eliminating 9 redundant matrix builds.
+- [x] Isolated clean-room wheel smoke: `built-wheel-smoke` executes without repository source checkout, preventing `sys.path` leakage.
+- [x] Decoupled base install from dev extras: `source-unit-contract` and `built-wheel-smoke` strictly run without `requirements.txt`, asserting absence of dev dependencies.
+- [x] Structured failure logging: Console output is teed to log files and uploaded via `actions/upload-artifact` on failure.
+- [x] Pinned third-party actions: All 5 actions across both workflows pinned to reviewed 40-character immutable commit SHAs with semantic version comments.
+- [x] Added `release/**` branch patterns to triggers in both workflows.
+- [x] Added automated CI workflow test assertions in `ultron/tests/test_ci_action.py` (13/13 tests pass in 9.873s).
+- [x] Distribution packaging test suite passes cleanly: 20/20 tests pass in 10.595s (`test_distribution_packaging.py`).
+- [x] Project log compliance suite passes: 5/5 tests pass (`test_project_log_compliance.py`).
+- [x] Master SSOT verification gate passes cleanly: `TESTS: 981 ran, 0 failed, 0 errors, 0 skipped` (254.142s) via `scripts/verify.py`.
+- [x] Constitutional line ceilings strictly preserved: `server.py` at 297 lines (< 300); all 13 web frontend JS modules strictly < 400 lines.
+- [x] Pure standard library: zero new external runtime dependencies (`dependencies = []`).
+- [x] Zero skips: 0 skips maintained across all 981 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no machine learning classifiers, statistical precision/recall metrics, or calibration curves were introduced or altered in Task RC-A4.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-A4 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All tests are 100% hermetic. Action YAML files are statically parsed and asserted via standard library file I/O and regular expressions; zero network calls during local test runs. Pinned action commit SHAs were validated against upstream GitHub API over HTTPS during plan audit.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: all 5 discrete job IDs must exist in `ci.yml`; all 5 third-party actions must match exact 40-character hex commit SHAs; absence of forbidden dev dependencies is dynamically asserted in clean environment; absence of `-e .` editable install asserted on `test-action.yml`.
+5. **Silent Failure Check:** Tested explicit failure modes: missing job ID or altered SHA immediately raises `AssertionError`; failure log artifacts upload conditionally on failure (`if: failure()`); gate execution failure in `tangled_repo` properly validated with exit code 0 when `fail-on-regression: false`.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task RC-A4 (Make Remote CI the Real Release Gate) COMPLETED on `release/1.5.0rc1-stabilization`. Phase RC-A (Repository and CI convergence) fully complete. Ready for delivery audit.
+
+**Open questions / follow-up:**
+Phase RC-A complete. Next milestone: Phase RC-B (Release Artifact and Public Truth), beginning with Task RC-B1 (Add a real version command).
+
