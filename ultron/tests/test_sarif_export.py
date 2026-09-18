@@ -43,12 +43,17 @@ class TestSARIFExport(unittest.TestCase):
 
     def test_sarif_tool_driver_metadata(self):
         """Validates driver name, version, and information URI metadata."""
-        sarif = SARIFReporter.generate_sarif_report({}, repo_path=self.repo_dir, driver_version="1.4.0")
+        sarif = SARIFReporter.generate_sarif_report({}, repo_path=self.repo_dir, driver_version="1.5.0")
         driver = sarif["runs"][0]["tool"]["driver"]
         self.assertEqual(driver["name"], "Ultron")
-        self.assertEqual(driver["version"], "1.4.0")
-        self.assertEqual(driver["semanticVersion"], "1.4.0")
+        self.assertEqual(driver["version"], "1.5.0")
+        self.assertEqual(driver["semanticVersion"], "1.5.0")
         self.assertIn("github.com/DMzinev/ultron", driver["informationUri"])
+
+        # Also verify default parameter produces 1.5.0
+        sarif_default = SARIFReporter.generate_sarif_report({}, repo_path=self.repo_dir)
+        driver_default = sarif_default["runs"][0]["tool"]["driver"]
+        self.assertEqual(driver_default["version"], "1.5.0")
 
     def test_sarif_canonical_rules_inventory(self):
         """Validates that all default canonical rules are present in tool driver descriptors."""
