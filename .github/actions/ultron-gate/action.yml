@@ -52,7 +52,7 @@ inputs:
     required: false
     default: 'false'
   github-token:
-    description: 'GitHub token for PR review commenting (e.g. ${{ secrets.GITHUB_TOKEN }})'
+    description: 'GitHub token for PR review commenting (pass secrets.GITHUB_TOKEN from caller workflow)'
     required: false
     default: ''
   sarif-output:
@@ -132,10 +132,11 @@ runs:
         fi
 
         if [ "${{ inputs.comment-pr }}" = "true" ]; then
-          ARGS+=(--comment-pr)
-          if [ -n "${{ inputs.github-token }}" ]; then
-            ARGS+=(--github-token "${{ inputs.github-token }}")
+          if [ -z "${{ inputs.github-token }}" ]; then
+            echo "::error::Ultron Gate: 'comment-pr' is true but 'github-token' was not provided. Caller workflow must supply: github-token: secrets.GITHUB_TOKEN" >&2
+            exit 1
           fi
+          ARGS+=(--comment-pr --github-token "${{ inputs.github-token }}")
         fi
 
         python -m ultron gate "${ARGS[@]}"

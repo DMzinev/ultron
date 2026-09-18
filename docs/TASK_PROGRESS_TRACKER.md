@@ -90,7 +90,7 @@
 | # | Task ID | Branch | Status | Commit | Description & Verification Evidence |
 |:---:|:---|:---|:---:|:---:|:---|
 | 53 | **RC-A1** | `release/1.5.0rc1-stabilization` | **COMPLETED** | `b985adb` | Safe local and remote master reconciliation, fast-forward ancestor proof, trailing whitespace resolution in touched Phase 5 lines of `ultron/core/analyzer.py` (git diff --check passing), zero AST regressions across 28 graph/analyzer tests; master gate passes (`TESTS: 973 ran, 0 failed, 0 errors, 0 skipped`); integration branch pushed to remote origin without force-pushing. |
-| 54 | **RC-A2** | `release/1.5.0rc1-stabilization` | **PENDING** | - | Fix the GitHub Action manifest (`.github/actions/ultron-gate/action.yml`). |
+| 54 | **RC-A2** | `release/1.5.0rc1-stabilization` | **COMPLETED** | `PENDING_COMMIT` | Elimination of Blocker B2: removed illegal secrets.GITHUB_TOKEN expression from composite action metadata in `.github/actions/ultron-gate/action.yml`; enforced fail-closed validation when comment-pr is true without token; expanded test_ci_action.py with unconditional standard library manifest regex checks (12/12 passed); master gate passes (`TESTS: 974 ran, 0 failed, 0 errors, 0 skipped`). |
 | 55 | **RC-A3** | `release/1.5.0rc1-stabilization` | **PENDING** | - | Make CLI rendering independent of ambient CI variables (`gate.py`, `test_cli_formatting.py`). |
 | 56 | **RC-A4** | `release/1.5.0rc1-stabilization` | **PENDING** | - | Make remote CI the real release gate (`ci.yml`, `test-action.yml`). |
 

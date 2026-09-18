@@ -73,15 +73,38 @@ class TestCIActionSchemaAndWorkflow(unittest.TestCase):
         for out in expected_outputs:
             self.assertIn(out, content, f"Output '{out}' missing in action.yml")
 
-        # 4. Standard YAML Validation (if PyYAML available, else regex/line structure)
+        # 4. Standard Library Unconditional Secret Expression Elimination (Blocker B2 & Directive B1)
+        import re
+        self.assertNotRegex(
+            content,
+            r"\$\{\{\s*secrets\b",
+            "Illegal secrets expression found in composite action manifest (.github/actions/ultron-gate/action.yml)"
+        )
+        self.assertNotIn("${{secrets.", "".join(content.split()))
+        self.assertIn("pass secrets.GITHUB_TOKEN from caller workflow", content)
+
+        # 5. Standard YAML Validation (if PyYAML available, else regex/line structure)
         try:
             import yaml
             parsed = yaml.safe_load(content)
             self.assertEqual(parsed.get("runs", {}).get("using"), "composite")
             self.assertIn("inputs", parsed)
             self.assertIn("outputs", parsed)
+            self.assertEqual(parsed["inputs"]["github-token"]["default"], "")
         except ImportError:
             pass
+
+    def test_action_manifest_fail_closed_on_missing_token(self):
+        """Asserts composite action script enforces fail-closed validation when comment-pr is true without token."""
+        with open(self.action_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # Directive A1: Must check for empty github-token and exit 1 without embedding ${{ secrets... }}
+        self.assertIn('[ "${{ inputs.comment-pr }}" = "true" ]', content)
+        self.assertIn('[ -z "${{ inputs.github-token }}" ]', content)
+        self.assertIn("exit 1", content)
+        self.assertIn("secrets.GITHUB_TOKEN", content)
+        self.assertNotIn("${{ secrets.GITHUB_TOKEN }}", content)
 
     def test_workflow_test_action_integrity(self):
         """Asserts .github/workflows/test-action.yml exercises the action across OS matrix."""

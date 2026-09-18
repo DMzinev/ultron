@@ -5167,3 +5167,43 @@ PENDING — not yet reviewed by an external party.
 
 **Open questions / follow-up:**
 None. Release candidate integration branch `release/1.5.0rc1-stabilization` verified and ready for push to origin. Next task: RC-A2 (Fix the GitHub Action manifest).
+
+---
+
+### 2026-09-18 — Task RC-A2: Fix the GitHub Action Manifest
+
+**Branch:** `release/1.5.0rc1-stabilization`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=973 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=974 failures=0 errors=0 skipped=0`
+
+**Attempted:** Eliminate Blocker B2 where `.github/actions/ultron-gate/action.yml` illegally referenced `${{ secrets.GITHUB_TOKEN }}` in composite-action input metadata/descriptions; update `github-token` description to cleanly instruct callers to pass `secrets.GITHUB_TOKEN` from caller workflow; ensure `github-token` input default is explicitly `''`; implement fail-closed validation in the composite action shell script so that if `inputs.comment-pr` is `'true'` and `inputs.github-token` is empty/unset, the step emits a GitHub Actions `::error::` annotation and immediately exits with code 1; expand `ultron/tests/test_ci_action.py` with unconditional standard library regex assertions proving no `${{ secrets.` context expression appears in `action.yml` and add `test_action_manifest_fail_closed_on_missing_token`; verify all 12 tests in `test_ci_action.py` pass and master gate passes with 974 tests, 0 failures, 0 errors, 0 skips.
+
+**Antigravity self-audit result:**
+- [x] Eliminated Blocker B2: removed `${{ secrets.GITHUB_TOKEN }}` from `.github/actions/ultron-gate/action.yml` input description.
+- [x] Confirmed zero `${{ secrets.` expressions in `action.yml` via regex scan (`matches: 0`).
+- [x] Implemented Directive A1: composite bash script handles fail-closed error without wrapping `secrets.GITHUB_TOKEN` in `${{ }}` template expressions.
+- [x] Implemented Directive B1: `ultron/tests/test_ci_action.py` unconditionally asserts absence of `${{ secrets.` and validates `test_action_manifest_fail_closed_on_missing_token` using standard library `re`.
+- [x] CI action test suite passes cleanly: 12/12 tests pass in 3.032s (`test_ci_action.py`).
+- [x] Project log compliance suite passes: 5/5 tests pass (`test_project_log_compliance.py`).
+- [x] Master SSOT verification gate passes cleanly: `TESTS: 974 ran, 0 failed, 0 errors, 0 skipped` (438.854s) via `scripts/verify.py`.
+- [x] Constitutional line ceilings strictly preserved: `server.py` at 297 lines (< 300); all 13 web frontend JS modules strictly < 400 lines; `action.yml` at 144 lines.
+- [x] Pure standard library: zero new external runtime dependencies (`dependencies = []`).
+- [x] Zero skips: 0 skips maintained across all 974 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML classifiers or heuristic calibration curves were introduced or altered in Task RC-A2.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-A2 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All tests are 100% hermetic. PR commenting tests use mocked `urllib.request.urlopen` responses; zero live API mutations or outbound network calls.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: exact regex match `\$\{\{\s*secrets\b` finds 0 occurrences in `action.yml`; fail-closed shell script contains `-z "${{ inputs.github-token }}"` and `exit 1`; default token value is strictly empty string `''`; YAML parsing confirms valid composite action schema.
+5. **Silent Failure Check:** Tested explicit failure modes: missing token with `comment-pr: 'true'` fails closed with code 1; test suite fails if any `${{ secrets.` appears in `action.yml`; `post_pr_comment` returns False gracefully on HTTP 403 or network errors.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task RC-A2 (Fix the GitHub Action Manifest) COMPLETED on `release/1.5.0rc1-stabilization`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. Blocker B2 resolved. Next task: RC-A3 (Make CLI rendering independent of ambient CI variables).
