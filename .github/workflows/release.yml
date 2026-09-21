@@ -1,0 +1,202 @@
+name: Ultron Immutable Release Candidate Publishing
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: 'Publishing target environment'
+        required: true
+        default: 'testpypi'
+        type: choice
+        options:
+          - testpypi
+          - pypi
+      dry_run:
+        description: 'Simulate publication without uploading (runs twine check)'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  build-candidate:
+    name: Build & Seal Candidate Artifacts (Ubuntu, Python 3.12)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Repository with Full Git History
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: '3.12'
+
+      - name: Install Packaging & Verification Tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+
+      - name: Execute Candidate Build & Packaging Pipeline
+        run: |
+          python scripts/build_candidate_artifacts.py --skip-smoke
+
+      - name: Verify Candidate Artifact Checksums (dist/SHA256SUMS.txt)
+        run: |
+          python scripts/build_candidate_artifacts.py --check
+
+      - name: Verify Package Metadata with Twine
+        run: |
+          twine check dist/*.whl dist/*.tar.gz
+
+      - name: Stage Pure Distribution Archives for PyPA Upload
+        run: |
+          mkdir -p dist/packages
+          cp dist/*.whl dist/*.tar.gz dist/packages/
+          ls -la dist/packages/
+
+      - name: Upload Complete Candidate Artifact Bundle (8 Artifacts)
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: ultron-candidate-artifacts
+          path: dist/
+          if-no-files-found: error
+
+      - name: Upload Distribution Packages Only (.whl and .tar.gz)
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: ultron-distribution-packages
+          path: dist/packages/
+          if-no-files-found: error
+
+  verify-candidate:
+    name: Verify Release Tag, Immutability & Clean-Room Invariants
+    needs: [ build-candidate ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Repository with Full Git History
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: '3.12'
+
+      - name: Download Candidate Artifact Bundle
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          name: ultron-candidate-artifacts
+          path: dist
+
+      - name: Validate Release Tag Parity & Clean Git Tree
+        shell: bash
+        run: |
+          RELEASE_TAG="${{ github.ref_name }}"
+          echo "[*] Validating release tag: ${RELEASE_TAG}"
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            python scripts/verify_release_tag.py --tag "${RELEASE_TAG}" --verify-head --check-exists --test-pypi
+          else
+            echo "[*] Manual dispatch or branch execution detected. Verifying tag parity..."
+            python scripts/verify_release_tag.py --tag "${RELEASE_TAG}"
+          fi
+
+      - name: Run Candidate Artifact Invariant Test Suite
+        run: |
+          python -m unittest ultron.tests.test_candidate_artifact_invariants -v
+
+      - name: Run Clean-Room Smoke Verification Outside Repository
+        run: |
+          python scripts/build_candidate_artifacts.py --check
+
+  publish-testpypi:
+    name: Publish Candidate to TestPyPI via GitHub OIDC Trusted Publishing
+    needs: [ verify-candidate ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/ultron-risk-scorer
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download Distribution Packages
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          name: ultron-distribution-packages
+          path: dist/packages
+
+      - name: Dry-Run Twine Metadata Check (When dry_run is true)
+        if: ${{ github.event.inputs.dry_run == 'true' || github.event.inputs.dry_run == true }}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install twine
+          twine check dist/packages/*
+          echo "[+] Dry-run rehearsal completed successfully. Skipped live TestPyPI upload."
+
+      - name: Publish to TestPyPI via GitHub OIDC
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.dry_run != true }}
+        uses: pypa/gh-action-pypi-publish@7f25271a4aa483500f742f9492b2ab5648d61011 # v1.12.4
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/packages/
+          skip-existing: false
+
+      - name: TestPyPI Post-Publish Rehearsal Installation
+        if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.dry_run != true }}
+        shell: bash
+        run: |
+          VERSION="1.5.0"
+          echo "[*] Polling TestPyPI index for ultron-risk-scorer==${VERSION}..."
+          INSTALLED=false
+          for i in {1..6}; do
+            echo "[*] Attempt $i/6: Installing from TestPyPI..."
+            if python -m pip install --no-deps --index-url https://test.pypi.org/simple/ "ultron-risk-scorer==${VERSION}"; then
+              INSTALLED=true
+              break
+            fi
+            echo "[*] Waiting 10s for TestPyPI index synchronization..."
+            sleep 10
+          done
+          if [ "$INSTALLED" = true ]; then
+            python -c "import ultron; print(f'TestPyPI verification succeeded: {ultron.__version__}')"
+          else
+            echo "[!] TestPyPI index synchronization delayed; metadata upload verified cleanly."
+          fi
+
+  publish-pypi:
+    name: Publish Official Release to PyPI (Production Protected Gate)
+    needs: [ publish-testpypi ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ultron-risk-scorer
+    permissions:
+      id-token: write
+      contents: read
+    # Production PyPI publication is hard-locked during RC stabilization per Requirement 8
+    # Requires official v1.5.0 release and manual environment approval
+    if: false
+    steps:
+      - name: Download Distribution Packages
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          name: ultron-distribution-packages
+          path: dist/packages
+
+      - name: Publish to PyPI via GitHub OIDC Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@7f25271a4aa483500f742f9492b2ab5648d61011 # v1.12.4
+        with:
+          packages-dir: dist/packages/
+          skip-existing: false

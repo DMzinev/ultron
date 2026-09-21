@@ -5667,4 +5667,50 @@ PENDING — not yet reviewed by an external party.
 **Status change:** Task RC-B4 (Build One Immutable Candidate Artifact) COMPLETED on `release/1.5.0rc1-stabilization`. Ready for delivery audit.
 
 **Open questions / follow-up:**
-None. Task RC-B4 fully implemented and verified. Next task: RC-C1 (Candidate staging and clean install testing).
+None. Task RC-B4 fully implemented and verified. Next task: RC-C1 (Add trusted publishing in non-production mode).
+
+---
+
+### 2026-09-21 — Task RC-C1: Add Trusted Publishing in Non-Production Mode
+
+**Branch:** `release/1.5.0rc1-stabilization`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=1015 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=1023 failures=0 errors=0 skipped=0`
+
+**Attempted:** Implement an automated, zero-token PyPI/TestPyPI release publishing workflow utilizing GitHub Actions OpenID Connect (OIDC) trusted publishing per `docs/RELEASE_CANDIDATE_STABILIZATION_PLAN.md` lines 416–436 (Task RC-C1) and Section 3 (Rule 9); create `.github/workflows/release.yml` with 4 discrete sequential jobs (`build-candidate`, `verify-candidate`, `publish-testpypi`, `publish-pypi`); eliminate all repository secrets (`${{ secrets.* }}` strictly absent); configure GitHub OIDC token exchange (`permissions: id-token: write, contents: read`) with pinned immutable PyPA action (`pypa/gh-action-pypi-publish@7f25271a4aa483500f742f9492b2ab5648d61011 # v1.12.4`); enforce staging isolation by packaging only `.whl` and `.tar.gz` into `dist/packages/` preventing non-distribution bundle metadata collision; implement dry-run metadata verification for manual dispatch; require protected GitHub environments (`testpypi` and `pypi`); create pure standard library release verification CLI utility `scripts/verify_release_tag.py` validating tag-to-package semver parity (`v<version>`), clean git working tree (`git status --porcelain`), immutable HEAD tag binding (`git tag --points-at HEAD`), and PyPI/TestPyPI JSON API pre-flight duplicate version immutability probes with HTTP 404 clean handling and custom User-Agent; hard-lock production PyPI job (`if: false`) ensuring production PyPI remains untouched during RC stabilization; publish comprehensive manual `docs/TRUSTED_PUBLISHING.md` detailing OIDC architecture, environment protection, release rehearsals, and immutability controls; implement dedicated invariant test suite `ultron/tests/test_release_workflow.py` with 8 tests (8/8 passed in 0.009s); update `scripts/generate_release_facts.py` and `docs/RESOURCES.md` task counter to 61 completed tasks; update `docs/TASK_PROGRESS_TRACKER.md` row 61; master verification gate passes with 1023 tests, 0 failures, 0 errors, 0 skips in 438.733s.
+
+**Antigravity self-audit result:**
+- [x] OIDC Trusted Publishing workflow: `.github/workflows/release.yml` created with top-level `contents: read` and job-level `id-token: write`.
+- [x] Zero secrets expressions: Statically verified zero occurrences of `${{ secrets.* }}` in `release.yml`.
+- [x] 4 discrete decoupled jobs: `build-candidate` -> `verify-candidate` -> `publish-testpypi` -> `publish-pypi` with strict `needs:` dependencies.
+- [x] Pinned immutable action SHAs: All actions pinned to full 40-character commit SHAs (`checkout`, `setup-python`, `upload-artifact`, `download-artifact`, `gh-action-pypi-publish`).
+- [x] Distribution staging isolation: Only `.whl` and `.tar.gz` are staged to `dist/packages/` and passed via `packages-dir: dist/packages/`, eliminating metadata artifact upload errors.
+- [x] Protected environments configured: Declared `environment: testpypi` and `environment: pypi`.
+- [x] Production PyPI protected gate: `publish-pypi` is hard-locked with `if: false` during stabilization per Requirement 8; production PyPI is untouched.
+- [x] Release tag & immutability verifier: `scripts/verify_release_tag.py` implements tag format/parity verification, clean git tree assertion, HEAD tag check, and pre-flight PyPI duplicate version check.
+- [x] Comprehensive documentation: `docs/TRUSTED_PUBLISHING.md` created covering threat model, OIDC, environments, rehearsal workflow, and Warehouse registration.
+- [x] Dedicated invariant test suite: `ultron/tests/test_release_workflow.py` executes 8/8 tests cleanly in 0.009s.
+- [x] Self-scan partition integrity: `test_self_scan_integrity.py` passes cleanly (3/3 passed in 36.358s).
+- [x] Documentation reality & facts: `test_documentation_reality.py` passes cleanly (11/11 passed in 0.228s); `scripts/generate_release_facts.py --check` exits 0 with zero drift.
+- [x] Master SSOT verification gate: `scripts/verify.py` passes cleanly: `TESTS: 1023 ran, 0 failed, 0 errors, 0 skipped` in 438.733s.
+- [x] Constitutional line ceilings strictly preserved: `server.py` at 297 lines (< 300); all 13 web JS modules strictly < 400 lines (max `index.js` at 392 lines).
+- [x] Pure standard library: zero new external runtime dependencies (`dependencies = []`, `install_requires = []`).
+- [x] Zero skips: 0 skips maintained across all 1023 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no machine learning classifiers, precision/recall metrics, or calibration curves were introduced or altered in Task RC-C1.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-C1 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All local tests in `test_release_workflow.py` and verification gates are 100% hermetic (zero live network calls; PyPI HTTP responses are mocked via standard library `unittest.mock`). The runtime CLI `scripts/verify_release_tag.py` has an explicit `--check-exists` mode that queries public PyPI/TestPyPI JSON API with custom User-Agent, HTTP 404 clean handling, and timeout safeguards.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: valid tags (`v1.5.0`, `v1.5.0rc1`) vs invalid tags (`1.5.0`, `v1.4.0`, `bogus`); clean vs dirty working trees (`git status --porcelain`); branch refs vs tag refs; existing version detection (version present vs version absent vs 404 package absent); workflow YAML parsing and static assertions (zero `${{ secrets.* }}` expressions, exact 40-hex SHA action pins).
+5. **Silent Failure Check:** Tested explicit failure modes: dirty git trees halt with exit code 1; invalid tag names halt with exit code 1; branch refs halt with exit code 1; existing immutable versions on PyPI halt with exit code 1; missing workflow jobs or illegal secrets raise test assertion errors; production job is statically disabled (`if: false`).
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task RC-C1 (Add Trusted Publishing in Non-Production Mode) COMPLETED on `release/1.5.0rc1-stabilization`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. Task RC-C1 fully implemented and verified. Next task: RC-C2 (Make the GitHub Action consumable).
