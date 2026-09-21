@@ -593,35 +593,36 @@ def sample_func(a, b):
 
         # Build into isolated temp directory to avoid polluting REPO_ROOT
         with tempfile.TemporaryDirectory(prefix="ultron_wheel_") as tmp_out:
-            # Prefer uv build (portable, handles build deps automatically)
-            # Fall back to pip wheel --no-deps if uv unavailable
-            uv_bin = shutil.which("uv")
-            if uv_bin:
-                cmd = [uv_bin, "build", "--wheel", "--out-dir", tmp_out]
-            else:
-                cmd = [
-                    sys.executable, "-m", "pip", "wheel",
-                    "--no-deps", "--no-build-isolation",
-                    "-w", tmp_out, ".",
-                ]
+            try:
+                # Prefer uv build (portable, handles build deps automatically)
+                # Fall back to pip wheel --no-deps if uv unavailable
+                uv_bin = shutil.which("uv")
+                if uv_bin:
+                    cmd = [uv_bin, "build", "--wheel", "--out-dir", tmp_out]
+                else:
+                    cmd = [
+                        sys.executable, "-m", "pip", "wheel",
+                        "--no-deps", "--no-build-isolation",
+                        "-w", tmp_out, ".",
+                    ]
 
-            proc = subprocess.run(
-                cmd,
-                cwd=REPO_ROOT,
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            self.assertEqual(
-                proc.returncode, 0,
-                f"Wheel build failed (exit {proc.returncode}):\n{proc.stderr}"
-            )
-
-            # Clean up build/ and egg-info residue that build tools may leave in REPO_ROOT
-            for residue in ("build", "ultron_risk_scorer.egg-info"):
-                residue_path = os.path.join(REPO_ROOT, residue)
-                if os.path.isdir(residue_path):
-                    shutil.rmtree(residue_path, ignore_errors=True)
+                proc = subprocess.run(
+                    cmd,
+                    cwd=REPO_ROOT,
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                )
+                self.assertEqual(
+                    proc.returncode, 0,
+                    f"Wheel build failed (exit {proc.returncode}):\n{proc.stderr}"
+                )
+            finally:
+                # Clean up build/ and egg-info residue that build tools may leave in REPO_ROOT
+                for residue in ("build", "ultron_risk_scorer.egg-info"):
+                    residue_path = os.path.join(REPO_ROOT, residue)
+                    if os.path.isdir(residue_path):
+                        shutil.rmtree(residue_path, ignore_errors=True)
 
             # Find the .whl file
             whl_files = [f for f in os.listdir(tmp_out) if f.endswith(".whl")]
@@ -705,7 +706,7 @@ def sample_func(a, b):
                 self.assertIn("ultron-server", ep_content)
                 self.assertIn("ultron-mcp", ep_content)
 
-                # --- Positive assertions: dist-info METADATA version 1.5.0 ---
+                # --- Positive assertions: dist-info METADATA version 1.5.0 and Python >=3.10 ---
                 meta_entries = [n for n in names if n.endswith("METADATA")]
                 self.assertTrue(
                     len(meta_entries) >= 1,
@@ -713,6 +714,15 @@ def sample_func(a, b):
                 )
                 meta_content = zf.read(meta_entries[0]).decode("utf-8")
                 self.assertIn("Version: 1.5.0", meta_content)
+                self.assertIn("Requires-Python: >=3.10", meta_content)
+                self.assertIn("Classifier: Programming Language :: Python :: 3.10", meta_content)
+                self.assertIn("Classifier: Programming Language :: Python :: 3.11", meta_content)
+                self.assertIn("Classifier: Programming Language :: Python :: 3.12", meta_content)
+                self.assertIn("Classifier: Programming Language :: Python :: 3 :: Only", meta_content)
+
+                # --- Negative assertions: unsupported lower versions absent ---
+                self.assertNotIn("Classifier: Programming Language :: Python :: 3.8", meta_content)
+                self.assertNotIn("Classifier: Programming Language :: Python :: 3.9", meta_content)
 
                 # --- Negative assertions: forbidden paths absent ---
                 forbidden_prefixes = [
@@ -729,6 +739,28 @@ def sample_func(a, b):
                     f"Wheel archive contains forbidden files that should be excluded: {leaked}"
                 )
 
+    def test_package_python_requirement_parity(self):
+        """Verify that pyproject.toml and setup.py agree on Python requirement and classifiers."""
+        pyproject_path = os.path.join(REPO_ROOT, "pyproject.toml")
+        with open(pyproject_path, "r", encoding="utf-8") as f:
+            pyproject_content = f.read()
+
+        setup_path = os.path.join(REPO_ROOT, "setup.py")
+        with open(setup_path, "r", encoding="utf-8") as f:
+            setup_content = f.read()
+
+        self.assertIn('requires-python = ">=3.10"', pyproject_content)
+        self.assertIn('python_requires=">=3.10"', setup_content)
+        for version in ("3.10", "3.11", "3.12"):
+            classifier = f"Programming Language :: Python :: {version}"
+            self.assertIn(classifier, pyproject_content)
+            self.assertIn(classifier, setup_content)
+        for legacy in ("3.8", "3.9"):
+            classifier = f"Programming Language :: Python :: {legacy}"
+            self.assertNotIn(classifier, pyproject_content)
+            self.assertNotIn(classifier, setup_content)
+
 
 if __name__ == "__main__":
     unittest.main()
+

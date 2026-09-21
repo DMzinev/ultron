@@ -1,3 +1,14 @@
+import sys
+
+if sys.version_info < (3, 10):
+    v_major = getattr(sys.version_info, "major", sys.version_info[0])
+    v_minor = getattr(sys.version_info, "minor", sys.version_info[1])
+    v_micro = getattr(sys.version_info, "micro", sys.version_info[2] if len(sys.version_info) > 2 else 0)
+    raise RuntimeError(
+        f"Ultron requires Python 3.10 or higher (detected Python {v_major}.{v_minor}.{v_micro})."
+    )
+
+
 from ultron._version import __version__
 
 

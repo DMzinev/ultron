@@ -5339,3 +5339,49 @@ PENDING — not yet reviewed by an external party.
 **Open questions / follow-up:**
 None. Task RC-B1 fully implemented and verified. Next task: RC-B2 (Align supported Python versions).
 
+---
+
+### 2026-09-21 — Task RC-B2: Align Supported Python Versions
+
+**Branch:** `release/1.5.0rc1-stabilization`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=991 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=1002 failures=0 errors=0 skipped=0`
+
+**Attempted:** Harmonize supported Python versions across packaging manifests, runtime entrypoints, test suites, and documentation per `docs/RELEASE_CANDIDATE_STABILIZATION_PLAN.md` lines 325-339 (Task RC-B2); update packaging specifications to set `requires-python = ">=3.10"` in `pyproject.toml` and `python_requires=">=3.10"` in `setup.py`; update packaging classifiers to explicitly include `Programming Language :: Python :: 3`, `Programming Language :: Python :: 3.10`, `Programming Language :: Python :: 3.11`, `Programming Language :: Python :: 3.12`, `Programming Language :: Python :: 3 :: Only` while omitting end-of-life legacy versions `3.8` and `3.9`; add runtime guards (`sys.version_info < (3, 10)`) in `ultron/__init__.py`, `ultron/interfaces/ultron.py:main()`, `launcher.py`, and `start.py` deriving the formatted version string directly from `sys.version_info` using robust attribute/index extraction (`getattr(sys.version_info, "major", sys.version_info[0])`); update `ultron/tests/test_distribution_packaging.py` wheel archive assertions (`test_clean_room_wheel_archive_invariants`) to assert `Requires-Python: >=3.10`, active Python 3.10-3.12 classifiers, and absence of 3.8/3.9 classifiers, wrapping wheel build and residue cleanup in `try...finally`; add `test_package_python_requirement_parity` to packaging tests; create dedicated validation suite `ultron/tests/test_python_version_alignment.py` with 10 comprehensive tests verifying manifest configuration, classifier inclusion/exclusion, isolated subprocess rejection of runtime import, CLI main, launcher.py, and start.py on simulated Python < 3.10, version boundary comparisons, and CI/README/docs agreement; master verification gate passes with 1002 tests, 0 failures, 0 errors, 0 skips in 452.479s.
+
+**Antigravity self-audit result:**
+- [x] Packaging alignment: `pyproject.toml` specifies `requires-python = ">=3.10"`; `setup.py` specifies `python_requires=">=3.10"`.
+- [x] Classifiers alignment: Both packaging manifests include `3.10`, `3.11`, `3.12`, and `3 :: Only`; both omit `3.8` and `3.9`.
+- [x] Top-level runtime guard: `ultron/__init__.py` raises `RuntimeError("Ultron requires Python 3.10 or higher (detected Python X.Y.Z).")` when `sys.version_info < (3, 10)`.
+- [x] CLI runtime guard: `ultron/interfaces/ultron.py:main()` prints error to stderr and exits with code 1 when `sys.version_info < (3, 10)`.
+- [x] Launcher runtime guard: `launcher.py` prints error to stderr and exits with code 1 when `sys.version_info < (3, 10)`.
+- [x] Start script runtime guard: `start.py` prints error to stderr and exits with code 1 when `sys.version_info < (3, 10)`.
+- [x] Robust version formatting: All entrypoints format error string using `getattr(sys.version_info, ..., sys.version_info[i])` ensuring support for both real namedtuple and mock tuples.
+- [x] Subprocess test isolation: All lower-version simulation tests run in isolated `subprocess.run([sys.executable, "-c", ...])` to guarantee zero `sys.modules` pollution in the test runner process.
+- [x] Dedicated test suite: `ultron/tests/test_python_version_alignment.py` executes 10/10 tests cleanly in 0.458s.
+- [x] Distribution packaging test suite: `ultron/tests/test_distribution_packaging.py` executes 21/21 tests cleanly in 34.239s including clean-room wheel METADATA assertions and parity check.
+- [x] Wheel build residue cleanup: `test_clean_room_wheel_archive_invariants` ensures `build/` and `.egg-info` cleanup occurs in `finally` block.
+- [x] Master SSOT verification gate: `scripts/verify.py` passes cleanly: `TESTS: 1002 ran, 0 failed, 0 errors, 0 skipped` in 452.479s.
+- [x] Constitutional line ceilings strictly preserved: `server.py` at 297 lines (< 300); all 13 web JS modules strictly < 400 lines (max `index.js` at 392 lines).
+- [x] Pure standard library: zero new external dependencies (`dependencies = []`, `install_requires = []`).
+- [x] Zero skips: 0 skips maintained across all 1002 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no machine learning classifiers, precision/recall metrics, or calibration curves were introduced or altered in Task RC-B2.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-B2 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All tests are 100% hermetic. Packaging manifests and documentation files are parsed via standard library file I/O; runtime rejection tests execute isolated Python subprocesses with mocked `sys.version_info`; zero external network calls.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: versions (3, 7, 0), (3, 8, 0), (3, 8, 18), (3, 9, 0), and (3, 9, 18) are rejected; boundary version (3, 10, 0) and higher versions (3, 10, 14), (3, 11, 0), (3, 11, 8), (3, 12, 0), (3, 12, 2), (3, 13, 0), and (4, 0, 0) satisfy `>= (3, 10)`; isolated subprocesses assert exact exit codes (0 for caught RuntimeError, 1 for CLI/launcher/start guards) and formatted error messages.
+5. **Silent Failure Check:** Tested explicit failure modes: running on lower Python version halts immediately with non-zero exit code or explicit `RuntimeError`; corrupted or tuple-only `sys.version_info` does not crash with `AttributeError`; wheel test build residue is cleaned up even if wheel build fails.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task RC-B2 (Align Supported Python Versions) COMPLETED on `release/1.5.0rc1-stabilization`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. Task RC-B2 fully implemented and verified. Next task: RC-B3 (Clean up distribution tarball and wheel contents).
+
+

@@ -16,6 +16,17 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
+if sys.version_info < (3, 10):
+    v_major = getattr(sys.version_info, "major", sys.version_info[0])
+    v_minor = getattr(sys.version_info, "minor", sys.version_info[1])
+    v_micro = getattr(sys.version_info, "micro", sys.version_info[2] if len(sys.version_info) > 2 else 0)
+    sys.stderr.write(
+        f"Error: Ultron requires Python 3.10 or higher (detected Python {v_major}.{v_minor}.{v_micro}).\n"
+    )
+    sys.exit(1)
+
+
+
 FALLBACK_PORTS = [8000, 8001, 8002, 8080, 9000]
 
 

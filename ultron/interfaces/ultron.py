@@ -10,6 +10,16 @@ from ultron.core import classifier
 from ultron.core import translate
 
 def main():
+    if sys.version_info < (3, 10):
+        v_major = getattr(sys.version_info, "major", sys.version_info[0])
+        v_minor = getattr(sys.version_info, "minor", sys.version_info[1])
+        v_micro = getattr(sys.version_info, "micro", sys.version_info[2] if len(sys.version_info) > 2 else 0)
+        sys.stderr.write(
+            f"Error: Ultron requires Python 3.10 or higher (detected Python {v_major}.{v_minor}.{v_micro}).\n"
+        )
+        sys.exit(1)
+
+
 
     if len(sys.argv) > 1 and sys.argv[1] in ("summary", "report"):
         from ultron.core.rkm.risk_intelligence import compute_risk_profile
