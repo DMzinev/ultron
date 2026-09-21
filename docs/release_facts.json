@@ -1,0 +1,80 @@
+{
+  "schema_version": "1.0.0",
+  "distribution_name": "ultron-risk-scorer",
+  "version": "1.5.0",
+  "release_candidate": "1.5.0rc1",
+  "is_prerelease": true,
+  "release_channel": "pre-release candidate (1.5.0rc1)",
+  "python_requirement": ">=3.10",
+  "supported_python_versions": [
+    "3.10",
+    "3.11",
+    "3.12"
+  ],
+  "runtime_dependencies": [],
+  "cli_binaries": [
+    "ultron",
+    "ultron-server",
+    "ultron-mcp"
+  ],
+  "canonical_cli_commands": [
+    "scan",
+    "brief",
+    "gate",
+    "verify",
+    "init",
+    "mcp",
+    "hook",
+    "impact",
+    "export",
+    "watch",
+    "version"
+  ],
+  "mcp_canonical_tools": [
+    "get_risk_profile",
+    "get_blast_radius",
+    "compile_mission",
+    "audit_file",
+    "get_context_brief",
+    "evaluate_repository",
+    "explain_violation"
+  ],
+  "optional_extras": {
+    "tray": [
+      "pystray>=0.19.0",
+      "Pillow>=9.0.0"
+    ],
+    "metrics": [
+      "radon>=5.1.0"
+    ],
+    "dev": [
+      "radon>=5.1.0",
+      "pystray>=0.19.0",
+      "Pillow>=9.0.0"
+    ]
+  },
+  "supported_artifact_formats": [
+    "markdown",
+    "json",
+    "html",
+    "text",
+    "sarif"
+  ],
+  "experimental_capabilities": {
+    "js_ts_language_adapter": "Experimental (Beta in v1.5.0rc1)",
+    "monorepo_workspaces": "Experimental (Beta in v1.5.0rc1)"
+  },
+  "github_action": {
+    "repository_local": "./.github/actions/ultron-gate",
+    "published_slug": "DMzinev/ultron-action@v1",
+    "published_status": "planned for final v1.5.0 release"
+  },
+  "test_metrics": {
+    "status": "passing",
+    "descriptor": "1,000+ automated tests",
+    "standard_ci_skips": 0,
+    "standard_ci_failures": 0,
+    "standard_ci_errors": 0
+  },
+  "skip_policy": "Zero test skips in standard CI and development environments; bounded skips (up to 9) only when external networks or optional dev fixtures are physically absent (per docs/TASK_PROGRESS_TRACKER.md Section 5)."
+}

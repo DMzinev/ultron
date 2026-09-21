@@ -5382,6 +5382,49 @@ PENDING — not yet reviewed by an external party.
 **Status change:** Task RC-B2 (Align Supported Python Versions) COMPLETED on `release/1.5.0rc1-stabilization`. Ready for delivery audit.
 
 **Open questions / follow-up:**
-None. Task RC-B2 fully implemented and verified. Next task: RC-B3 (Clean up distribution tarball and wheel contents).
+None. Task RC-B2 fully implemented and verified. Next task: RC-B3 (Correct release documentation automatically).
 
+---
 
+### 2026-09-21 — Task RC-B3: Correct Release Documentation Automatically
+
+**Branch:** `release/1.5.0rc1-stabilization`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=1002 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=1008 failures=0 errors=0 skipped=0`
+
+**Attempted:** Implement an automated, single-source-of-truth release documentation and reality verification architecture per `docs/RELEASE_CANDIDATE_STABILIZATION_PLAN.md` lines 340–376 (Task RC-B3); create `scripts/generate_release_facts.py` producing machine-readable `docs/release_facts.json` (schema 1.0.0) and human-readable `docs/RELEASE_FACTS.md` with Python 3.10 standard library compatibility via `tomllib` import fallback with robust line/regex parsing of `[project.optional-dependencies]`; implement `--check` drift-detection validating that on-disk facts match generated facts and public documentation claims adhere to reality; decouple documentation test counters to resilient "1,000+ automated tests" in `README.md`, `docs/RESOURCES.md`, and `docs/GETTING_STARTED.md` linking directly to `docs/RELEASE_FACTS.md` to permanently prevent counter drift; correct GitHub Actions documentation to present the verified in-tree composite action `uses: ./.github/actions/ultron-gate` while explicitly annotating `DMzinev/ultron-action@v1` as planned for future external marketplace publication upon official v1.5.0 final release; label multi-language JS/TS adapter support and monorepo workspace detection as `Experimental (Beta in v1.5.0rc1)`; declare `1.5.0rc1` as an active pre-release candidate for stabilization; document the exact observed skip policy (0 skips in standard CI/dev, up to 9 bounded skips in offline/minimal environments per Section 5); update `ultron/tests/test_documentation_reality.py` with 6 new dedicated tests (11/11 passing) verifying commands, no stale test counters, action reality, pre-release candidate status, experimental capability designations, skip policy transparency, and zero-drift `--check` execution; update `docs/TASK_PROGRESS_TRACKER.md` row 59; master verification gate passes with 1008 tests, 0 failures, 0 errors, 0 skips in 430.731s.
+
+**Antigravity self-audit result:**
+- [x] Single-source release facts generator: `scripts/generate_release_facts.py` creates `docs/release_facts.json` and `docs/RELEASE_FACTS.md` under 200 lines and cyclomatic complexity < 15.
+- [x] Python 3.10 compatibility: Implemented `try...except ImportError` fallback for `tomllib` with regex parsing of `[project.optional-dependencies]`.
+- [x] Automated drift detection: `scripts/generate_release_facts.py --check` validates in-memory facts against on-disk files and public documentation, exiting 0 on compliance.
+- [x] Decoupled test counters: Replaced fragile scalar hardcoding (`973`, `892`, `820`) across `README.md`, `docs/RESOURCES.md`, and `docs/GETTING_STARTED.md` with `"1,000+ automated tests"`.
+- [x] GitHub Action documentation reality: Updated `README.md` and `docs/GETTING_STARTED.md` to document `uses: ./.github/actions/ultron-gate` and clearly annotate `DMzinev/ultron-action@v1` as planned for final release.
+- [x] Experimental capability labeling: JS/TS language adapter and monorepo workspaces explicitly designated `Experimental (Beta in v1.5.0rc1)`.
+- [x] Pre-release candidate status: Declared `v1.5.0rc1` pre-release stabilization status across `README.md` and `docs/release_facts.json`.
+- [x] Skip policy transparency: Exact observed skip policy documented across `README.md`, `docs/GETTING_STARTED.md`, and `docs/RELEASE_FACTS.md`.
+- [x] Expanded test suite: `ultron/tests/test_documentation_reality.py` expanded from 5 to 11 tests, asserting all 11 CLI subcommands, no stale counters, action reality, pre-release status, experimental annotations, skip policy, and `--check` drift validation (11/11 passed in 0.215s).
+- [x] Self-scan partition integrity: `test_self_scan_integrity.py` passes cleanly (3/3 passed in 7.645s) with HIGH files at <= 15.0%.
+- [x] Project log compliance: `test_project_log_compliance.py` passes cleanly (5/5 passed).
+- [x] Master SSOT verification gate: `scripts/verify.py` passes cleanly: `TESTS: 1008 ran, 0 failed, 0 errors, 0 skipped` in 430.731s.
+- [x] Constitutional line ceilings strictly preserved: `server.py` at 297 lines (< 300); all 13 web JS modules strictly < 400 lines (max `index.js` at 392 lines).
+- [x] Pure standard library: zero new external dependencies (`dependencies = []`, `install_requires = []`).
+- [x] Zero skips: 0 skips maintained across all 1008 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no machine learning classifiers, precision/recall metrics, or calibration curves were introduced or altered in Task RC-B3.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-B3 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All tests and scripts are 100% hermetic. Release facts are introspected from in-tree codebase metadata (`pyproject.toml`, `ultron/__init__.py`, `ultron.interfaces.mcp_server`) via standard library file I/O; zero external network calls.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: `--check` flag detects in-memory fact discrepancies against disk, missing files, stale test counters (`973`, `892`), unannotated action slugs, and missing pre-release markers; subcommands list asserts all 11 subcommands; `parse_optional_dependencies` tested with and without `tomllib`; exact exit codes (0 for sync, 1 for drift).
+5. **Silent Failure Check:** Tested explicit failure modes: `check_drift` accumulates all errors and exits 1 with detailed mismatch list; missing documentation files raise explicit errors; invalid arguments trigger standard `argparse` rejection.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task RC-B3 (Correct Release Documentation Automatically) COMPLETED on `release/1.5.0rc1-stabilization`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. Task RC-B3 fully implemented and verified. Next task: RC-B4 (Build one immutable candidate artifact).

@@ -12,8 +12,10 @@ Ensures that README.md strictly matches the real, shipped codebase:
 
 import unittest
 import os
+import sys
 import re
 import json
+import subprocess
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -28,6 +30,21 @@ class TestDocumentationReality(unittest.TestCase):
             raise FileNotFoundError(f"README.md missing at {cls.readme_path}")
         with open(cls.readme_path, "r", encoding="utf-8") as f:
             cls.readme_content = f.read()
+
+        cls.resources_path = os.path.join(REPO_ROOT, "docs", "RESOURCES.md")
+        with open(cls.resources_path, "r", encoding="utf-8") as f:
+            cls.resources_content = f.read()
+
+        cls.getting_started_path = os.path.join(REPO_ROOT, "docs", "GETTING_STARTED.md")
+        with open(cls.getting_started_path, "r", encoding="utf-8") as f:
+            cls.getting_started_content = f.read()
+
+        cls.release_facts_path = os.path.join(REPO_ROOT, "docs", "release_facts.json")
+        if os.path.isfile(cls.release_facts_path):
+            with open(cls.release_facts_path, "r", encoding="utf-8") as f:
+                cls.release_facts = json.load(f)
+        else:
+            cls.release_facts = {}
 
     def test_readme_mcp_tools_bidirectional_parity(self):
         """Assert all 7 MCP tools in mcp_server.py tools/list are documented in README.md."""
@@ -58,7 +75,7 @@ class TestDocumentationReality(unittest.TestCase):
 
     def test_readme_cli_commands_valid(self):
         """Assert documented CLI commands and subcommands correspond to real implementations."""
-        subcommands = ["scan", "brief", "gate", "init", "verify", "mcp", "hook", "impact", "export", "watch"]
+        subcommands = ["scan", "brief", "gate", "init", "verify", "mcp", "hook", "impact", "export", "watch", "version"]
         for sub in subcommands:
             self.assertIn(f"ultron {sub}", self.readme_content, f"Documented subcommand ultron {sub} missing in README.md")
 
@@ -131,6 +148,89 @@ class TestDocumentationReality(unittest.TestCase):
         self.assertTrue(os.path.isdir(archive_dir), f"Archive directory {archive_dir} missing")
         archived_count = len(os.listdir(archive_dir))
         self.assertGreaterEqual(archived_count, 50, f"Archive directory should contain at least 50 reports, found {archived_count}")
+
+    def test_no_stale_test_counters(self):
+        """Assert absence of obsolete test counters across public documentation pages."""
+        # README.md checks
+        self.assertNotIn("tests-973%20passed", self.readme_content, "Stale 973 badge in README.md")
+        self.assertNotIn("973 automated tests", self.readme_content, "Stale 973 test count in README.md")
+        self.assertNotIn("892+ automated tests", self.readme_content, "Stale 892+ test count in README.md")
+        self.assertIn("1,000+ automated tests", self.readme_content, "README.md must refer to 1,000+ automated tests")
+
+        # docs/RESOURCES.md checks
+        self.assertNotIn("892+ automated tests", self.resources_content, "Stale 892+ test count in docs/RESOURCES.md")
+        self.assertIn("1,000+ automated tests", self.resources_content, "docs/RESOURCES.md must refer to 1,000+ automated tests")
+
+        # docs/GETTING_STARTED.md checks
+        self.assertNotIn("TESTS: 820 ran", self.getting_started_content, "Stale 820 test run count in docs/GETTING_STARTED.md")
+
+    def test_action_documentation_reality(self):
+        """Assert verified repository-local action is documented and standalone slug is qualified."""
+        self.assertIn(
+            "./.github/actions/ultron-gate",
+            self.readme_content,
+            "README.md must document verified repository-local action ./.github/actions/ultron-gate"
+        )
+        self.assertIn(
+            "./.github/actions/ultron-gate",
+            self.getting_started_content,
+            "docs/GETTING_STARTED.md must document verified repository-local action ./.github/actions/ultron-gate"
+        )
+        self.assertIn(
+            "planned for external publication",
+            self.readme_content,
+            "README.md must qualify DMzinev/ultron-action@v1 as planned for external publication"
+        )
+
+    def test_prerelease_status_declared(self):
+        """Assert 1.5.0rc1 is documented as an active pre-release candidate for stabilization."""
+        self.assertIn(
+            "1.5.0rc1",
+            self.readme_content,
+            "README.md must declare version 1.5.0rc1"
+        )
+        self.assertIn(
+            "pre-release candidate",
+            self.readme_content.lower(),
+            "README.md must explicitly identify 1.5.0rc1 as a pre-release candidate"
+        )
+        if self.release_facts:
+            self.assertTrue(
+                self.release_facts.get("is_prerelease"),
+                "release_facts.json must have is_prerelease set to True"
+            )
+
+    def test_experimental_capabilities_declared(self):
+        """Assert JS/TS adapter and monorepo workspaces are designated Experimental (Beta in v1.5.0rc1)."""
+        self.assertIn("Experimental (Beta in v1.5.0rc1)", self.readme_content)
+        if self.release_facts:
+            exp = self.release_facts.get("experimental_capabilities", {})
+            self.assertEqual(exp.get("js_ts_language_adapter"), "Experimental (Beta in v1.5.0rc1)")
+            self.assertEqual(exp.get("monorepo_workspaces"), "Experimental (Beta in v1.5.0rc1)")
+
+    def test_skip_policy_declared(self):
+        """Assert exact observed skip policy is documented in README.md and release facts."""
+        self.assertIn("Observed Skip Policy", self.readme_content)
+        self.assertIn("Zero test skips are permitted in standard CI", self.readme_content)
+        if self.release_facts:
+            self.assertIn("Zero test skips in standard CI", self.release_facts.get("skip_policy", ""))
+
+    def test_release_facts_generator_check(self):
+        """Assert scripts/generate_release_facts.py --check exits 0 with zero drift."""
+        proc = subprocess.run(
+            [sys.executable, os.path.join(REPO_ROOT, "scripts", "generate_release_facts.py"), "--check"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=15
+        )
+        self.assertEqual(
+            proc.returncode,
+            0,
+            f"scripts/generate_release_facts.py --check failed with code {proc.returncode}:\n{proc.stdout}\n{proc.stderr}"
+        )
+        self.assertIn("Release facts in sync with documentation reality.", proc.stdout)
 
 
 if __name__ == "__main__":

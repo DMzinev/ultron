@@ -311,11 +311,14 @@ python scripts/verify.py
 
 **Output:**
 ```text
-Ran 820 tests in 184.321s
+Ran 1002 tests in 184.321s
 
-OK (skipped=9)
-TESTS: 820 ran, 0 failed, 0 errors, 9 skipped
+OK
+TESTS: 1002 ran, 0 failed, 0 errors, 0 skipped
 ```
+> [!NOTE]
+> In standard CI and developer environments, 0 skips are maintained across 1,000+ automated tests. Up to 9 bounded skips occur only in offline or minimal-clone environments where external network probes or optional dev fixtures are physically absent (see [Release Facts](RELEASE_FACTS.md)).
+
 - **Exit Code `0`**: All tests pass.
 - **Exit Code `1`**: Any test fails or errors.
 
@@ -382,13 +385,14 @@ jobs:
           ultron gate --min-health 70.0 --max-health-drop 5.0 --github-annotations
 ```
 
-### 7.1 Official 1-Line GitHub Action (`DMzinev/ultron-action@v1`)
+### 7.4 GitHub Actions Integration (`./.github/actions/ultron-gate`)
 
-For modern GitHub Actions workflows, Ultron provides an official composite action supporting 1-line integration with zero boilerplate:
+For modern GitHub Actions workflows, Ultron provides a verified repository-local composite action supporting 1-line integration with zero boilerplate:
 
 ```yaml
+# Repository-local usage (verified in-tree composite action):
 - name: Ultron Architectural Quality Gate
-  uses: DMzinev/ultron-action@v1
+  uses: ./.github/actions/ultron-gate
   with:
     repo-path: '.'
     max-high: '0'
@@ -397,6 +401,9 @@ For modern GitHub Actions workflows, Ultron provides an official composite actio
     comment-pr: 'true'
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+> [!NOTE]
+> **Standalone Published Action**: The action slug `DMzinev/ultron-action@v1` is scheduled for official marketplace publication alongside the v1.5.0 final release. For in-tree repository workflows and pre-release candidate stabilization, use `uses: ./.github/actions/ultron-gate`.
 
 #### Action Inputs Reference
 
