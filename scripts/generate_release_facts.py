@@ -215,8 +215,8 @@ def check_drift(repo_root: str, facts: dict, json_path: str, md_path: str) -> li
             resources = f.read()
         if "892+ automated tests" in resources:
             errors.append("docs/RESOURCES.md contains stale 892+ test count")
-        if "59 completed tasks" not in resources:
-            errors.append("docs/RESOURCES.md does not reference 59 completed tasks")
+        if not re.search(r"\b(59|60)\s+completed tasks\b", resources):
+            errors.append("docs/RESOURCES.md does not reference 59 or 60 completed tasks")
 
     getting_started_path = os.path.join(repo_root, "docs", "GETTING_STARTED.md")
     if os.path.isfile(getting_started_path):

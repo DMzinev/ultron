@@ -5421,6 +5421,201 @@ None. Task RC-B2 fully implemented and verified. Next task: RC-B3 (Correct relea
 5. **Silent Failure Check:** Tested explicit failure modes: `check_drift` accumulates all errors and exits 1 with detailed mismatch list; missing documentation files raise explicit errors; invalid arguments trigger standard `argparse` rejection.
 6. **Causal / Probabilistic Claims:** N/A.
 
+- [x] Expanded `ultron/tests/test_cli_formatting.py` to 20 tests covering all 6 mandated test permutations: CI forced-color, CI no-color, explicit annotations with/without color, clean JSON, NO_COLOR precedence, and newline/box integrity.
+- [x] CLI formatting test suite passes cleanly: 20/20 tests pass in 0.019s (`test_cli_formatting.py`).
+- [x] CI action test suite passes cleanly: 12/12 tests pass in 9.599s (`test_ci_action.py`).
+- [x] Project log compliance suite passes: 5/5 tests pass (`test_project_log_compliance.py`).
+- [x] Master SSOT verification gate passes cleanly: `TESTS: 980 ran, 0 failed, 0 errors, 0 skipped` (266.027s) via `scripts/verify.py`.
+- [x] Constitutional line ceilings strictly preserved: `server.py` at 297 lines (< 300); all 13 web frontend JS modules strictly < 400 lines; `gate.py` at 405 lines; `formatting.py` at 430 lines.
+- [x] Pure standard library: zero new external runtime dependencies (`dependencies = []`).
+- [x] Zero skips: 0 skips maintained across all 980 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no ML classifiers or heuristic calibration curves were introduced or altered in Task RC-A3.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-A3 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All tests are 100% hermetic. Simulated GitHub Actions environment variables (`GITHUB_ACTIONS`, `GITHUB_STEP_SUMMARY`) are scoped via `unittest.mock.patch.dict`; zero network requests.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions across all 6 permutations: forced color under CI produces ANSI `\033[` on stdout; `--no-color` under CI produces 0 ANSI codes on stdout and stderr; `--json` produces valid parseable JSON with 0 ANSI and 0 annotations on stdout; `NO_COLOR=1` suppresses color unless `force_color=True` explicitly overrides it; `strip_ansi(colored) == plain` proves identical visual box dimensions.
+5. **Silent Failure Check:** Tested explicit failure modes: Blocker B1 reproduced pre-fix (`AssertionError: '\x1b[' not found in '::notice...'`); verified post-fix handles both pass and fail decisions, missing baseline, and disk read errors with informative banners on stderr.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task RC-A3 (Make CLI Rendering Independent of Ambient CI Variables) COMPLETED on `release/1.5.0rc1-stabilization`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. Blocker B1 resolved. Next task: RC-A4 (Make remote CI the real release gate).
+
+---
+
+### 2026-09-18 — Task RC-A4: Make Remote CI the Real Release Gate
+
+**Branch:** `release/1.5.0rc1-stabilization`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=980 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=981 failures=0 errors=0 skipped=0`
+
+**Attempted:** Transform remote GitHub Actions CI from a monolithic, editable-install workflow into an authoritative release gate for Ultron v1.5.0rc1; decompose `.github/workflows/ci.yml` into 5 discrete, hermetic jobs: `build-wheel` (builds the release candidate wheel once per Rule 6 and validates with `twine check`), `built-wheel-smoke` (clean-room zero-dependency wheel smoke across Linux, Windows, and macOS on Python 3.10, 3.11, and 3.12 without source checkout, downloading candidate wheel via `actions/download-artifact` and asserting absence of `radon`, `PIL`, `pystray`, `build`, `packaging`), `source-unit-contract` (runs clean non-editable `pip install .` without `requirements.txt`, asserts absence of Radon, and executes compilation, ES modules, and unit/contract test suites), `integration-verification` (runs dev extras with `requirements.txt` + `coverage psutil` and executes `scripts/verify.py` back-to-back with stdout/stderr teed to log files), and `composite-action` (runs clean non-editable install and exercises `.github/actions/ultron-gate` across `clean_repo` and `tangled_repo` fixtures); update `.github/workflows/test-action.yml` to include macOS in its matrix, replace editable install with non-editable `pip install .`, and add `release/**` branch triggers; pin all 5 release-critical third-party actions to reviewed immutable 40-character commit SHAs (`checkout@11bd71901bbe5b1630ceea73d27597364c9af683`, `setup-python@42375524e23c412d93fb67b49958b491fce71c38`, `setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a`, `upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1`, `download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806`); extend `TestCIActionSchemaAndWorkflow` in `ultron/tests/test_ci_action.py` with `test_ci_workflow_structure_and_job_decomposition` asserting workflow job decomposition, matrix coverage, zero-dependency assertions, and 5-action immutable SHA pinning; master gate passes with 981 tests, 0 failures, 0 errors, 0 skips in 254.142s.
+
+**Antigravity self-audit result:**
+- [x] Decomposed CI into 5 discrete jobs: `build-wheel`, `built-wheel-smoke`, `source-unit-contract`, `integration-verification`, and `composite-action`.
+- [x] Enforced Rule 6: Candidate wheel is built once in `build-wheel` and downloaded into clean runner environments, eliminating 9 redundant matrix builds.
+- [x] Isolated clean-room wheel smoke: `built-wheel-smoke` executes without repository source checkout, preventing `sys.path` leakage.
+- [x] Decoupled base install from dev extras: `source-unit-contract` and `built-wheel-smoke` strictly run without `requirements.txt`, asserting absence of dev dependencies.
+- [x] Structured failure logging: Console output is teed to log files and uploaded via `actions/upload-artifact` on failure.
+- [x] Pinned third-party actions: All 5 actions across both workflows pinned to reviewed 40-character immutable commit SHAs with semantic version comments.
+- [x] Added `release/**` branch patterns to triggers in both workflows.
+- [x] Added automated CI workflow test assertions in `ultron/tests/test_ci_action.py` (13/13 tests pass in 9.873s).
+- [x] Distribution packaging test suite passes cleanly: 20/20 tests pass in 10.595s (`test_distribution_packaging.py`).
+- [x] Project log compliance suite passes: 5/5 tests pass (`test_project_log_compliance.py`).
+- [x] Master SSOT verification gate passes cleanly: `TESTS: 981 ran, 0 failed, 0 errors, 0 skipped` (254.142s) via `scripts/verify.py`.
+- [x] Constitutional line ceilings strictly preserved: `server.py` at 297 lines (< 300); all 13 web frontend JS modules strictly < 400 lines.
+- [x] Pure standard library: zero new external runtime dependencies (`dependencies = []`).
+- [x] Zero skips: 0 skips maintained across all 981 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no machine learning classifiers, statistical precision/recall metrics, or calibration curves were introduced or altered in Task RC-A4.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-A4 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All tests are 100% hermetic. Action YAML files are statically parsed and asserted via standard library file I/O and regular expressions; zero network calls during local test runs. Pinned action commit SHAs were validated against upstream GitHub API over HTTPS during plan audit.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: all 5 discrete job IDs must exist in `ci.yml`; all 5 third-party actions must match exact 40-character hex commit SHAs; absence of forbidden dev dependencies is dynamically asserted in clean environment; absence of `-e .` editable install asserted on `test-action.yml`.
+5. **Silent Failure Check:** Tested explicit failure modes: missing job ID or altered SHA immediately raises `AssertionError`; failure log artifacts upload conditionally on failure (`if: failure()`); gate execution failure in `tangled_repo` properly validated with exit code 0 when `fail-on-regression: false`.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task RC-A4 (Make Remote CI the Real Release Gate) COMPLETED on `release/1.5.0rc1-stabilization`. Phase RC-A (Repository and CI convergence) fully complete. Ready for delivery audit.
+
+**Open questions / follow-up:**
+Phase RC-A complete. Next milestone: Phase RC-B (Release Artifact and Public Truth), beginning with Task RC-B1 (Add a real version command).
+
+---
+
+### 2026-09-18 — Task RC-B1: Add a Real Version Command
+
+**Branch:** `release/1.5.0rc1-stabilization`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=981 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=991 failures=0 errors=0 skipped=0`
+
+**Attempted:** Implement a single-source-of-truth version architecture and expose real, strictly parsed CLI version interfaces (`ultron --version`, `ultron version`, `ultron version --json`) per `docs/RELEASE_CANDIDATE_STABILIZATION_PLAN.md` lines 297-323 (Task RC-B1); establish `ultron/_version.py` (`__version__ = "1.5.0"`) as the canonical version source; configure `pyproject.toml` with `[tool.setuptools.dynamic] version = {attr = "ultron._version.__version__"}` and dynamic metadata in `setup.py`; implement authoritative `get_version()` in `ultron/__init__.py` using `importlib.metadata.version("ultron-risk-scorer")` with fallback to `__version__` catching only `PackageNotFoundError`; create `ultron/interfaces/cli/commands/version.py` with strict argument parsing rejecting unknown options (exit 2), supporting `--help` (exit 0) and `--json` (emitting JSON with schema `1.0.0`, version, python, path, and non-invasive capability probes for `radon`, `pystray`, and `PIL` via `importlib.util.find_spec`); synchronize MCP server (`mcp_server.py`), SARIF driver version (`sarif_reporter.py`), UI reality compiler (`ui_reality_compiler.py`), REST API health routes (`system_routes.py`, `health_routes.py`), Web UI footer (`#foot-engine-ver` in `index.html` refreshed dynamically via `pingServer()` in `index.js`), and release subsystem (`ultron.release`, `version_manager.py`, `audit.py`); update route contract snapshot (`fixtures/route_contract.json`); implement 10 unit and CLI tests in `ultron/tests/test_version_command.py` including hermetic clean-room wheel installation and execution outside the repository asserting the path points to site-packages with robust build artifact cleanup; master verification gate passes with 991 tests, 0 failures, 0 errors, 0 skips in 306.874s.
+
+**Antigravity self-audit result:**
+- [x] Established single authoritative version source: `ultron/_version.py` (`__version__ = "1.5.0"`).
+- [x] Configured setuptools dynamic metadata: `pyproject.toml` (`dynamic = ["version"]`, `[tool.setuptools.dynamic] version = {attr = "ultron._version.__version__"}`) and `setup.py`.
+- [x] Implemented authoritative resolver: `ultron.get_version()` resolves from `importlib.metadata` when installed, falling back to `__version__` for source checkout, catching only `PackageNotFoundError`.
+- [x] Created strict version CLI command: `ultron/interfaces/cli/commands/version.py` using `parse_args`, rejecting unknown arguments with exit 2, supporting `--help` (exit 0) and `--json` (versioned schema `"1.0.0"`).
+- [x] Non-invasive capability probing: Uses `importlib.util.find_spec` to probe `radon`, `pystray`, and `PIL` without importing them or causing side effects.
+- [x] Synchronized across all surfaces: MCP (`mcp_server.py`), SARIF (`sarif_reporter.py`), UI reality (`ui_reality_compiler.py`), REST API (`/api/v1/health`), Web UI footer (`index.html` + `index.js`), and release engineering (`ultron.release`, `version_manager.py`, `audit.py`).
+- [x] Synchronized route contract: `ultron/tests/fixtures/route_contract.json` reflects `"version"` key in `GET /api/v1/health` (31/31 routes pass in `test_route_contract.py`).
+- [x] Hermetic clean-room wheel test: `test_clean_wheel_outside_repo_execution` builds wheel in ephemeral temp dir, installs into isolated virtualenv, and runs outside repo verifying site-packages path resolution with `try...finally` cleanup of build directories.
+- [x] Dedicated version test suite: 10/10 tests pass cleanly in `test_version_command.py`.
+- [x] Self-scan partition integrity: 3/3 tests pass in `test_self_scan_integrity.py`.
+- [x] Master SSOT verification gate passes cleanly: `TESTS: 991 ran, 0 failed, 0 errors, 0 skipped` (306.874s) via `scripts/verify.py`.
+- [x] Constitutional line ceilings strictly preserved: `server.py` at 297 lines (< 300); all 13 web frontend JS modules strictly < 400 lines (`index.js` at 392 lines).
+- [x] Pure standard library: zero new external runtime dependencies (`dependencies = []`).
+- [x] Zero skips: 0 skips maintained across all 991 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no machine learning classifiers, statistical precision/recall metrics, or calibration curves were introduced or altered in Task RC-B1.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-B1 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All tests are 100% hermetic. Clean-room wheel installation and execution run inside `tempfile.TemporaryDirectory` with isolated virtual environments; zero external network calls.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: `--bogus` flag strictly rejected with exit code 2; `--help` succeeds with exit code 0; `--version` outputs exact canonical string `ultron 1.5.0`; `--json` schema validated for exact fields (`version`, `python`, `path`, `capabilities`, `schema_version == "1.0.0"`); installed wheel outside repo strictly asserts `installed_path` does not start with `REPO_ROOT`; `_probe` verified with known standard module and nonexistent package.
+5. **Silent Failure Check:** Tested explicit failure modes: `PackageNotFoundError` caught specifically and falls back to `__version__`; invalid CLI flags reject immediately with usage and non-zero exit; corrupted/absent paths handled gracefully.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task RC-B1 (Add a Real Version Command) COMPLETED on `release/1.5.0rc1-stabilization`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. Task RC-B1 fully implemented and verified. Next task: RC-B2 (Align supported Python versions).
+
+---
+
+### 2026-09-21 — Task RC-B2: Align Supported Python Versions
+
+**Branch:** `release/1.5.0rc1-stabilization`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=991 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=1002 failures=0 errors=0 skipped=0`
+
+**Attempted:** Harmonize supported Python versions across packaging manifests, runtime entrypoints, test suites, and documentation per `docs/RELEASE_CANDIDATE_STABILIZATION_PLAN.md` lines 325-339 (Task RC-B2); update packaging specifications to set `requires-python = ">=3.10"` in `pyproject.toml` and `python_requires=">=3.10"` in `setup.py`; update packaging classifiers to explicitly include `Programming Language :: Python :: 3`, `Programming Language :: Python :: 3.10`, `Programming Language :: Python :: 3.11`, `Programming Language :: Python :: 3.12`, `Programming Language :: Python :: 3 :: Only` while omitting end-of-life legacy versions `3.8` and `3.9`; add runtime guards (`sys.version_info < (3, 10)`) in `ultron/__init__.py`, `ultron/interfaces/ultron.py:main()`, `launcher.py`, and `start.py` deriving the formatted version string directly from `sys.version_info` using robust attribute/index extraction (`getattr(sys.version_info, "major", sys.version_info[0])`); update `ultron/tests/test_distribution_packaging.py` wheel archive assertions (`test_clean_room_wheel_archive_invariants`) to assert `Requires-Python: >=3.10`, active Python 3.10-3.12 classifiers, and absence of 3.8/3.9 classifiers, wrapping wheel build and residue cleanup in `try...finally`; add `test_package_python_requirement_parity` to packaging tests; create dedicated validation suite `ultron/tests/test_python_version_alignment.py` with 10 comprehensive tests verifying manifest configuration, classifier inclusion/exclusion, isolated subprocess rejection of runtime import, CLI main, launcher.py, and start.py on simulated Python < 3.10, version boundary comparisons, and CI/README/docs agreement; master verification gate passes with 1002 tests, 0 failures, 0 errors, 0 skips in 452.479s.
+
+**Antigravity self-audit result:**
+- [x] Packaging alignment: `pyproject.toml` specifies `requires-python = ">=3.10"`; `setup.py` specifies `python_requires=">=3.10"`.
+- [x] Classifiers alignment: Both packaging manifests include `3.10`, `3.11`, `3.12`, and `3 :: Only`; both omit `3.8` and `3.9`.
+- [x] Top-level runtime guard: `ultron/__init__.py` raises `RuntimeError("Ultron requires Python 3.10 or higher (detected Python X.Y.Z).")` when `sys.version_info < (3, 10)`.
+- [x] CLI runtime guard: `ultron/interfaces/ultron.py:main()` prints error to stderr and exits with code 1 when `sys.version_info < (3, 10)`.
+- [x] Launcher runtime guard: `launcher.py` prints error to stderr and exits with code 1 when `sys.version_info < (3, 10)`.
+- [x] Start script runtime guard: `start.py` prints error to stderr and exits with code 1 when `sys.version_info < (3, 10)`.
+- [x] Robust version formatting: All entrypoints format error string using `getattr(sys.version_info, ..., sys.version_info[i])` ensuring support for both real namedtuple and mock tuples.
+- [x] Subprocess test isolation: All lower-version simulation tests run in isolated `subprocess.run([sys.executable, "-c", ...])` to guarantee zero `sys.modules` pollution in the test runner process.
+- [x] Dedicated test suite: `ultron/tests/test_python_version_alignment.py` executes 10/10 tests cleanly in 0.458s.
+- [x] Distribution packaging test suite: `ultron/tests/test_distribution_packaging.py` executes 21/21 tests cleanly in 34.239s including clean-room wheel METADATA assertions and parity check.
+- [x] Wheel build residue cleanup: `test_clean_room_wheel_archive_invariants` ensures `build/` and `.egg-info` cleanup occurs in `finally` block.
+- [x] Master SSOT verification gate: `scripts/verify.py` passes cleanly: `TESTS: 1002 ran, 0 failed, 0 errors, 0 skipped` in 452.479s.
+- [x] Constitutional line ceilings strictly preserved: `server.py` at 297 lines (< 300); all 13 web JS modules strictly < 400 lines (max `index.js` at 392 lines).
+- [x] Pure standard library: zero new external dependencies (`dependencies = []`, `install_requires = []`).
+- [x] Zero skips: 0 skips maintained across all 1002 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no machine learning classifiers, precision/recall metrics, or calibration curves were introduced or altered in Task RC-B2.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-B2 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All tests are 100% hermetic. Packaging manifests and documentation files are parsed via standard library file I/O; runtime rejection tests execute isolated Python subprocesses with mocked `sys.version_info`; zero external network calls.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: versions (3, 7, 0), (3, 8, 0), (3, 8, 18), (3, 9, 0), and (3, 9, 18) are rejected; boundary version (3, 10, 0) and higher versions (3, 10, 14), (3, 11, 0), (3, 11, 8), (3, 12, 0), (3, 12, 2), (3, 13, 0), and (4, 0, 0) satisfy `>= (3, 10)`; isolated subprocesses assert exact exit codes (0 for caught RuntimeError, 1 for CLI/launcher/start guards) and formatted error messages.
+5. **Silent Failure Check:** Tested explicit failure modes: running on lower Python version halts immediately with non-zero exit code or explicit `RuntimeError`; corrupted or tuple-only `sys.version_info` does not crash with `AttributeError`; wheel test build residue is cleaned up even if wheel build fails.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task RC-B2 (Align Supported Python Versions) COMPLETED on `release/1.5.0rc1-stabilization`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. Task RC-B2 fully implemented and verified. Next task: RC-B3 (Correct release documentation automatically).
+
+---
+
+### 2026-09-21 — Task RC-B3: Correct Release Documentation Automatically
+
+**Branch:** `release/1.5.0rc1-stabilization`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=1002 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=1008 failures=0 errors=0 skipped=0`
+
+**Attempted:** Implement an automated, single-source-of-truth release documentation and reality verification architecture per `docs/RELEASE_CANDIDATE_STABILIZATION_PLAN.md` lines 340–376 (Task RC-B3); create `scripts/generate_release_facts.py` producing machine-readable `docs/release_facts.json` (schema 1.0.0) and human-readable `docs/RELEASE_FACTS.md` with Python 3.10 standard library compatibility via `tomllib` import fallback with robust line/regex parsing of `[project.optional-dependencies]`; implement `--check` drift-detection validating that on-disk facts match generated facts and public documentation claims adhere to reality; decouple documentation test counters to resilient "1,000+ automated tests" in `README.md`, `docs/RESOURCES.md`, and `docs/GETTING_STARTED.md` linking directly to `docs/RELEASE_FACTS.md` to permanently prevent counter drift; correct GitHub Actions documentation to present the verified in-tree composite action `uses: ./.github/actions/ultron-gate` while explicitly annotating `DMzinev/ultron-action@v1` as planned for future external marketplace publication upon official v1.5.0 final release; label multi-language JS/TS adapter support and monorepo workspace detection as `Experimental (Beta in v1.5.0rc1)`; declare `1.5.0rc1` as an active pre-release candidate for stabilization; document the exact observed skip policy (0 skips in standard CI/dev, up to 9 bounded skips in offline/minimal environments per Section 5); update `ultron/tests/test_documentation_reality.py` with 6 new dedicated tests (11/11 passing) verifying commands, no stale test counters, action reality, pre-release candidate status, experimental capability designations, skip policy transparency, and zero-drift `--check` execution; update `docs/TASK_PROGRESS_TRACKER.md` row 59; master verification gate passes with 1008 tests, 0 failures, 0 errors, 0 skips in 430.731s.
+
+**Antigravity self-audit result:**
+- [x] Single-source release facts generator: `scripts/generate_release_facts.py` creates `docs/release_facts.json` and `docs/RELEASE_FACTS.md` under 200 lines and cyclomatic complexity < 15.
+- [x] Python 3.10 compatibility: Implemented `try...except ImportError` fallback for `tomllib` with regex parsing of `[project.optional-dependencies]`.
+- [x] Automated drift detection: `scripts/generate_release_facts.py --check` validates in-memory facts against on-disk files and public documentation, exiting 0 on compliance.
+- [x] Decoupled test counters: Replaced fragile scalar hardcoding (`973`, `892`, `820`) across `README.md`, `docs/RESOURCES.md`, and `docs/GETTING_STARTED.md` with `"1,000+ automated tests"`.
+- [x] GitHub Action documentation reality: Updated `README.md` and `docs/GETTING_STARTED.md` to document `uses: ./.github/actions/ultron-gate` and clearly annotate `DMzinev/ultron-action@v1` as planned for final release.
+- [x] Experimental capability labeling: JS/TS language adapter and monorepo workspaces explicitly designated `Experimental (Beta in v1.5.0rc1)`.
+- [x] Pre-release candidate status: Declared `v1.5.0rc1` pre-release stabilization status across `README.md` and `docs/release_facts.json`.
+- [x] Skip policy transparency: Exact observed skip policy documented across `README.md`, `docs/GETTING_STARTED.md`, and `docs/RELEASE_FACTS.md`.
+- [x] Expanded test suite: `ultron/tests/test_documentation_reality.py` expanded from 5 to 11 tests, asserting all 11 CLI subcommands, no stale counters, action reality, pre-release status, experimental annotations, skip policy, and `--check` drift validation (11/11 passed in 0.215s).
+- [x] Self-scan partition integrity: `test_self_scan_integrity.py` passes cleanly (3/3 passed in 7.645s) with HIGH files at <= 15.0%.
+- [x] Project log compliance: `test_project_log_compliance.py` passes cleanly (5/5 passed).
+- [x] Master SSOT verification gate: `scripts/verify.py` passes cleanly: `TESTS: 1008 ran, 0 failed, 0 errors, 0 skipped` in 430.731s.
+- [x] Constitutional line ceilings strictly preserved: `server.py` at 297 lines (< 300); all 13 web JS modules strictly < 400 lines (max `index.js` at 392 lines).
+- [x] Pure standard library: zero new external dependencies (`dependencies = []`, `install_requires = []`).
+- [x] Zero skips: 0 skips maintained across all 1008 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no machine learning classifiers, precision/recall metrics, or calibration curves were introduced or altered in Task RC-B3.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-B3 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All tests and scripts are 100% hermetic. Release facts are introspected from in-tree codebase metadata (`pyproject.toml`, `ultron/__init__.py`, `ultron.interfaces.mcp_server`) via standard library file I/O; zero external network calls.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: `--check` flag detects in-memory fact discrepancies against disk, missing files, stale test counters (`973`, `892`), unannotated action slugs, and missing pre-release markers; subcommands list asserts all 11 subcommands; `parse_optional_dependencies` tested with and without `tomllib`; exact exit codes (0 for sync, 1 for drift).
+5. **Silent Failure Check:** Tested explicit failure modes: `check_drift` accumulates all errors and exits 1 with detailed mismatch list; missing documentation files raise explicit errors; invalid arguments trigger standard `argparse` rejection.
+6. **Causal / Probabilistic Claims:** N/A.
+
 **External verification (Claude or other reviewer):**
 PENDING — not yet reviewed by an external party.
 
@@ -5428,3 +5623,48 @@ PENDING — not yet reviewed by an external party.
 
 **Open questions / follow-up:**
 None. Task RC-B3 fully implemented and verified. Next task: RC-B4 (Build one immutable candidate artifact).
+
+---
+
+### 2026-09-21 — Task RC-B4: Build One Immutable Candidate Artifact
+
+**Branch:** `release/1.5.0rc1-stabilization`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=1008 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=1015 failures=0 errors=0 skipped=0`
+
+**Attempted:** Build, validate, cryptographically hash, and smoke test the immutable release candidate artifact package per `docs/RELEASE_CANDIDATE_STABILIZATION_PLAN.md` lines 378–414 (Task RC-B4); implement `scripts/build_candidate_artifacts.py` orchestrating clean-room build of candidate wheel (`dist/ultron_risk_scorer-1.5.0-py3-none-any.whl`) and source distribution (`dist/ultron_risk_scorer-1.5.0.tar.gz`); package all 8 mandated candidate artifacts in `dist/` including `dist/dependency_inventory.json` (SBOM), `dist/test_result_summary.json`, `dist/LICENSE`, `dist/release_facts.json`, `dist/candidate_manifest.json`, and `dist/SHA256SUMS.txt`; create official Software Bill of Materials `docs/DEPENDENCY_INVENTORY.md` formally declaring pure standard library runtime (0 dependencies), optional feature extras (`tray`, `metrics`, `dev`), build requirements (`setuptools>=61.0.0`, `wheel`), and security attributes; compute SHA-256 cryptographic checksums for all 7 sibling payload artifacts formatted with standard UNIX coreutils syntax (`<sha256>  <filename>\n`); implement clean-room virtualenv smoke testing outside repo verifying CLI version/help, MCP `tools/list` (7 tools), ephemeral local server boot (`/api/v1/health`), external target scanning, and sdist installation; implement automated drift and verification checking via `--check`; implement dedicated invariant test suite `ultron/tests/test_candidate_artifact_invariants.py` with 7 tests validating bundle completeness, wheel modules and exclusions, sdist files, coreutils checksum format and cryptographic equality, candidate manifest schema v1.0.0, zero runtime dependencies, and absence of premature PyPI install claims; update `scripts/generate_release_facts.py` and `docs/RESOURCES.md` task counter to 60 completed tasks; update `docs/TASK_PROGRESS_TRACKER.md` row 60; master verification gate passes with 1015 tests, 0 failures, 0 errors, 0 skips in 276.150s.
+
+**Antigravity self-audit result:**
+- [x] Candidate build orchestrator: `scripts/build_candidate_artifacts.py` cleanly generates `.whl` and `.tar.gz` and assembles all 8 candidate artifacts in `dist/`.
+- [x] Wheel archive invariants: Wheel contains all essential runtime modules (`__init__.py`, `analyzer.py`, `server.py`, `ultron.py`, `mcp_server.py`), all 13 web frontend modules (`modules/*.js`), SQL migrations (`migrations/*.sql`), default rulepack (`ultron/core/rkm/rulepacks/default/rules.json`), and entrypoints in `entry_points.txt`.
+- [x] Wheel exclusion hygiene: Wheel strictly excludes tests (`ultron/tests/`), scratch files (`ultron/scratch/`), validation tools, `.agents/`, and governance files.
+- [x] Sdist archive invariants: Sdist contains `pyproject.toml`, `setup.py`, `README.md`, `LICENSE`, source tree, and excludes `.git` and databases.
+- [x] Candidate manifest schema: `dist/candidate_manifest.json` conforms to schema v1.0.0, binds to commit SHA, package name, version 1.5.0, release candidate 1.5.0rc1, and artifact checksum map.
+- [x] Cryptographic checksums: `dist/SHA256SUMS.txt` formats 7 sibling candidate file checksums in standard UNIX coreutils syntax (`<sha256>  <filename>\n`) with standard newline endings.
+- [x] Software Bill of Materials (SBOM): `docs/DEPENDENCY_INVENTORY.md` and `dist/dependency_inventory.json` formally document 0 runtime dependencies (`dependencies = []`, `install_requires = []`).
+- [x] Clean-room virtualenv smoke test: Wheel and sdist installed in clean virtualenv outside repository; CLI `--version`, `version --json`, `--help`, MCP `tools/list` (7 tools), ephemeral server `/api/v1/health`, and external target scan all pass cleanly.
+- [x] Dedicated invariant test suite: `ultron/tests/test_candidate_artifact_invariants.py` executes 7/7 tests cleanly in 0.035s with self-contained auto-build on clean clones.
+- [x] Self-scan partition integrity: `test_self_scan_integrity.py` passes cleanly (3/3 passed in 14.714s).
+- [x] Documentation reality & facts: `test_documentation_reality.py` passes cleanly (11/11 passed in 0.152s); `scripts/generate_release_facts.py --check` exits 0 with zero drift.
+- [x] Master SSOT verification gate: `scripts/verify.py` passes cleanly: `TESTS: 1015 ran, 0 failed, 0 errors, 0 skipped` in 276.150s.
+- [x] Constitutional line ceilings strictly preserved: `server.py` at 297 lines (< 300); all 13 web JS modules strictly < 400 lines (max `index.js` at 392 lines).
+- [x] Pure standard library: zero new external dependencies (`dependencies = []`, `install_requires = []`).
+- [x] Zero skips: 0 skips maintained across all 1015 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no machine learning classifiers, precision/recall metrics, or calibration curves were introduced or altered in Task RC-B4.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-B4 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All build, hashing, and smoke testing procedures are 100% hermetic. Packaging manifests and distribution archives are generated locally from repository source; smoke test virtualenv is isolated in temporary directories outside repository; zero external network dependencies.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: all 7 candidate files in `SHA256SUMS.txt` cryptographically matched byte-for-byte; `--check` detects hash mismatches, missing files, and formatting anomalies; coreutils regex requires exact 64-hex characters followed by two spaces and filename; zero-file/missing artifact boundary states handled in `setUpClass`.
+5. **Silent Failure Check:** Tested explicit failure modes: missing candidate artifacts trigger explicit `FileNotFoundError` or assertion failure; corrupted checksums trigger `check_existing_artifacts` failure (exit code 1); CLI and server failures outside repository raise descriptive `RuntimeError`.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task RC-B4 (Build One Immutable Candidate Artifact) COMPLETED on `release/1.5.0rc1-stabilization`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. Task RC-B4 fully implemented and verified. Next task: RC-C1 (Candidate staging and clean install testing).
