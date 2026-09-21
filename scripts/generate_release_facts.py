@@ -123,6 +123,7 @@ def resolve_facts(repo_root: str, test_summary_path: str = None) -> dict:
         },
         "github_action": {
             "repository_local": "./.github/actions/ultron-gate",
+            "consumable_action": "DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1",
             "published_slug": "DMzinev/ultron-action@v1",
             "published_status": "planned for final v1.5.0 release"
         },
@@ -173,6 +174,7 @@ def render_markdown(facts: dict) -> str:
 - **JS/TS Language Adapter**: `{facts["experimental_capabilities"]["js_ts_language_adapter"]}`
 - **Monorepo Workspaces**: `{facts["experimental_capabilities"]["monorepo_workspaces"]}`
 - **Repository-Local Action**: `{facts["github_action"]["repository_local"]}` (verified in-tree composite action)
+- **Consumable Candidate Action**: `{facts["github_action"]["consumable_action"]}` (pinned release candidate action)
 - **Published Action**: `{facts["github_action"]["published_slug"]}` ({facts["github_action"]["published_status"]})
 """
 
@@ -204,6 +206,8 @@ def check_drift(repo_root: str, facts: dict, json_path: str, md_path: str) -> li
             errors.append("README.md contains stale 973 test count")
         if "./.github/actions/ultron-gate" not in readme:
             errors.append("README.md missing ./.github/actions/ultron-gate")
+        if "DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1" not in readme:
+            errors.append("README.md missing DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1")
         if "1.5.0rc1" not in readme:
             errors.append("README.md missing 1.5.0rc1 release candidate designation")
         if "Experimental" not in readme:
@@ -215,8 +219,8 @@ def check_drift(repo_root: str, facts: dict, json_path: str, md_path: str) -> li
             resources = f.read()
         if "892+ automated tests" in resources:
             errors.append("docs/RESOURCES.md contains stale 892+ test count")
-        if not re.search(r"\b(60|61)\s+completed tasks\b", resources):
-            errors.append("docs/RESOURCES.md does not reference 60 or 61 completed tasks")
+        if not re.search(r"\b(61|62)\s+completed tasks\b", resources):
+            errors.append("docs/RESOURCES.md does not reference 61 or 62 completed tasks")
 
     getting_started_path = os.path.join(repo_root, "docs", "GETTING_STARTED.md")
     if os.path.isfile(getting_started_path):
@@ -224,6 +228,8 @@ def check_drift(repo_root: str, facts: dict, json_path: str, md_path: str) -> li
             getting_started = f.read()
         if "./.github/actions/ultron-gate" not in getting_started:
             errors.append("docs/GETTING_STARTED.md missing ./.github/actions/ultron-gate")
+        if "DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1" not in getting_started:
+            errors.append("docs/GETTING_STARTED.md missing DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1")
 
     return errors
 

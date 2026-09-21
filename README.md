@@ -321,15 +321,22 @@ ultron-server --port 8000 --host 127.0.0.1
 Integrate Ultron as an automated architectural quality gate in your GitHub Actions workflow:
 
 ```yaml
+# Recommended external repository usage (pinned release candidate):
+- uses: DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1
+  with:
+    max-high: 10
+    min-health: 65.0
+
 # Repository-local usage (verified in-tree composite action):
 - uses: ./.github/actions/ultron-gate
   with:
+    use-preinstalled: 'true'
     max-high: 10
     min-health: 65.0
 ```
 
 > [!NOTE]
-> The standalone marketplace action `uses: DMzinev/ultron-action@v1` is planned for external publication alongside the official final `v1.5.0` release. For in-tree integration and release candidate testing, use `uses: ./.github/actions/ultron-gate`.
+> The composite action automatically installs the pinned Ultron candidate into the runner environment unless `use-preinstalled: 'true'` is specified. During pre-release candidate stabilization prior to official tagging, external testing can also target `@release/1.5.0rc1-stabilization`. The standalone marketplace action `uses: DMzinev/ultron-action@v1` is planned for external publication alongside the official final `v1.5.0` release. For in-tree integration and release candidate testing, use `uses: ./.github/actions/ultron-gate`.
 
 ---
 

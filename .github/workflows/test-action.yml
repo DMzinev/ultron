@@ -38,6 +38,7 @@ jobs:
         uses: ./.github/actions/ultron-gate
         with:
           repo-path: 'ultron/tests/fixtures/clean_repo'
+          use-preinstalled: 'true'
           max-high: '0'
           min-health: '80.0'
           output-markdown: 'report-pass.md'
@@ -68,6 +69,7 @@ jobs:
         uses: ./.github/actions/ultron-gate
         with:
           repo-path: 'ultron/tests/fixtures/tangled_repo'
+          use-preinstalled: 'true'
           min-health: '80.0'
           fail-on-regression: 'false'
           output-markdown: 'report-fail.md'
@@ -85,5 +87,129 @@ jobs:
           fi
           if [ ! -f "report-fail.md" ]; then
             echo "Expected report-fail.md to exist"
+            exit 1
+          fi
+
+  test-external-consumer:
+    name: Test External Consumer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: '3.12'
+
+      - name: Create Isolated Consumer Fixtures
+        shell: bash
+        run: |
+          CONSUMER_ROOT="${RUNNER_TEMP:-/tmp}/consumer-fixtures"
+          mkdir -p "$CONSUMER_ROOT/clean_repo/src"
+          mkdir -p "$CONSUMER_ROOT/tangled_repo/src"
+
+          cat << 'EOF' > "$CONSUMER_ROOT/clean_repo/src/core.py"
+          def compute(x: int) -> int:
+              return x * 2
+          EOF
+
+          cat << 'EOF' > "$CONSUMER_ROOT/clean_repo/src/main.py"
+          from .core import compute
+
+          def run():
+              return compute(21)
+          EOF
+
+          cat << 'EOF' > "$CONSUMER_ROOT/tangled_repo/src/mod_a.py"
+          import mod_b
+          def func_a():
+              return mod_b.func_b()
+          EOF
+
+          cat << 'EOF' > "$CONSUMER_ROOT/tangled_repo/src/mod_b.py"
+          import mod_a
+          def func_b():
+              return mod_a.func_a()
+          EOF
+
+      - name: Test Consumer Gate Pass (Self-Installation & Clean Repo)
+        id: consumer-pass
+        uses: ./.github/actions/ultron-gate
+        with:
+          repo-path: ${{ runner.temp }}/consumer-fixtures/clean_repo
+          use-preinstalled: 'false'
+          output-markdown: 'consumer-pass.md'
+          output-json: 'consumer-pass.json'
+
+      - name: Verify Consumer Pass Outputs
+        shell: bash
+        run: |
+          if [ "${{ steps.consumer-pass.outputs.passed }}" != "true" ]; then
+            echo "Expected passed=true for clean consumer repo, got ${{ steps.consumer-pass.outputs.passed }}"
+            exit 1
+          fi
+          if [ "${{ steps.consumer-pass.outputs.exit-code }}" != "0" ]; then
+            echo "Expected exit-code=0, got ${{ steps.consumer-pass.outputs.exit-code }}"
+            exit 1
+          fi
+          if [ ! -f "consumer-pass.json" ]; then
+            echo "Expected consumer-pass.json to exist"
+            exit 1
+          fi
+
+      - name: Test Consumer Gate Degradation (Non-Regression Mode)
+        id: consumer-degraded
+        uses: ./.github/actions/ultron-gate
+        with:
+          repo-path: ${{ runner.temp }}/consumer-fixtures/tangled_repo
+          use-preinstalled: 'true'
+          fail-on-regression: 'false'
+          min-health: '90.0'
+          output-markdown: 'consumer-degraded.md'
+
+      - name: Verify Consumer Degraded Outputs
+        shell: bash
+        run: |
+          if [ "${{ steps.consumer-degraded.outputs.passed }}" != "false" ]; then
+            echo "Expected passed=false for tangled consumer repo, got ${{ steps.consumer-degraded.outputs.passed }}"
+            exit 1
+          fi
+          if [ "${{ steps.consumer-degraded.outputs.exit-code }}" != "0" ]; then
+            echo "Expected exit-code=0 when fail-on-regression is false, got ${{ steps.consumer-degraded.outputs.exit-code }}"
+            exit 1
+          fi
+
+      - name: Test Consumer Strict Failure Mode
+        id: consumer-strict
+        continue-on-error: true
+        uses: ./.github/actions/ultron-gate
+        with:
+          repo-path: ${{ runner.temp }}/consumer-fixtures/tangled_repo
+          use-preinstalled: 'true'
+          min-health: '90.0'
+          strict: 'true'
+
+      - name: Verify Consumer Strict Rejection
+        shell: bash
+        run: |
+          if [ "${{ steps.consumer-strict.outcome }}" != "failure" ]; then
+            echo "Expected steps.consumer-strict.outcome=failure, got ${{ steps.consumer-strict.outcome }}"
+            exit 1
+          fi
+          if [ "${{ steps.consumer-strict.outputs.passed }}" != "false" ]; then
+            echo "Expected passed=false under strict failure, got ${{ steps.consumer-strict.outputs.passed }}"
+            exit 1
+          fi
+          if [ "${{ steps.consumer-strict.outputs.exit-code }}" != "1" ]; then
+            echo "Expected exit-code=1 under strict failure, got ${{ steps.consumer-strict.outputs.exit-code }}"
             exit 1
           fi

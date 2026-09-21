@@ -59,6 +59,18 @@ inputs:
     description: 'Path to write SARIF 2.1.0 static analysis report (e.g. results.sarif)'
     required: false
     default: ''
+  use-preinstalled:
+    description: 'Whether to use a preinstalled Ultron executable instead of installing the pinned candidate (true/false)'
+    required: false
+    default: 'false'
+  ultron-executable:
+    description: 'Command or executable path to run Ultron (default: "python -m ultron")'
+    required: false
+    default: 'python -m ultron'
+  install-source:
+    description: 'Optional package source, directory, or wheel to install when use-preinstalled is false'
+    required: false
+    default: ''
 
 outputs:
   passed:
@@ -77,6 +89,37 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Ensure Ultron Installed
+      id: install
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        if [ "${{ inputs.use-preinstalled }}" != "true" ]; then
+          if [ -n "${{ inputs.install-source }}" ]; then
+            python -m pip install "${{ inputs.install-source }}"
+          else
+            REPO_ROOT=$(python -c '
+import os, sys
+cur = os.path.abspath(os.environ["ACTION_PATH"])
+for _ in range(5):
+    if os.path.isfile(os.path.join(cur, "pyproject.toml")):
+        print(cur)
+        sys.exit(0)
+    parent = os.path.dirname(cur)
+    if parent == cur:
+        break
+    cur = parent
+sys.exit(1)
+')
+            if [ $? -ne 0 ] || [ -z "$REPO_ROOT" ]; then
+              echo "::error::Could not find pyproject.toml in action hierarchy from $ACTION_PATH" >&2
+              exit 1
+            fi
+            python -m pip install "$REPO_ROOT"
+          fi
+        fi
+
     - name: Run Ultron Architectural Quality Gate
       id: gate
       shell: bash
@@ -139,4 +182,4 @@ runs:
           ARGS+=(--comment-pr --github-token "${{ inputs.github-token }}")
         fi
 
-        python -m ultron gate "${ARGS[@]}"
+        ${{ inputs.ultron-executable }} gate "${ARGS[@]}"

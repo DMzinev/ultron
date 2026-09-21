@@ -32,4 +32,5 @@
 - **JS/TS Language Adapter**: `Experimental (Beta in v1.5.0rc1)`
 - **Monorepo Workspaces**: `Experimental (Beta in v1.5.0rc1)`
 - **Repository-Local Action**: `./.github/actions/ultron-gate` (verified in-tree composite action)
+- **Consumable Candidate Action**: `DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1` (pinned release candidate action)
 - **Published Action**: `DMzinev/ultron-action@v1` (planned for final v1.5.0 release)

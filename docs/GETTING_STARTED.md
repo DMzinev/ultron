@@ -385,14 +385,14 @@ jobs:
           ultron gate --min-health 70.0 --max-health-drop 5.0 --github-annotations
 ```
 
-### 7.4 GitHub Actions Integration (`./.github/actions/ultron-gate`)
+### 7.4 GitHub Actions Integration (`DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1`)
 
-For modern GitHub Actions workflows, Ultron provides a verified repository-local composite action supporting 1-line integration with zero boilerplate:
+For modern GitHub Actions workflows, Ultron provides a consumable composite action supporting 1-line integration with zero boilerplate:
 
 ```yaml
-# Repository-local usage (verified in-tree composite action):
+# Recommended external repository usage (pinned release candidate):
 - name: Ultron Architectural Quality Gate
-  uses: ./.github/actions/ultron-gate
+  uses: DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1
   with:
     repo-path: '.'
     max-high: '0'
@@ -400,10 +400,18 @@ For modern GitHub Actions workflows, Ultron provides a verified repository-local
     fail-on-regression: 'true'
     comment-pr: 'true'
     github-token: ${{ secrets.GITHUB_TOKEN }}
+
+# Repository-local usage (verified in-tree composite action):
+- name: Ultron Architectural Quality Gate (In-Tree)
+  uses: ./.github/actions/ultron-gate
+  with:
+    use-preinstalled: 'true'
+    repo-path: '.'
+    min-health: '80.0'
 ```
 
 > [!NOTE]
-> **Standalone Published Action**: The action slug `DMzinev/ultron-action@v1` is scheduled for official marketplace publication alongside the v1.5.0 final release. For in-tree repository workflows and pre-release candidate stabilization, use `uses: ./.github/actions/ultron-gate`.
+> **Consumable Candidate vs. Standalone Action**: The composite action automatically installs the pinned Ultron candidate into the runner environment unless `use-preinstalled: 'true'` is specified. During pre-release candidate stabilization prior to official tagging, external testing can also target `@release/1.5.0rc1-stabilization`. The standalone marketplace action `uses: DMzinev/ultron-action@v1` is scheduled for official marketplace publication alongside the v1.5.0 final release. For in-tree repository workflows and pre-release candidate stabilization, use `uses: ./.github/actions/ultron-gate`.
 
 #### Action Inputs Reference
 
@@ -419,6 +427,10 @@ For modern GitHub Actions workflows, Ultron provides a verified repository-local
 | `strict` | Strict mode: 0 health drop, fail on any high risk | No | `false` |
 | `output-json` | Path to write machine-readable JSON analysis report | No | `""` |
 | `output-markdown` | Path to write PR review comment markdown report | No | `""` |
+| `sarif-output` | Path to write SARIF 2.1.0 report (e.g. `results.sarif`) | No | `""` |
+| `use-preinstalled` | Use preinstalled Ultron executable instead of self-installing | No | `false` |
+| `ultron-executable` | Command or executable to run Ultron | No | `python -m ultron` |
+| `install-source` | Package source or wheel path to install | No | `""` |
 | `github-annotations` | Emit inline GitHub annotations (`::error`, `::warning`) | No | `true` |
 | `comment-pr` | Post architectural report to PR via GitHub REST API | No | `false` |
 | `github-token` | GitHub token for PR commenting (`${{ secrets.GITHUB_TOKEN }}`) | No | `""` |

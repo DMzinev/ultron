@@ -43,9 +43,10 @@ class TestCIActionSchemaAndWorkflow(unittest.TestCase):
         self.assertIn("name: 'Ultron Architectural Quality Gate'", content)
         self.assertIn("using: 'composite'", content)
         self.assertIn("shell: bash", content)
-        self.assertIn("python -m ultron gate", content)
+        self.assertIn("inputs.ultron-executable", content)
+        self.assertIn("default: 'python -m ultron'", content)
 
-        # 2. All 13 Inputs
+        # 2. All 17 Inputs
         expected_inputs = [
             "repo-path",
             "baseline",
@@ -60,9 +61,17 @@ class TestCIActionSchemaAndWorkflow(unittest.TestCase):
             "github-annotations",
             "comment-pr",
             "github-token",
+            "sarif-output",
+            "use-preinstalled",
+            "ultron-executable",
+            "install-source",
         ]
         for inp in expected_inputs:
             self.assertIn(f"{inp}:", content, f"Input '{inp}' missing in action.yml")
+
+        # Verify use-preinstalled defaults to false
+        self.assertIn("use-preinstalled:", content)
+        self.assertIn("default: 'false'", content)
 
         # 3. All 4 Outputs
         expected_outputs = [
@@ -119,6 +128,73 @@ class TestCIActionSchemaAndWorkflow(unittest.TestCase):
         self.assertIn("./.github/actions/ultron-gate", content)
         self.assertIn("clean_repo", content)
         self.assertIn("tangled_repo", content)
+
+    def test_action_self_install_runner_logic(self):
+        """Asserts action runner implements environment-safe self-installation with upward pyproject.toml resolver."""
+        with open(self.action_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # Step declares ACTION_PATH via env to prevent Windows escape issues
+        self.assertIn("ACTION_PATH: ${{ github.action_path }}", content)
+
+        # Step checks inputs.use-preinstalled
+        self.assertIn('[ "${{ inputs.use-preinstalled }}" != "true" ]', content)
+
+        # Dynamic upward resolver checking for pyproject.toml
+        self.assertIn("os.environ[\"ACTION_PATH\"]", content)
+        self.assertIn('os.path.isfile(os.path.join(cur, "pyproject.toml"))', content)
+        self.assertIn('python -m pip install "$REPO_ROOT"', content)
+
+        # Fail-closed error if pyproject.toml cannot be resolved
+        self.assertIn("::error::Could not find pyproject.toml in action hierarchy", content)
+
+    def test_workflow_external_consumer_job_integrity(self):
+        """Asserts .github/workflows/test-action.yml defines external consumer simulation job."""
+        with open(self.workflow_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        self.assertIn("test-external-consumer:", content)
+        self.assertIn("consumer-fixtures", content)
+        self.assertIn("use-preinstalled: 'false'", content)
+        self.assertIn("use-preinstalled: 'true'", content)
+        self.assertIn("continue-on-error: true", content)
+        self.assertIn("steps.consumer-strict.outcome", content)
+
+    def test_external_consumer_isolated_simulation(self):
+        """Simulates external consumer repository outside Ultron source tree, verifying gate pass and failure modes."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            clean_dir = os.path.join(temp_dir, "clean_app")
+            os.makedirs(os.path.join(clean_dir, "src"), exist_ok=True)
+            with open(os.path.join(clean_dir, "src", "math_utils.py"), "w", encoding="utf-8") as f:
+                f.write("def add(a: int, b: int) -> int:\n    return a + b\n")
+            with open(os.path.join(clean_dir, "src", "app.py"), "w", encoding="utf-8") as f:
+                f.write("from .math_utils import add\ndef main():\n    return add(1, 2)\n")
+
+            # Run gate command on clean app
+            exit_code_clean = run_gate_command(
+                repo_path=clean_dir,
+                min_health=80.0,
+                max_high=0,
+                fail_on_regression=True
+            )
+            self.assertEqual(exit_code_clean, 0, "Clean external consumer fixture must pass quality gate")
+
+            # Create tangled app with circular dependency
+            tangled_dir = os.path.join(temp_dir, "tangled_app")
+            os.makedirs(os.path.join(tangled_dir, "pkg"), exist_ok=True)
+            with open(os.path.join(tangled_dir, "pkg", "mod_x.py"), "w", encoding="utf-8") as f:
+                f.write("import pkg.mod_y\ndef foo(): return pkg.mod_y.bar()\n")
+            with open(os.path.join(tangled_dir, "pkg", "mod_y.py"), "w", encoding="utf-8") as f:
+                f.write("import pkg.mod_x\ndef bar(): return pkg.mod_x.foo()\n")
+
+            # Run gate command on tangled app with strict=True
+            exit_code_tangled = run_gate_command(
+                repo_path=tangled_dir,
+                min_health=90.0,
+                strict=True,
+                fail_on_regression=True
+            )
+            self.assertEqual(exit_code_tangled, 1, "Tangled external consumer fixture must fail under strict quality gate")
 
     def test_ci_workflow_structure_and_job_decomposition(self):
         """Asserts .github/workflows/ci.yml decomposes CI into 5 hermetic release jobs with pinned action SHAs."""

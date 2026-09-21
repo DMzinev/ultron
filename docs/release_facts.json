@@ -66,6 +66,7 @@
   },
   "github_action": {
     "repository_local": "./.github/actions/ultron-gate",
+    "consumable_action": "DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1",
     "published_slug": "DMzinev/ultron-action@v1",
     "published_status": "planned for final v1.5.0 release"
   },

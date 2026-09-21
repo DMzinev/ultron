@@ -165,7 +165,7 @@ class TestDocumentationReality(unittest.TestCase):
         self.assertNotIn("TESTS: 820 ran", self.getting_started_content, "Stale 820 test run count in docs/GETTING_STARTED.md")
 
     def test_action_documentation_reality(self):
-        """Assert verified repository-local action is documented and standalone slug is qualified."""
+        """Assert verified repository-local action and consumable action ref are documented."""
         self.assertIn(
             "./.github/actions/ultron-gate",
             self.readme_content,
@@ -177,10 +177,27 @@ class TestDocumentationReality(unittest.TestCase):
             "docs/GETTING_STARTED.md must document verified repository-local action ./.github/actions/ultron-gate"
         )
         self.assertIn(
+            "DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1",
+            self.readme_content,
+            "README.md must document consumable action DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1"
+        )
+        self.assertIn(
+            "DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1",
+            self.getting_started_content,
+            "docs/GETTING_STARTED.md must document consumable action DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1"
+        )
+        self.assertIn(
             "planned for external publication",
             self.readme_content,
             "README.md must qualify DMzinev/ultron-action@v1 as planned for external publication"
         )
+        if self.release_facts:
+            act = self.release_facts.get("github_action", {})
+            self.assertEqual(
+                act.get("consumable_action"),
+                "DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1",
+                "release_facts.json must record consumable_action"
+            )
 
     def test_prerelease_status_declared(self):
         """Assert 1.5.0rc1 is documented as an active pre-release candidate for stabilization."""

@@ -5714,3 +5714,47 @@ PENDING — not yet reviewed by an external party.
 
 **Open questions / follow-up:**
 None. Task RC-C1 fully implemented and verified. Next task: RC-C2 (Make the GitHub Action consumable).
+
+---
+
+### 2026-09-21 — Task RC-C2: Make the GitHub Action Consumable
+
+**Branch:** `release/1.5.0rc1-stabilization`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=1023 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=1026 failures=0 errors=0 skipped=0`
+
+**Attempted:** Make the Ultron GitHub Action directly consumable by external repositories per `docs/RELEASE_CANDIDATE_STABILIZATION_PLAN.md` lines 437–465 (Task RC-C2); implement recommended initial approach documenting `uses: DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1` (and `@release/1.5.0rc1-stabilization` for pre-release testing) while preserving repository-local `uses: ./.github/actions/ultron-gate`; add `use-preinstalled: 'false'` (default), `ultron-executable: 'python -m ultron'`, and `install-source` inputs to `.github/actions/ultron-gate/action.yml`; implement cross-platform upward-walking resolver in composite runner pre-step searching parent directories for `pyproject.toml` and self-installing pinned candidate repository (`python -m pip install "$REPO_ROOT"`); pass `ACTION_PATH: ${{ github.action_path }}` strictly via `env:` to avoid Windows runner backslash escape corruption; eliminate speculative external PyPI network downloads and fail closed with `::error::` if repository root cannot be located; update `.github/workflows/test-action.yml` with `test-external-consumer` multi-OS matrix job creating isolated consumer fixtures in `$RUNNER_TEMP` physically decoupled from Ultron source on `sys.path[0]`, testing pass, degradation under non-regression mode, and strict failure rejection with `continue-on-error: true`; expand `ultron/tests/test_ci_action.py` with 3 dedicated unit and simulation tests asserting schema inputs, self-installation runner logic, workflow external consumer job integrity, and clean vs tangled consumer fixture gate evaluations; expand `ultron/tests/test_documentation_reality.py` asserting consumable action ref documentation; update `README.md` and `docs/GETTING_STARTED.md` documenting consumable candidate usage and input reference; synchronize `docs/release_facts.json` and `docs/RELEASE_FACTS.md` with `consumable_action`; update `scripts/generate_release_facts.py` drift detection and task counter regex `(61|62)`; increment task counter to 62 completed tasks in `docs/RESOURCES.md`; update `docs/TASK_PROGRESS_TRACKER.md` row 62; master verification gate passes with 1026 tests, 0 failures, 0 errors, 0 skips in 475.173s.
+
+**Antigravity self-audit result:**
+- [x] Consumable action ref: Documented `uses: DMzinev/ultron/.github/actions/ultron-gate@v1.5.0rc1` in `README.md`, `docs/GETTING_STARTED.md`, `docs/RELEASE_FACTS.md`, and `docs/release_facts.json`.
+- [x] Self-installation implementation: Added runner pre-step in `.github/actions/ultron-gate/action.yml` installing pinned candidate from cloned action hierarchy when `use-preinstalled: 'false'`.
+- [x] Preinstalled bypass: Added `use-preinstalled` input defaulting to `'false'`, properly bypassing installation when `'true'`.
+- [x] Windows path safety: Passed `ACTION_PATH: ${{ github.action_path }}` via `env:`, eliminating bash backslash escape mangling on Windows runners.
+- [x] Fail-closed without premature PyPI dependencies: Action fails closed with `::error::` if `pyproject.toml` cannot be located, zero premature PyPI 404 network crashes.
+- [x] External consumer CI job: Added `test-external-consumer` multi-OS matrix job in `.github/workflows/test-action.yml` testing isolated fixtures in `$RUNNER_TEMP` physically separated from repository `sys.path[0]`.
+- [x] CI failure assertion: Used `continue-on-error: true` on strict rejection test step, validating `outcome == 'failure'` and exit code 1 without premature workflow abortion.
+- [x] In-tree documentation parity: Preserved `uses: ./.github/actions/ultron-gate` for repository-local workflows across all public documentation and test assertions.
+- [x] Dedicated test expansion: Expanded `test_ci_action.py` (16/16 passed in 16.442s) and `test_documentation_reality.py` (11/11 passed in 0.220s).
+- [x] Release facts synchronization: `python scripts/generate_release_facts.py --check` exits cleanly with code 0 (zero drift).
+- [x] Master SSOT verification gate: `scripts/verify.py` passes cleanly: `TESTS: 1026 ran, 0 failed, 0 errors, 0 skipped` in 475.173s.
+- [x] Constitutional line ceilings preserved: `server.py` at 297 lines (< 300); all 13 web JS modules strictly < 400 lines (max `index.js` at 392 lines).
+- [x] Pure standard library: zero new external runtime dependencies (`dependencies = []`, `install_requires = []`).
+- [x] Zero skips: 0 skips maintained across all 1026 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no machine learning models, precision/recall metrics, or calibration curves were introduced or altered in Task RC-C2.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-C2 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All local tests in `test_ci_action.py`, `test_documentation_reality.py`, and `scripts/verify.py` are 100% hermetic. Subprocess runs operate on isolated local directory fixtures without live external network dependencies.
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: clean consumer repo fixture (pass, health 100.0, 0 violations, exit code 0) vs circular tangled consumer repo fixture (health degradation to 68.0, strict failure, exit code 1); `use-preinstalled: 'false'` vs `'true'`; missing `pyproject.toml` fail-closed condition; secret expression absence (`assertNotRegex` for `\$\{\{\s*secrets\b`); all 17 declared inputs in `action.yml`.
+5. **Silent Failure Check:** Tested explicit failure modes: missing `github-token` when `comment-pr: 'true'` fails closed with exit code 1; architectural regressions fail with exit code 1 unless `--no-fail-on-regression` is passed; missing `pyproject.toml` in action runner hierarchy emits `::error::` and exits with code 1; invalid consumer repos trigger gate rejection.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task RC-C2 (Make the GitHub Action Consumable) COMPLETED on `release/1.5.0rc1-stabilization`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. Task RC-C2 fully implemented and verified. Next task: RC-C3 (Publish GitHub pre-release and TestPyPI candidate).
