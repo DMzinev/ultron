@@ -5827,7 +5827,7 @@ None. Task RC-C3 fully implemented and verified. All tasks in Phase RC Candidate
 - [x] Integration runner timeout calibration: In `.github/workflows/ci.yml`, adjusted `timeout-minutes` to 30 for `integration-verification` and 20 for `source-unit-contract`, ensuring back-to-back Pass 1 & Pass 2 verification runs on slower virtualized Windows runners complete reliably.
 - [x] Resilient release candidate notes validation: In `ultron/tests/test_release_candidate_notes.py`, validated all candidate artifacts and 64-char SHA-256 hashes, preventing false failures from runner-local zip timestamp/CRLF variance.
 - [x] Dynamic test fixtures in recommendation engine: Replaced `unittest.skip("External repo ... not found")` in `ultron/tests/test_recommendation_engine.py` with synthetic temporary git repo fixtures, converting 2 potential skips into robust passing tests.
-- [x] Dedicated CI action AST verification: Expanded `ultron/tests/test_ci_action.py` with `test_composite_action_inline_script_compiles_ast` asserting syntax and compilation integrity.
+- [x] Dedicated CI action AST verification: Expanded `ultron/tests/test_ci_action.py` (in `test_action_self_install_runner_logic`) asserting syntax and compilation integrity of the composite action inline resolver script.
 - [x] Virtualized runner scalability tolerance: Adjusted `test_scalability.py` execution budget to 25.0s to prevent flaky timeouts on heavily loaded GitHub Actions runners.
 - [x] Master SSOT verification gate: `scripts/verify.py` passes cleanly: `TESTS: 1037 ran, 0 failed, 0 errors, 0 skipped` in 395.127s.
 - [x] Constitutional line ceilings preserved: `server.py` strictly at 297 lines (< 300); all 13 web JS modules strictly < 400 lines.
