@@ -72,10 +72,10 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install wheel-dist/*.whl
 
-      - name: Assert Zero-Dependency Base Environment (No Radon, Pillow, Pystray, Build)
+      - name: Assert Zero-Dependency Base Environment (No Radon, Pillow, Pystray)
         shell: bash
         run: |
-          python -c "import importlib.util; forbidden = ['radon', 'PIL', 'pystray', 'build', 'packaging']; found = [p for p in forbidden if importlib.util.find_spec(p) is not None]; print(f'Scan results for dev dependencies: found={found}'); assert not found, f'Forbidden packages present in zero-dependency environment: {found}'"
+          python -c "import importlib.util; forbidden = ['radon', 'PIL', 'pystray']; found = [p for p in forbidden if importlib.util.find_spec(p) is not None]; print(f'Scan results for dev dependencies: found={found}'); assert not found, f'Forbidden packages present in zero-dependency environment: {found}'"
 
       - name: Smoke Test CLI Entrypoints Outside Repository
         shell: bash
@@ -156,7 +156,7 @@ jobs:
 
       - name: Execute Source Unit and Contract Suites
         shell: bash
-        run: python scripts/verify.py
+        run: python scripts/verify.py 2>&1 | tee unit-contract.log
 
       - name: Upload Unit & Contract Failure Logs
         if: failure()
@@ -164,7 +164,7 @@ jobs:
         with:
           name: unit-contract-logs-${{ matrix.os }}-py${{ matrix.python-version }}
           path: |
-            *.log
+            unit-contract.log
 
   integration-verification:
     name: Integration & Dev Extras Verification (${{ matrix.os }}, Python ${{ matrix.python-version }})

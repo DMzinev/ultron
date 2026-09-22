@@ -603,7 +603,8 @@ def sample_func(a, b):
                     has_build = False
                     try:
                         import build
-                        has_build = True
+                        if hasattr(build, "__file__") and build.__file__ and "site-packages" in build.__file__:
+                            has_build = True
                     except ImportError:
                         pass
                     if has_build:
@@ -615,6 +616,9 @@ def sample_func(a, b):
                             "-w", tmp_out, ".",
                         ]
 
+                # Clear local build directory residue that causes module collision
+                shutil.rmtree(os.path.join(REPO_ROOT, "build"), ignore_errors=True)
+
                 proc = subprocess.run(
                     cmd,
                     cwd=REPO_ROOT,
@@ -622,7 +626,7 @@ def sample_func(a, b):
                     text=True,
                     timeout=120,
                 )
-                if proc.returncode != 0 and "--no-build-isolation" in cmd:
+                if proc.returncode != 0:
                     cmd_retry = [sys.executable, "-m", "pip", "wheel", "--no-deps", "-w", tmp_out, "."]
                     proc = subprocess.run(cmd_retry, cwd=REPO_ROOT, capture_output=True, text=True, timeout=120)
 

@@ -150,7 +150,8 @@ class TestVersionCommand(unittest.TestCase):
                     has_build = False
                     try:
                         import build
-                        has_build = True
+                        if hasattr(build, "__file__") and build.__file__ and "site-packages" in build.__file__:
+                            has_build = True
                     except ImportError:
                         pass
                     if has_build:
@@ -162,6 +163,9 @@ class TestVersionCommand(unittest.TestCase):
                             "-w", wheel_dir, ".",
                         ]
 
+                # Clear local build directory residue that causes module collision
+                shutil.rmtree(os.path.join(REPO_ROOT, "build"), ignore_errors=True)
+
                 build_proc = subprocess.run(
                     build_cmd,
                     cwd=REPO_ROOT,
@@ -169,7 +173,7 @@ class TestVersionCommand(unittest.TestCase):
                     text=True,
                     timeout=120,
                 )
-                if build_proc.returncode != 0 and "--no-build-isolation" in build_cmd:
+                if build_proc.returncode != 0:
                     build_cmd_retry = [sys.executable, "-m", "pip", "wheel", "--no-deps", "-w", wheel_dir, "."]
                     build_proc = subprocess.run(build_cmd_retry, cwd=REPO_ROOT, capture_output=True, text=True, timeout=120)
 

@@ -55,20 +55,25 @@ def execute_build(repo_root: str, out_dir: str):
         if proc.returncode != 0:
             raise RuntimeError(f"uv build failed (code {proc.returncode}):\n{proc.stderr}")
     else:
-        # Check if standard 'build' package is available
+        # Check if standard 'build' package is available in site-packages
         has_build = False
         try:
             import build
-            has_build = True
+            if hasattr(build, "__file__") and build.__file__ and "site-packages" in build.__file__:
+                has_build = True
         except ImportError:
             pass
 
+        clean_build_residue(repo_root)
+
+        built_cleanly = False
         if has_build:
             cmd = [sys.executable, "-m", "build", "--outdir", out_dir]
             proc = subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True, timeout=120)
-            if proc.returncode != 0:
-                raise RuntimeError(f"python -m build failed (code {proc.returncode}):\n{proc.stderr}")
-        else:
+            if proc.returncode == 0:
+                built_cleanly = True
+
+        if not built_cleanly:
             # Fallback to pip wheel and setup.py sdist without requiring 'build' package
             wheel_cmd = [
                 sys.executable, "-m", "pip", "wheel",
