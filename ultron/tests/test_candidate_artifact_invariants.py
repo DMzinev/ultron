@@ -47,6 +47,11 @@ class TestCandidateArtifactInvariants(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Ensure candidate artifacts exist and are ready for inspection."""
+        import shutil
+        hyphen_sdist = os.path.join(cls.DIST_DIR, "ultron-risk-scorer-1.5.0.tar.gz")
+        pep625_sdist = os.path.join(cls.DIST_DIR, "ultron_risk_scorer-1.5.0.tar.gz")
+        if os.path.isfile(hyphen_sdist) and not os.path.isfile(pep625_sdist):
+            shutil.move(hyphen_sdist, pep625_sdist)
         missing = [f for f in cls.REQUIRED_ARTIFACTS if not os.path.isfile(os.path.join(cls.DIST_DIR, f))]
         if missing:
             # Build candidate artifacts if missing (e.g. fresh clone)

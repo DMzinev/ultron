@@ -39,7 +39,7 @@ import ultron
 
 def clean_build_residue(repo_root: str):
     """Remove transient build residue from repository root."""
-    for item in ("build", "ultron_risk_scorer.egg-info", "dist"):
+    for item in ("build", "ultron_risk_scorer.egg-info", "ultron-risk-scorer.egg-info", "dist"):
         p = os.path.join(repo_root, item)
         if os.path.isdir(p):
             shutil.rmtree(p, ignore_errors=True)
@@ -90,6 +90,12 @@ def execute_build(repo_root: str, out_dir: str):
             proc2 = subprocess.run(sdist_cmd, cwd=repo_root, capture_output=True, text=True, timeout=120)
             if proc2.returncode != 0:
                 raise RuntimeError(f"setup.py sdist failed (code {proc2.returncode}):\n{proc2.stderr}")
+
+    # Standardize sdist archive name per PEP 625 (ultron_risk_scorer-1.5.0.tar.gz)
+    hyphen_sdist = os.path.join(out_dir, "ultron-risk-scorer-1.5.0.tar.gz")
+    pep625_sdist = os.path.join(out_dir, "ultron_risk_scorer-1.5.0.tar.gz")
+    if os.path.isfile(hyphen_sdist) and not os.path.isfile(pep625_sdist):
+        shutil.move(hyphen_sdist, pep625_sdist)
 
 
 def verify_wheel_invariants(whl_path: str):

@@ -85,10 +85,30 @@ def _parse_toml_simple(content: str) -> Dict[str, Any]:
 
     data: Dict[str, Any] = {}
     current_table = data
+    in_multiline_list = False
+    list_key = None
+    list_acc: List[str] = []
+
     for line in content.splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
             continue
+
+        if in_multiline_list:
+            if "]" in line:
+                before_bracket, _, _ = line.partition("]")
+                items = re.findall(r'["\']([^"\']+)["\']', before_bracket)
+                list_acc.extend(items)
+                if list_key:
+                    current_table[list_key] = list_acc
+                in_multiline_list = False
+                list_key = None
+                list_acc = []
+            else:
+                items = re.findall(r'["\']([^"\']+)["\']', line)
+                list_acc.extend(items)
+            continue
+
         # Table header [section] or [section.sub]
         table_m = re.match(r"^\[([^\]]+)\]$", line)
         if table_m:
@@ -99,6 +119,7 @@ def _parse_toml_simple(content: str) -> Dict[str, Any]:
                 curr = curr.setdefault(k, {})
             current_table = curr
             continue
+
         # Key = Value (simple strings and list of strings)
         kv_m = re.match(r'^([A-Za-z0-9_\-\.]+)\s*=\s*(.+)$', line)
         if kv_m:
@@ -108,6 +129,10 @@ def _parse_toml_simple(content: str) -> Dict[str, Any]:
             if val_str.startswith("[") and val_str.endswith("]"):
                 items = re.findall(r'["\']([^"\']+)["\']', val_str)
                 current_table[key] = items
+            elif val_str.startswith("[") and not val_str.endswith("]"):
+                in_multiline_list = True
+                list_key = key
+                list_acc = re.findall(r'["\']([^"\']+)["\']', val_str)
             elif val_str.startswith('"') and val_str.endswith('"'):
                 current_table[key] = val_str[1:-1]
             elif val_str.startswith("'") and val_str.endswith("'"):
