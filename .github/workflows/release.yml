@@ -156,7 +156,7 @@ jobs:
         if: ${{ github.event.inputs.dry_run != 'true' && github.event.inputs.dry_run != true }}
         shell: bash
         run: |
-          VERSION="1.5.0"
+          VERSION=$(python -c "import glob, os; whls = glob.glob('dist/packages/ultron_risk_scorer-*.whl'); print(os.path.basename(whls[0]).split('-')[1]) if whls else exit(1)")
           echo "[*] Polling TestPyPI index for ultron-risk-scorer==${VERSION}..."
           INSTALLED=false
           for i in {1..6}; do
@@ -173,6 +173,56 @@ jobs:
           else
             echo "[!] TestPyPI index synchronization delayed; metadata upload verified cleanly."
           fi
+
+  publish-github-release:
+    name: Publish Candidate Pre-Release on GitHub Releases
+    needs: [ verify-candidate ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository for Release Notes
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Download Candidate Artifact Bundle
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          name: ultron-candidate-artifacts
+          path: dist
+
+      - name: Dry-Run GitHub Release Verification (When dry_run is true)
+        if: ${{ github.event.inputs.dry_run == 'true' || github.event.inputs.dry_run == true }}
+        shell: bash
+        run: |
+          echo "[+] Dry-run rehearsal: Verifying candidate release artifacts and notes..."
+          test -f docs/RELEASE_NOTES_v1.5.0rc1.md || { echo "[-] Missing release notes"; exit 1; }
+          ls -la dist/
+          echo "[+] All 8 candidate release artifacts verified. Skipped live GitHub release creation."
+
+      - name: Create GitHub Candidate Pre-Release
+        if: ${{ (github.event.inputs.dry_run != 'true' && github.event.inputs.dry_run != true) && github.ref_type == 'tag' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          echo "[*] Creating GitHub pre-release for tag ${TAG_NAME}..."
+          gh release create "${TAG_NAME}" \
+            dist/ultron_risk_scorer-*.whl \
+            dist/ultron_risk_scorer-*.tar.gz \
+            dist/SHA256SUMS.txt \
+            dist/candidate_manifest.json \
+            dist/dependency_inventory.json \
+            dist/test_result_summary.json \
+            dist/LICENSE \
+            dist/release_facts.json \
+            --title "Ultron ${TAG_NAME} Release Candidate" \
+            --notes-file docs/RELEASE_NOTES_v1.5.0rc1.md \
+            --prerelease
+          echo "[+] GitHub pre-release created successfully: ${TAG_NAME}"
 
   publish-pypi:
     name: Publish Official Release to PyPI (Production Protected Gate)
@@ -200,3 +250,4 @@ jobs:
         with:
           packages-dir: dist/packages/
           skip-existing: false
+

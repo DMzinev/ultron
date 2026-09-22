@@ -199,10 +199,12 @@ def main():
             sub_parser.add_argument("--json", action="store_true", default=False, help="Output machine-readable JSON summary exclusively")
             sub_parser.add_argument("--quiet", action="store_true", default=False, help="Suppress runner progress and emit only the final summary line")
         elif cmd == "mcp":
-            sub_parser.add_argument("action", nargs="?", default="serve", choices=["install", "serve"], help="Action to perform ('install' or 'serve')")
+            sub_parser.add_argument("action", nargs="?", default="serve", choices=["install", "serve", "uninstall", "repair"], help="Action to perform ('install', 'serve', 'uninstall', 'repair')")
             sub_parser.add_argument("--client", "--ide", dest="client", default="cursor", choices=["cursor", "claude", "windsurf", "vscode", "all"], help="Target AI editor or client (default: cursor)")
             sub_parser.add_argument("--install", action="store_true", default=False, help="Install MCP configuration into client config")
-            sub_parser.add_argument("--global", dest="is_global", action="store_true", default=False, help="Install globally in user config instead of local repository")
+            sub_parser.add_argument("--uninstall", action="store_true", default=False, help="Uninstall MCP configuration from client config")
+            sub_parser.add_argument("--repair", action="store_true", default=False, help="Repair and reinstall MCP configuration in client config")
+            sub_parser.add_argument("--global", dest="is_global", action="store_true", default=False, help="Target global user config instead of local repository")
             sub_parser.add_argument("--json", action="store_true", default=False, help="Output machine-readable JSON")
         elif cmd == "hook":
             sub_parser.add_argument("action", nargs="?", default="status", choices=["install", "uninstall", "status"], help="Hook action ('install', 'uninstall', 'status')")

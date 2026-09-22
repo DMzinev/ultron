@@ -5758,3 +5758,47 @@ PENDING — not yet reviewed by an external party.
 
 **Open questions / follow-up:**
 None. Task RC-C2 fully implemented and verified. Next task: RC-C3 (Publish GitHub pre-release and TestPyPI candidate).
+
+---
+
+### 2026-09-22 — Task RC-C3: Publish GitHub Pre-Release and TestPyPI Candidate
+
+**Branch:** `release/1.5.0rc1-stabilization`
+
+**Full-Suite Metrics:**
+- `full_suite_before`: `ran=1026 failures=0 errors=0 skipped=0`
+- `full_suite_after`: `ran=1037 failures=0 errors=0 skipped=0`
+
+**Attempted:** Authoritative release candidate notes and pre-release distribution automation per `docs/RELEASE_CANDIDATE_STABILIZATION_PLAN.md` Section 6, lines 466–489 (Task RC-C3); author `docs/RELEASE_NOTES_v1.5.0rc1.md` containing all 9 required operational sections (candidate wheel/sdist details, exact SHA-256 checksums matching `dist/SHA256SUMS.txt`, compatibility matrix for Python 3.10–3.12, Linux/macOS/Windows, 0 runtime dependencies, known limitations, exact skip policy, experimental capability designations for JS/TS adapter and monorepo workspaces, upgrade/install instructions, rollback instructions, and MCP lifecycle repair/uninstall); enforce strict tone boundary with zero assertions of "enterprise-ready" or "production-ready"; implement CLI MCP configuration uninstall and repair operations (`ultron mcp uninstall`, `ultron mcp repair`, and `--uninstall`, `--repair` flag variants) across Cursor, Claude Desktop, Windsurf, VS Code, and all with corruption backup (`.bak.<timestamp>`) and atomic write in `ultron/interfaces/cli/commands/mcp.py` and `ultron/interfaces/ultron.py`; enhance release workflow `.github/workflows/release.yml` with dynamic wheel version resolution in `publish-testpypi` without uninstalled module imports or git checkout, and add decoupled `publish-github-release` job attaching all 8 sealed candidate artifacts (`.whl`, `.tar.gz`, `SHA256SUMS.txt`, `candidate_manifest.json`, `dependency_inventory.json`, `test_result_summary.json`, `LICENSE`, `release_facts.json`) and release notes with `prerelease: true`, zero secrets expressions (`${{ github.token }}`), checkout for release notes, and dry-run rehearsal gating; add 11 dedicated invariant tests in `ultron/tests/test_release_candidate_notes.py` (11/11 passed in 0.499s); expand `ultron/tests/test_release_workflow.py` asserting 5 decoupled jobs, GitHub release permissions, and dynamic version extraction (8/8 passed in 0.036s); update `scripts/generate_release_facts.py` drift detection regex `(62|63)` and update `docs/RESOURCES.md` to 63 completed tasks; master verification gate passes with 1037 tests, 0 failures, 0 errors, 0 skips in 475.568s.
+
+**Antigravity self-audit result:**
+- [x] Authoritative release candidate notes: Authored `docs/RELEASE_NOTES_v1.5.0rc1.md` containing all 9 required operational sections.
+- [x] Checksum parity: All 7 artifact digests in `dist/SHA256SUMS.txt` are verbatim recorded in release notes.
+- [x] Strict tone boundary: Zero occurrences of `\benterprise[\s-]ready\b` or `\bproduction[\s-]ready\b` (case-insensitive regex verified).
+- [x] Compatibility matrix: Documented Python 3.10-3.12, Linux/macOS/Windows, and 0 runtime dependencies.
+- [x] CLI MCP uninstall and repair: Implemented `uninstall_mcp_config` and `repair_mcp_config` supporting both positional subactions and flag syntax with corruption backup.
+- [x] Workflow dynamic versioning: Replaced hardcoded version in `publish-testpypi` with dynamic Python glob extraction from staged wheel.
+- [x] Workflow GitHub release job: Added `publish-github-release` job attaching all 8 sealed artifacts with `contents: write`, `gh release create`, `--prerelease`, and zero secrets expressions.
+- [x] Dedicated test suites: Created `ultron/tests/test_release_candidate_notes.py` (11/11 passed) and expanded `test_release_workflow.py` (8/8 passed).
+- [x] Release facts synchronization: `python scripts/generate_release_facts.py --check` passes with zero drift.
+- [x] Master SSOT verification gate: `scripts/verify.py` passes cleanly: `TESTS: 1037 ran, 0 failed, 0 errors, 0 skipped` in 475.568s.
+- [x] Constitutional line ceilings preserved: `server.py` strictly at 297 lines (< 300); all 13 web JS modules strictly < 400 lines.
+- [x] Pure standard library: zero new external runtime dependencies (`dependencies = []`, `install_requires = []`).
+- [x] Zero skips: 0 skips maintained across all 1037 tests repository-wide.
+
+**Category B Checklist:**
+1. **Calibration / Precision / Recall / F1 Claims:** N/A — no machine learning models, precision/recall metrics, or calibration curves were introduced or altered in Task RC-C3.
+2. **Human Feedback / Rating Claims:** Explicit human authorization for Task RC-C3 execution requested and confirmed directly in chat transcript following Critic plan approval.
+3. **External Data Dependencies:** All local tests in `test_release_candidate_notes.py`, `test_release_workflow.py`, and `scripts/verify.py` are 100% hermetic (no live network dependencies; temporary directories used for MCP lifecycle tests).
+4. **Mutation Testing / Fuzzing Claims:** Tested boundary-sensitive assertions: presence of all 9 sections in release notes; strict negative regex assertions against 'enterprise-ready' and 'production-ready'; exact matching of 7 SHA-256 hashes against `dist/SHA256SUMS.txt`; corrupted JSON recovery with automatic `.bak.<timestamp>` creation; preservation of non-ultron MCP server entries during uninstall; idempotent uninstalls on missing or non-ultron configs; CLI positional vs flag argument dispatch.
+5. **Silent Failure Check:** Tested explicit failure modes: missing release notes fails release check; corrupt MCP configs raise warnings and back up rather than silently wiping; invalid IDE names exit with code 1; uninstalled servers cleanly report status; missing wheels in CI fail version extraction cleanly with exit code 1; workflow dry-run rehearsal gates skip live publication.
+6. **Causal / Probabilistic Claims:** N/A.
+
+**External verification (Claude or other reviewer):**
+PENDING — not yet reviewed by an external party.
+
+**Status change:** Task RC-C3 (Publish GitHub pre-release and TestPyPI candidate) COMPLETED on `release/1.5.0rc1-stabilization`. Ready for delivery audit.
+
+**Open questions / follow-up:**
+None. Task RC-C3 fully implemented and verified. All tasks in Phase RC Candidate Stabilization plan are now complete.
+

@@ -90,7 +90,7 @@ ultron/
 - **Model Context Protocol (MCP)**: JSON-RPC 2.0 stdio server specification exposing 7 canonical tools (`get_risk_profile`, `get_blast_radius`, `compile_mission`, `audit_file`, `get_context_brief`, `evaluate_repository`, `explain_violation`).
 
 ### 5. Tracking & Forensic Verification
-- **[Task Progress Tracker](TASK_PROGRESS_TRACKER.md)**: Lifetime execution sequence of 62 completed tasks across Phase 1–5 and Phase RC stabilization, commit hashes, and acceptance evidence.
+- **[Task Progress Tracker](TASK_PROGRESS_TRACKER.md)**: Lifetime execution sequence of 63 completed tasks across Phase 1–5 and Phase RC stabilization, commit hashes, and acceptance evidence.
 - **[Project Log](../PROJECT_LOG.md)**: Forensic verification ledger with standard before/after test suite counts and Category B empirical checklists.
 - **[Untracked Inventory](UNTRACKED_INVENTORY.md)**: Audit record of temporary scratch scripts and artifacts.
 

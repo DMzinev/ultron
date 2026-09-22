@@ -41,11 +41,12 @@ class TestReleaseWorkflowInvariants(unittest.TestCase):
             self.workflow_content = f.read()
 
     def test_release_workflow_jobs_and_dependencies(self):
-        """Assert release.yml declares all 4 required jobs with strict sequential dependency chain."""
+        """Assert release.yml declares all 5 required decoupled jobs with strict dependency chain."""
         expected_jobs = [
             "build-candidate",
             "verify-candidate",
             "publish-testpypi",
+            "publish-github-release",
             "publish-pypi"
         ]
         for job in expected_jobs:
@@ -56,11 +57,23 @@ class TestReleaseWorkflowInvariants(unittest.TestCase):
         self.assertIn("needs: [ verify-candidate ]", self.workflow_content)
         self.assertIn("needs: [ publish-testpypi ]", self.workflow_content)
 
+        # Verify GitHub release job configuration
+        gh_rel_section = self.workflow_content.split("publish-github-release:")[1].split("publish-pypi:")[0]
+        self.assertIn("contents: write", gh_rel_section)
+        self.assertIn("gh release create", gh_rel_section)
+        self.assertIn("--prerelease", gh_rel_section)
+        self.assertIn("--notes-file docs/RELEASE_NOTES_v1.5.0rc1.md", gh_rel_section)
+
+        # Verify dynamic wheel version extraction in publish-testpypi
+        testpypi_section = self.workflow_content.split("publish-testpypi:")[1].split("publish-github-release:")[0]
+        self.assertIn("VERSION=$(python -c", testpypi_section)
+        self.assertIn("ultron_risk_scorer-*.whl", testpypi_section)
+
     def test_release_workflow_oidc_permissions(self):
         """Assert top-level permissions default to read and publishing jobs declare id-token: write."""
         self.assertIn("permissions:\n  contents: read", self.workflow_content)
         
-        # Both publishing jobs must have id-token: write
+        # Both PyPI publishing jobs must have id-token: write
         id_token_count = self.workflow_content.count("id-token: write")
         self.assertGreaterEqual(id_token_count, 2, "Both publish-testpypi and publish-pypi must specify id-token: write")
 
