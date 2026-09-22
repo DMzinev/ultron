@@ -46,7 +46,7 @@ def clean_build_residue(repo_root: str):
 
 
 def execute_build(repo_root: str, out_dir: str):
-    """Build wheel and sdist using uv or fallback to pip wheel and setup.py sdist."""
+    """Build wheel and sdist using uv, python -m build, or fallback to pip wheel and setup.py sdist."""
     os.makedirs(out_dir, exist_ok=True)
     uv_bin = shutil.which("uv")
     if uv_bin:
@@ -55,19 +55,36 @@ def execute_build(repo_root: str, out_dir: str):
         if proc.returncode != 0:
             raise RuntimeError(f"uv build failed (code {proc.returncode}):\n{proc.stderr}")
     else:
-        # Fallback to pip wheel and setup.py sdist without requiring 'build' package
-        wheel_cmd = [
-            sys.executable, "-m", "pip", "wheel",
-            "--no-deps", "--no-build-isolation", "-w", out_dir, "."
-        ]
-        proc1 = subprocess.run(wheel_cmd, cwd=repo_root, capture_output=True, text=True, timeout=120)
-        if proc1.returncode != 0:
-            raise RuntimeError(f"pip wheel failed (code {proc1.returncode}):\n{proc1.stderr}")
+        # Check if standard 'build' package is available
+        has_build = False
+        try:
+            import build
+            has_build = True
+        except ImportError:
+            pass
 
-        sdist_cmd = [sys.executable, "setup.py", "sdist", "--dist-dir", out_dir]
-        proc2 = subprocess.run(sdist_cmd, cwd=repo_root, capture_output=True, text=True, timeout=120)
-        if proc2.returncode != 0:
-            raise RuntimeError(f"setup.py sdist failed (code {proc2.returncode}):\n{proc2.stderr}")
+        if has_build:
+            cmd = [sys.executable, "-m", "build", "--outdir", out_dir]
+            proc = subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True, timeout=120)
+            if proc.returncode != 0:
+                raise RuntimeError(f"python -m build failed (code {proc.returncode}):\n{proc.stderr}")
+        else:
+            # Fallback to pip wheel and setup.py sdist without requiring 'build' package
+            wheel_cmd = [
+                sys.executable, "-m", "pip", "wheel",
+                "--no-deps", "--no-build-isolation", "-w", out_dir, "."
+            ]
+            proc1 = subprocess.run(wheel_cmd, cwd=repo_root, capture_output=True, text=True, timeout=120)
+            if proc1.returncode != 0:
+                retry_cmd = [sys.executable, "-m", "pip", "wheel", "--no-deps", "-w", out_dir, "."]
+                proc1 = subprocess.run(retry_cmd, cwd=repo_root, capture_output=True, text=True, timeout=120)
+                if proc1.returncode != 0:
+                    raise RuntimeError(f"pip wheel failed (code {proc1.returncode}):\n{proc1.stderr}")
+
+            sdist_cmd = [sys.executable, "setup.py", "sdist", "--dist-dir", out_dir]
+            proc2 = subprocess.run(sdist_cmd, cwd=repo_root, capture_output=True, text=True, timeout=120)
+            if proc2.returncode != 0:
+                raise RuntimeError(f"setup.py sdist failed (code {proc2.returncode}):\n{proc2.stderr}")
 
 
 def verify_wheel_invariants(whl_path: str):

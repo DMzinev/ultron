@@ -595,16 +595,25 @@ def sample_func(a, b):
         with tempfile.TemporaryDirectory(prefix="ultron_wheel_") as tmp_out:
             try:
                 # Prefer uv build (portable, handles build deps automatically)
-                # Fall back to pip wheel --no-deps if uv unavailable
+                # Fall back to python -m build or pip wheel
                 uv_bin = shutil.which("uv")
                 if uv_bin:
                     cmd = [uv_bin, "build", "--wheel", "--out-dir", tmp_out]
                 else:
-                    cmd = [
-                        sys.executable, "-m", "pip", "wheel",
-                        "--no-deps", "--no-build-isolation",
-                        "-w", tmp_out, ".",
-                    ]
+                    has_build = False
+                    try:
+                        import build
+                        has_build = True
+                    except ImportError:
+                        pass
+                    if has_build:
+                        cmd = [sys.executable, "-m", "build", "--wheel", "--outdir", tmp_out]
+                    else:
+                        cmd = [
+                            sys.executable, "-m", "pip", "wheel",
+                            "--no-deps", "--no-build-isolation",
+                            "-w", tmp_out, ".",
+                        ]
 
                 proc = subprocess.run(
                     cmd,
@@ -613,6 +622,10 @@ def sample_func(a, b):
                     text=True,
                     timeout=120,
                 )
+                if proc.returncode != 0 and "--no-build-isolation" in cmd:
+                    cmd_retry = [sys.executable, "-m", "pip", "wheel", "--no-deps", "-w", tmp_out, "."]
+                    proc = subprocess.run(cmd_retry, cwd=REPO_ROOT, capture_output=True, text=True, timeout=120)
+
                 self.assertEqual(
                     proc.returncode, 0,
                     f"Wheel build failed (exit {proc.returncode}):\n{proc.stderr}"

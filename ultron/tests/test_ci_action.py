@@ -104,6 +104,32 @@ class TestCIActionSchemaAndWorkflow(unittest.TestCase):
         except ImportError:
             pass
 
+        # 6. Structural Block Scalar Validation (independent of PyYAML)
+        # Asserts that all lines inside literal block scalars (e.g. run: |) are indented deeper than the key
+        lines = content.splitlines()
+        in_block_scalar = False
+        block_indent = 0
+        for line_no, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            indent = len(line) - len(line.lstrip(" "))
+            if stripped.endswith(": |"):
+                in_block_scalar = True
+                block_indent = indent
+                continue
+            if in_block_scalar:
+                if indent > block_indent:
+                    continue
+                else:
+                    if ":" in stripped:
+                        in_block_scalar = False
+                    else:
+                        self.fail(
+                            f"Illegal unindented line inside YAML block scalar at "
+                            f"{self.action_path}:{line_no}: {line!r}"
+                        )
+
     def test_action_manifest_fail_closed_on_missing_token(self):
         """Asserts composite action script enforces fail-closed validation when comment-pr is true without token."""
         with open(self.action_path, "r", encoding="utf-8") as f:
@@ -147,6 +173,16 @@ class TestCIActionSchemaAndWorkflow(unittest.TestCase):
 
         # Fail-closed error if pyproject.toml cannot be resolved
         self.assertIn("::error::Could not find pyproject.toml in action hierarchy", content)
+
+        # AST compilation assertion on the embedded Python resolver script
+        import ast, re
+        match = re.search(r"REPO_ROOT=\$\(python -c '(.*?)'\)", content, re.DOTALL)
+        self.assertIsNotNone(match, "REPO_ROOT python command pattern not found in action.yml")
+        py_snippet = match.group(1)
+        try:
+            ast.parse(py_snippet)
+        except Exception as e:
+            self.fail(f"Embedded Python script in action.yml failed AST compilation: {e}")
 
     def test_workflow_external_consumer_job_integrity(self):
         """Asserts .github/workflows/test-action.yml defines external consumer simulation job."""

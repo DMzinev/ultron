@@ -147,11 +147,20 @@ class TestVersionCommand(unittest.TestCase):
                 if uv_bin:
                     build_cmd = [uv_bin, "build", "--wheel", "--out-dir", wheel_dir]
                 else:
-                    build_cmd = [
-                        sys.executable, "-m", "pip", "wheel",
-                        "--no-deps", "--no-build-isolation",
-                        "-w", wheel_dir, ".",
-                    ]
+                    has_build = False
+                    try:
+                        import build
+                        has_build = True
+                    except ImportError:
+                        pass
+                    if has_build:
+                        build_cmd = [sys.executable, "-m", "build", "--wheel", "--outdir", wheel_dir]
+                    else:
+                        build_cmd = [
+                            sys.executable, "-m", "pip", "wheel",
+                            "--no-deps", "--no-build-isolation",
+                            "-w", wheel_dir, ".",
+                        ]
 
                 build_proc = subprocess.run(
                     build_cmd,
@@ -160,6 +169,10 @@ class TestVersionCommand(unittest.TestCase):
                     text=True,
                     timeout=120,
                 )
+                if build_proc.returncode != 0 and "--no-build-isolation" in build_cmd:
+                    build_cmd_retry = [sys.executable, "-m", "pip", "wheel", "--no-deps", "-w", wheel_dir, "."]
+                    build_proc = subprocess.run(build_cmd_retry, cwd=REPO_ROOT, capture_output=True, text=True, timeout=120)
+
                 self.assertEqual(
                     build_proc.returncode, 0,
                     f"Wheel build failed:\n{build_proc.stderr}"

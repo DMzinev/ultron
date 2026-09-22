@@ -99,19 +99,18 @@ runs:
           if [ -n "${{ inputs.install-source }}" ]; then
             python -m pip install "${{ inputs.install-source }}"
           else
-            REPO_ROOT=$(python -c '
-import os, sys
-cur = os.path.abspath(os.environ["ACTION_PATH"])
-for _ in range(5):
-    if os.path.isfile(os.path.join(cur, "pyproject.toml")):
-        print(cur)
-        sys.exit(0)
-    parent = os.path.dirname(cur)
-    if parent == cur:
-        break
-    cur = parent
-sys.exit(1)
-')
+            REPO_ROOT=$(python -c 'import os, sys, textwrap; exec(textwrap.dedent("""
+                cur = os.path.abspath(os.environ["ACTION_PATH"])
+                for _ in range(5):
+                    if os.path.isfile(os.path.join(cur, "pyproject.toml")):
+                        print(cur)
+                        sys.exit(0)
+                    parent = os.path.dirname(cur)
+                    if parent == cur:
+                        break
+                    cur = parent
+                sys.exit(1)
+            """))')
             if [ $? -ne 0 ] || [ -z "$REPO_ROOT" ]; then
               echo "::error::Could not find pyproject.toml in action hierarchy from $ACTION_PATH" >&2
               exit 1

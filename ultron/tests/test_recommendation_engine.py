@@ -54,7 +54,15 @@ class TestRecommendationEngine(unittest.TestCase):
         """Invariant: Under consequence_v1, operational hub (sessions) outranks utility drawer (utils)."""
         requests_dir = os.path.join(REPO_ROOT, "scratch", "external", "repo_c_requests")
         if not os.path.exists(requests_dir):
-            self.skipTest("repo_c_requests not cloned")
+            requests_dir = self._create_temp_repo({
+                "sessions.py": "class Session: pass\ndef request(): pass\n",
+                "api.py": "from sessions import request\ndef get(): return request()\ndef post(): return request()\n",
+                "adapters.py": "from sessions import request\ndef send(): return request()\n",
+                "models.py": "from sessions import Session\ndef prepare(): return Session()\n",
+                "utils.py": "def dict_to_sequence(): pass\ndef super_len(): pass\n",
+            })
+            if not os.path.exists(requests_dir):
+                self.skipTest("repo_c_requests not cloned")
 
         cb = analyzer.analyze_directory(requests_dir)
         risks = scoring.evaluate_risks(cb, [], repo_path=requests_dir)
@@ -98,7 +106,13 @@ class TestRecommendationEngine(unittest.TestCase):
         """Invariant: Bottle produces exactly 1 production recommendation; 0 test suites leak."""
         bottle_dir = os.path.join(REPO_ROOT, "scratch", "external", "repo_a_bottle")
         if not os.path.exists(bottle_dir):
-            self.skipTest("repo_a_bottle not cloned")
+            bottle_dir = self._create_temp_repo({
+                "bottle.py": "def route(): pass\ndef run(): pass\nclass Bottle: pass\n",
+                "test/test_bottle.py": "import bottle\ndef test_route(): pass\n",
+                "test/test_router.py": "import bottle\ndef test_run(): pass\n",
+            })
+            if not os.path.exists(bottle_dir):
+                self.skipTest("repo_a_bottle not cloned")
 
         cb = analyzer.analyze_directory(bottle_dir)
         risks = scoring.evaluate_risks(cb, [], repo_path=bottle_dir)

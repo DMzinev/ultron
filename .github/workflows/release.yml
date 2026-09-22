@@ -42,7 +42,7 @@ jobs:
       - name: Install Packaging & Verification Tooling
         run: |
           python -m pip install --upgrade pip
-          python -m pip install build twine
+          python -m pip install setuptools wheel build twine
 
       - name: Execute Candidate Build & Packaging Pipeline
         run: |

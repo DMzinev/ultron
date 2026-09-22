@@ -25,7 +25,7 @@ jobs:
       - name: Install Packaging Dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install build twine
+          python -m pip install setuptools wheel build twine
 
       - name: Build Source Distribution and Wheel
         run: python -m build --outdir dist/
@@ -132,12 +132,13 @@ jobs:
       - name: Set up Node.js for ES Module Verification
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install Base Ultron (Clean Non-Editable Install, No Dev Extras)
         shell: bash
         run: |
           python -m pip install --upgrade pip
+          python -m pip install setuptools wheel
           python -m pip install .
 
       - name: Assert Absence of Radon in Base Environment
@@ -189,12 +190,13 @@ jobs:
       - name: Set up Node.js for ES Module Verification
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install Python Dev Extras Dependencies
         shell: bash
         run: |
           python -m pip install --upgrade pip
+          python -m pip install setuptools wheel
           python -m pip install -r requirements.txt
           python -m pip install .
           python -m pip install coverage psutil
@@ -240,6 +242,7 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
+          python -m pip install setuptools wheel
           python -m pip install .
 
       - name: Test Quality Gate Pass (Clean Repo Fixture)

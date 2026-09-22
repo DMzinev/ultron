@@ -61,7 +61,7 @@ class TestCLIFormatting(unittest.TestCase):
         # Non-TTY stream disables color by default
         mock_nontty = MagicMock()
         mock_nontty.isatty.return_value = False
-        with patch.dict(os.environ, {"NO_COLOR": "", "TERM": "xterm"}):
+        with patch.dict(os.environ, {"NO_COLOR": "", "TERM": "xterm", "GITHUB_ACTIONS": "", "CI": ""}):
             self.assertFalse(supports_color(stream=mock_nontty))
 
     def test_can_encode_unicode(self):
